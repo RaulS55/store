@@ -4,20 +4,20 @@ import '../models/customer.dart';
 import '../models/filters.dart';
 import '../models/order.dart';
 import '../models/product.dart';
-import '../theme/tokens.dart';
 import 'mock_data.dart';
 
 class AppStore extends ChangeNotifier {
   AppStore() {
     _products = MockCatalog.products();
-    _customers = MockCatalog.customers();
-    _seedDraft();
+    _customers = List<Customer>.from(MockCatalog.customers());
+    _seedOrders();
   }
 
   ThemeMode themeMode = ThemeMode.light;
   late List<Product> _products;
   late List<Customer> _customers;
-  final List<InvoiceRecord> invoices = [];
+  final List<DraftOrder> orders = [];
+  final List<DraftOrder> closedOrders = [];
 
   String searchQuery = '';
   ApparelCategory? chipCategory;
@@ -27,12 +27,10 @@ class AppStore extends ChangeNotifier {
   int page = 0;
   int pageSize = 12;
 
-  String orderNumber = 'PED-10058';
   int _orderSeq = 10058;
-  Customer? selectedCustomer;
-  List<OrderLine> lines = [];
-  PaymentMethod paymentMethod = PaymentMethod.efectivo;
-  OrderStatus orderStatus = OrderStatus.borrador;
+  int _draftSeq = 0;
+  int _customerSeq = 4;
+  String? activeOrderId;
 
   String sessionUser = 'Valeria Soto';
   String sessionRole = 'Administradora';
@@ -40,13 +38,16 @@ class AppStore extends ChangeNotifier {
   List<Product> get products => List.unmodifiable(_products);
   List<Customer> get customers => List.unmodifiable(_customers);
 
-  int get cartCount => lines.fold(0, (sum, line) => sum + line.quantity);
+  DraftOrder? get activeOrder {
+    if (activeOrderId == null) return null;
+    for (final order in orders) {
+      if (order.id == activeOrderId) return order;
+    }
+    return null;
+  }
 
-  double get subtotal => lines.fold(0, (sum, line) => sum + line.lineTotal);
-
-  double get iva => subtotal * AppIva.rate;
-
-  double get total => subtotal + iva;
+  int get cartCount =>
+      orders.fold(0, (sum, order) => sum + order.itemCount);
 
   List<String> get allBrands {
     final set = _products.map((p) => p.brand).toSet().toList()..sort();
@@ -173,6 +174,37 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
+  Customer? customerById(String id) {
+    for (final customer in _customers) {
+      if (customer.id == id) return customer;
+    }
+    return null;
+  }
+
+  DraftOrder? orderById(String id) {
+    for (final order in orders) {
+      if (order.id == id) return order;
+    }
+    for (final order in closedOrders) {
+      if (order.id == id) return order;
+    }
+    return null;
+  }
+
+  List<DraftOrder> ordersForCustomer(String customerId) {
+    final list = [
+      ...orders.where((order) => order.customer.id == customerId),
+      ...closedOrders.where((order) => order.customer.id == customerId),
+    ];
+    list.sort((a, b) {
+      if (a.isClosed != b.isClosed) return a.isClosed ? 1 : -1;
+      final aDate = a.closedAt ?? a.createdAt;
+      final bDate = b.closedAt ?? b.createdAt;
+      return bDate.compareTo(aDate);
+    });
+    return list;
+  }
+
   void toggleTheme() {
     themeMode =
         themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
@@ -263,21 +295,93 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selectCustomer(Customer? customer) {
-    selectedCustomer = customer;
+  void setActiveOrder(String? id) {
+    if (id != null && !orders.any((order) => order.id == id)) return;
+    if (activeOrderId == id) return;
+    activeOrderId = id;
     notifyListeners();
   }
 
-  bool addToOrder(Product product, ProductVariant variant, {int quantity = 1}) {
+  DraftOrder createOrder(Customer customer) {
+    _orderSeq += 1;
+    _draftSeq += 1;
+    final order = DraftOrder(
+      id: 'o$_draftSeq',
+      orderNumber: 'PED-$_orderSeq',
+      customer: customer,
+    );
+    orders.insert(0, order);
+    activeOrderId = order.id;
+    notifyListeners();
+    return order;
+  }
+
+  Customer addCustomer({
+    required String name,
+    String? phone,
+    String? cuit,
+    TaxCondition? taxCondition,
+    String? address,
+  }) {
+    _customerSeq += 1;
+    final customer = Customer(
+      id: 'c$_customerSeq',
+      name: name.trim(),
+      phone: _blankToNull(phone),
+      cuit: _blankToNull(cuit),
+      taxCondition: taxCondition,
+      address: _blankToNull(address),
+    );
+    _customers.insert(0, customer);
+    notifyListeners();
+    return customer;
+  }
+
+  String? _blankToNull(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed;
+  }
+
+  void setCustomerPhone(String customerId, String phone) {
+    final next = _blankToNull(phone);
+    final index = _customers.indexWhere((c) => c.id == customerId);
+    if (index >= 0) {
+      _customers[index] = _customers[index].copyWith(phone: next);
+    }
+    for (final order in [...orders, ...closedOrders]) {
+      if (order.customer.id == customerId) {
+        order.customer = order.customer.copyWith(phone: next);
+      }
+    }
+    notifyListeners();
+  }
+
+  void selectCustomer(String orderId, Customer customer) {
+    final order = orderById(orderId);
+    if (order == null || order.isClosed) return;
+    order.customer = customer;
+    notifyListeners();
+  }
+
+  bool addToOrder(
+    Product product,
+    ProductVariant variant, {
+    int quantity = 1,
+    String? orderId,
+  }) {
     if (variant.stock <= 0) return false;
+    final order = orderById(orderId ?? activeOrderId ?? '');
+    if (order == null || order.isClosed) return false;
     final live = productById(product.id)?.variantFor(variant.size, variant.color);
     final available = live?.stock ?? variant.stock;
-    final index = lines.indexWhere((l) => l.lineKey == '${product.id}::${variant.key}');
+    final index =
+        order.lines.indexWhere((l) => l.lineKey == '${product.id}::${variant.key}');
     if (index >= 0) {
-      final nextQty = (lines[index].quantity + quantity).clamp(1, available);
-      lines[index] = lines[index].copyWith(quantity: nextQty);
+      final nextQty = (order.lines[index].quantity + quantity).clamp(1, available);
+      order.lines[index] = order.lines[index].copyWith(quantity: nextQty);
     } else {
-      lines.add(
+      order.lines.add(
         OrderLine(
           product: product,
           variant: variant,
@@ -285,39 +389,40 @@ class AppStore extends ChangeNotifier {
         ),
       );
     }
-    orderStatus = OrderStatus.borrador;
+    order.status = OrderStatus.borrador;
+    activeOrderId = order.id;
     notifyListeners();
     return true;
   }
 
-  void setLineQty(String lineKey, int quantity) {
-    final index = lines.indexWhere((l) => l.lineKey == lineKey);
+  void setLineQty(String orderId, String lineKey, int quantity) {
+    final order = orderById(orderId);
+    if (order == null || order.isClosed) return;
+    final index = order.lines.indexWhere((l) => l.lineKey == lineKey);
     if (index < 0) return;
     if (quantity <= 0) {
-      lines.removeAt(index);
+      order.lines.removeAt(index);
     } else {
-      final line = lines[index];
+      final line = order.lines[index];
       final live = productById(line.product.id)
           ?.variantFor(line.variant.size, line.variant.color);
       final max = live?.stock ?? line.variant.stock;
-      lines[index] = line.copyWith(quantity: quantity.clamp(1, max));
+      order.lines[index] = line.copyWith(quantity: quantity.clamp(1, max));
     }
     notifyListeners();
   }
 
-  void removeLine(String lineKey) {
-    lines.removeWhere((l) => l.lineKey == lineKey);
+  void removeLine(String orderId, String lineKey) {
+    final order = orderById(orderId);
+    if (order == null || order.isClosed) return;
+    order.lines.removeWhere((l) => l.lineKey == lineKey);
     notifyListeners();
   }
 
-  void setPaymentMethod(PaymentMethod method) {
-    paymentMethod = method;
-    notifyListeners();
-  }
-
-  bool confirmInvoice() {
-    if (lines.isEmpty || selectedCustomer == null) return false;
-    for (final line in lines) {
+  bool closeOrder(String orderId) {
+    final order = orderById(orderId);
+    if (order == null || order.isClosed || order.lines.isEmpty) return false;
+    for (final line in order.lines) {
       final product = productById(line.product.id);
       final variant = product?.variantFor(line.variant.size, line.variant.color);
       if (product == null || variant == null) continue;
@@ -328,53 +433,132 @@ class AppStore extends ChangeNotifier {
         stock: (variant.stock - line.quantity).clamp(0, 999999),
       );
     }
-    invoices.insert(
-      0,
-      InvoiceRecord(
-        orderNumber: orderNumber,
-        issuedAt: DateTime.now(),
-        customerName: selectedCustomer!.name,
-        total: total,
-        paymentMethod: paymentMethod,
-      ),
-    );
-    orderStatus = OrderStatus.facturado;
+    order.status = OrderStatus.cerrado;
+    order.closedAt = DateTime.now();
+    orders.removeWhere((item) => item.id == orderId);
+    closedOrders.insert(0, order);
+    if (activeOrderId == orderId) {
+      activeOrderId = orders.isEmpty ? null : orders.first.id;
+    }
     notifyListeners();
-    _resetDraft();
     return true;
   }
 
-  void _resetDraft() {
-    _orderSeq += 1;
-    orderNumber = 'PED-$_orderSeq';
-    lines = [];
-    paymentMethod = PaymentMethod.efectivo;
-    orderStatus = OrderStatus.borrador;
-    notifyListeners();
-  }
-
-  void _seedDraft() {
-    selectedCustomer = _customers.first;
+  void _seedOrders() {
+    final monica = _customers[0];
+    final abril = _customers[1];
+    final ana = _customers[3];
     final polo = _products.firstWhere((p) => p.id == 'p20');
     final palazzo = _products.firstWhere((p) => p.id == 'p21');
     final bag = _products.firstWhere((p) => p.id == 'p22');
-    lines = [
-      OrderLine(
-        product: polo,
-        variant: polo.variantFor('M', 'Óxido')!,
-        quantity: 2,
+    final jeans = _products.firstWhere((p) => p.id == 'p1');
+    final hoodie = _products.firstWhere((p) => p.id == 'p6');
+    final dress = _products.firstWhere((p) => p.id == 'p12');
+    final tee = _products.firstWhere((p) => p.id == 'p5');
+
+    orders.addAll([
+      DraftOrder(
+        id: _nextDraftId(),
+        orderNumber: 'PED-$_orderSeq',
+        customer: monica,
+        lines: [
+          OrderLine(
+            product: polo,
+            variant: polo.variantFor('M', 'Óxido')!,
+            quantity: 2,
+          ),
+          OrderLine(
+            product: palazzo,
+            variant: palazzo.variantFor('L', 'Beige')!,
+            quantity: 1,
+          ),
+          OrderLine(
+            product: bag,
+            variant: bag.variantFor('Único', 'Negro')!,
+            quantity: 1,
+          ),
+        ],
       ),
-      OrderLine(
-        product: palazzo,
-        variant: palazzo.variantFor('L', 'Beige')!,
-        quantity: 1,
+      DraftOrder(
+        id: _nextDraftId(),
+        orderNumber: 'PED-${_orderSeq + 1}',
+        customer: abril,
+        lines: [
+          OrderLine(
+            product: jeans,
+            variant: jeans.variantFor('38', 'Azul')!,
+            quantity: 2,
+          ),
+          OrderLine(
+            product: hoodie,
+            variant: hoodie.variantFor('L', 'Beige arena')!,
+            quantity: 1,
+          ),
+        ],
       ),
-      OrderLine(
-        product: bag,
-        variant: bag.variantFor('Único', 'Negro')!,
-        quantity: 1,
+      DraftOrder(
+        id: _nextDraftId(),
+        orderNumber: 'PED-${_orderSeq + 2}',
+        customer: ana,
+        lines: [
+          OrderLine(
+            product: dress,
+            variant: dress.variantFor('M', 'Crema')!,
+            quantity: 1,
+          ),
+          OrderLine(
+            product: tee,
+            variant: tee.variantFor('M', 'Negro')!,
+            quantity: 3,
+          ),
+        ],
       ),
-    ];
+    ]);
+    final sur = _customers[2];
+    closedOrders.addAll([
+      DraftOrder(
+        id: _nextDraftId(),
+        orderNumber: 'PED-10040',
+        customer: monica,
+        status: OrderStatus.cerrado,
+        createdAt: DateTime(2026, 8, 28, 11, 15),
+        closedAt: DateTime(2026, 8, 28, 12, 40),
+        lines: [
+          OrderLine(
+            product: tee,
+            variant: tee.variantFor('S', 'Negro')!,
+            quantity: 2,
+          ),
+          OrderLine(
+            product: bag,
+            variant: bag.variantFor('Único', 'Negro')!,
+            quantity: 1,
+          ),
+        ],
+      ),
+      DraftOrder(
+        id: _nextDraftId(),
+        orderNumber: 'PED-10041',
+        customer: sur,
+        status: OrderStatus.cerrado,
+        createdAt: DateTime(2026, 9, 2, 16, 10),
+        closedAt: DateTime(2026, 9, 2, 17, 5),
+        lines: [
+          OrderLine(
+            product: jeans,
+            variant: jeans.variantFor('40', 'Azul')!,
+            quantity: 3,
+          ),
+        ],
+      ),
+    ]);
+    _orderSeq += 2;
+    activeOrderId = orders.first.id;
+  }
+
+  String _nextDraftId() {
+    _draftSeq += 1;
+    return 'o$_draftSeq';
   }
 
   String nextSku() {

@@ -1,21 +1,20 @@
+import '../theme/tokens.dart';
+import 'customer.dart';
 import 'product.dart';
 
-enum PaymentMethod {
-  efectivo('Efectivo', 'Pago en caja o al entregar'),
-  transferencia('Transferencia', 'Transferencia bancaria (48 hs)'),
-  tarjeta('Tarjeta', 'Crédito / débito (sujeto a aprobación)');
-
-  const PaymentMethod(this.label, this.subtitle);
-  final String label;
-  final String subtitle;
-}
-
 enum OrderStatus {
-  borrador('borrador'),
-  facturado('facturado');
+  borrador('Activo'),
+  cerrado('Cerrado');
 
   const OrderStatus(this.label);
   final String label;
+}
+
+class CategoryQty {
+  const CategoryQty({required this.category, required this.quantity});
+
+  final ApparelCategory category;
+  final int quantity;
 }
 
 class OrderLine {
@@ -49,18 +48,50 @@ class OrderLine {
   }
 }
 
-class InvoiceRecord {
-  const InvoiceRecord({
+class DraftOrder {
+  DraftOrder({
+    required this.id,
     required this.orderNumber,
-    required this.issuedAt,
-    required this.customerName,
-    required this.total,
-    required this.paymentMethod,
-  });
+    required this.customer,
+    List<OrderLine>? lines,
+    this.status = OrderStatus.borrador,
+    DateTime? createdAt,
+    this.closedAt,
+  })  : lines = lines ?? <OrderLine>[],
+        createdAt = createdAt ?? DateTime.now();
 
+  final String id;
   final String orderNumber;
-  final DateTime issuedAt;
-  final String customerName;
-  final double total;
-  final PaymentMethod paymentMethod;
+  Customer customer;
+  final List<OrderLine> lines;
+  OrderStatus status;
+  final DateTime createdAt;
+  DateTime? closedAt;
+
+  bool get isClosed => status == OrderStatus.cerrado;
+
+  bool get isActive => status == OrderStatus.borrador;
+
+  int get itemCount => lines.fold(0, (sum, line) => sum + line.quantity);
+
+  double get subtotal => lines.fold(0, (sum, line) => sum + line.lineTotal);
+
+  double get iva => subtotal * AppIva.rate;
+
+  double get total => subtotal + iva;
+
+  List<CategoryQty> get categorySummary {
+    final counts = <ApparelCategory, int>{};
+    for (final line in lines) {
+      final category = line.product.category;
+      counts[category] = (counts[category] ?? 0) + line.quantity;
+    }
+    final entries = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return [
+      for (final entry in entries)
+        CategoryQty(category: entry.key, quantity: entry.value),
+    ];
+  }
 }
+

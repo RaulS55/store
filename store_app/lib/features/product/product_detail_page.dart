@@ -10,6 +10,7 @@ import '../../widgets/product_image.dart';
 import '../../widgets/qty_stepper.dart';
 import '../../widgets/stock_dot.dart';
 import '../../widgets/variant_picker.dart';
+import '../order/order_actions.dart';
 
 class ProductDetailPage extends StatefulWidget {
   const ProductDetailPage({super.key, required this.id});
@@ -75,7 +76,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     isLabelVisible: store.cartCount > 0,
                     label: Text('${store.cartCount}'),
                     backgroundColor: AppColors.terracotta,
-                    child: const Icon(Icons.shopping_bag_outlined),
+                    child: const Icon(Icons.assignment_outlined),
                   ),
                 ),
               ],
@@ -281,18 +282,32 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
-  void _add(AppStore store, Product product, ProductVariant? variant) {
+  Future<void> _add(
+    AppStore store,
+    Product product,
+    ProductVariant? variant,
+  ) async {
     if (variant == null) return;
-    final ok = store.addToOrder(product, variant, quantity: _qty);
-    if (!ok) return;
+    var order = store.activeOrder;
+    if (order == null) {
+      order = await showOrderTargetSheet(context);
+      if (order == null || !mounted) return;
+    }
+    final ok = store.addToOrder(
+      product,
+      variant,
+      quantity: _qty,
+      orderId: order.id,
+    );
+    if (!ok || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Agregada: ${product.name} · ${variant.size} · ${variant.color}',
+          'Agregada a ${order.customer.name}: ${product.name} · ${variant.size} · ${variant.color}',
         ),
       ),
     );
-    context.go('/pedido');
+    context.go('/pedido/${order.id}');
   }
 }
 

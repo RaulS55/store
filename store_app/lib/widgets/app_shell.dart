@@ -43,7 +43,7 @@ class AppShell extends StatelessWidget {
     _Dest('/', 'Stock', Icons.grid_view_rounded, Icons.grid_view_outlined),
     _Dest(
       '/pedido',
-      'Pedido',
+      'Pedidos',
       Icons.assignment_rounded,
       Icons.assignment_outlined,
     ),
@@ -93,8 +93,11 @@ int _indexFor(String location, List<_Dest> dests) {
 }
 
 bool _hideMobileNav(String location) {
-  if (location == '/pedido/facturar') return true;
+  if (location.endsWith('/facturar')) return true;
   if (location.startsWith('/producto/') && location != '/producto/nuevo') {
+    return true;
+  }
+  if (location.startsWith('/clientes/') && location != '/clientes') {
     return true;
   }
   return false;

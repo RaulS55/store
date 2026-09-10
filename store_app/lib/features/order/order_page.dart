@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
 import '../../data/formatters.dart';
-import '../../models/customer.dart';
 import '../../models/order.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
@@ -12,9 +11,12 @@ import '../../widgets/product_image.dart';
 import '../../widgets/qty_stepper.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/variant_picker.dart';
+import 'order_actions.dart';
 
 class OrderPage extends StatefulWidget {
-  const OrderPage({super.key});
+  const OrderPage({super.key, required this.orderId});
+
+  final String orderId;
 
   @override
   State<OrderPage> createState() => _OrderPageState();
@@ -25,6 +27,18 @@ class _OrderPageState extends State<OrderPage> {
   String _query = '';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final order = context.read<AppStore>().orderById(widget.orderId);
+      if (order != null && order.isActive) {
+        context.read<AppStore>().setActiveOrder(widget.orderId);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _search.dispose();
     super.dispose();
@@ -32,28 +46,71 @@ class _OrderPageState extends State<OrderPage> {
 
   @override
   Widget build(BuildContext context) {
+    final store = context.watch<AppStore>();
+    final order = store.orderById(widget.orderId);
+    if (order == null) {
+      return SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('No encontramos este pedido.'),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () => context.go('/pedido'),
+                child: const Text('Volver a pedidos'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final wide = AppBreakpoints.isWide(context);
-    return wide ? _WebOrder(query: _query, onQuery: _setQuery, search: _search)
-        : _MobileOrder(query: _query, onQuery: _setQuery, search: _search);
+    return wide
+        ? _WebOrder(
+            order: order,
+            query: _query,
+            onQuery: _setQuery,
+            search: _search,
+          )
+        : _MobileOrder(
+            order: order,
+            query: _query,
+            onQuery: _setQuery,
+            search: _search,
+          );
   }
 
   void _setQuery(String value) => setState(() => _query = value);
 }
 
+void _leaveOrder(BuildContext context, DraftOrder order) {
+  if (context.canPop()) {
+    context.pop();
+    return;
+  }
+  if (order.isClosed) {
+    context.go('/clientes/${order.customer.id}');
+    return;
+  }
+  context.go('/pedido');
+}
+
 class _MobileOrder extends StatelessWidget {
   const _MobileOrder({
+    required this.order,
     required this.query,
     required this.onQuery,
     required this.search,
   });
 
+  final DraftOrder order;
   final String query;
   final ValueChanged<String> onQuery;
   final TextEditingController search;
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<AppStore>();
     return SafeArea(
       child: Column(
         children: [
@@ -62,62 +119,69 @@ class _MobileOrder extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  onPressed: () => context.go('/'),
+                  onPressed: () => _leaveOrder(context, order),
                   icon: const Icon(Icons.arrow_back),
                 ),
                 Expanded(
                   child: Text(
-                    'Armar pedido',
+                    order.isClosed ? 'Pedido cerrado' : 'Armar pedido',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                _DraftBadge(number: store.orderNumber),
+                _StatusBadge(order: order),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: SearchField(
-              controller: search,
-              hint: 'Buscar productos para agregar...',
-              onChanged: onQuery,
+          if (!order.isClosed) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: SearchField(
+                controller: search,
+                hint: 'Buscar productos para agregar...',
+                onChanged: onQuery,
+              ),
             ),
-          ),
-          if (query.isNotEmpty) _SearchHits(query: query),
+            if (query.isNotEmpty) _SearchHits(query: query, orderId: order.id),
+          ],
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
               children: [
-                _CustomerTile(customer: store.selectedCustomer),
+                _CustomerTile(order: order, readOnly: order.isClosed),
                 const SizedBox(height: 10),
-                if (store.lines.isEmpty)
+                if (order.lines.isEmpty)
                   const _EmptyLines()
                 else
-                  for (final line in store.lines) _LineTile(line: line),
+                  for (final line in order.lines)
+                    _LineTile(
+                      orderId: order.id,
+                      line: line,
+                      readOnly: order.isClosed,
+                    ),
                 const SizedBox(height: 12),
-                _Totals(store: store),
+                _Totals(order: order),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: FilledButton(
-              onPressed: store.lines.isEmpty
-                  ? null
-                  : () => context.go('/pedido/facturar'),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Continuar a facturar'),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, size: 18),
-                ],
-              ),
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: WhatsAppButton(order: order),
           ),
+          if (!order.isClosed)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: FilledButton(
+                onPressed: order.lines.isEmpty
+                    ? null
+                    : () => closeOrderFlow(context, order),
+                child: const Text('Cerrar pedido'),
+              ),
+            )
+          else
+            const SizedBox(height: 16),
         ],
       ),
     );
@@ -126,28 +190,41 @@ class _MobileOrder extends StatelessWidget {
 
 class _WebOrder extends StatelessWidget {
   const _WebOrder({
+    required this.order,
     required this.query,
     required this.onQuery,
     required this.search,
   });
 
+  final DraftOrder order;
   final String query;
   final ValueChanged<String> onQuery;
   final TextEditingController search;
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<AppStore>();
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Armar pedido / facturar',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => _leaveOrder(context, order),
+                icon: const Icon(Icons.arrow_back),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  order.isClosed ? 'Pedido cerrado' : 'Armar pedido',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _StatusBadge(order: order),
+            ],
           ),
           const SizedBox(height: 16),
           Expanded(
@@ -161,30 +238,39 @@ class _WebOrder extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Buscar productos y armar pedido',
+                          order.isClosed
+                              ? 'Prendas del pedido'
+                              : 'Buscar productos y armar pedido',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
-                        const SizedBox(height: 12),
-                        SearchField(
-                          controller: search,
-                          hint: 'Buscar por nombre, código, SKU o categoría...',
-                          onChanged: onQuery,
-                        ),
-                        if (query.isNotEmpty) _SearchHits(query: query),
+                        if (!order.isClosed) ...[
+                          const SizedBox(height: 12),
+                          SearchField(
+                            controller: search,
+                            hint: 'Buscar por nombre, código, SKU o categoría...',
+                            onChanged: onQuery,
+                          ),
+                          if (query.isNotEmpty)
+                            _SearchHits(query: query, orderId: order.id),
+                        ],
                         const SizedBox(height: 12),
                         Text(
-                          'Líneas del pedido (${store.lines.length})',
+                          'Líneas del pedido (${order.lines.length})',
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                         const SizedBox(height: 8),
                         Expanded(
-                          child: store.lines.isEmpty
+                          child: order.lines.isEmpty
                               ? const _EmptyLines()
                               : ListView(
                                   children: [
-                                    for (final line in store.lines)
-                                      _LineTile(line: line, dense: false),
+                                    for (final line in order.lines)
+                                      _LineTile(
+                                        orderId: order.id,
+                                        line: line,
+                                        readOnly: order.isClosed,
+                                      ),
                                   ],
                                 ),
                         ),
@@ -199,12 +285,12 @@ class _WebOrder extends StatelessWidget {
                     child: ListView(
                       children: [
                         Text(
-                          'Datos de facturación y pago',
+                          'Cliente y resumen',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 12),
-                        _CustomerTile(customer: store.selectedCustomer),
+                        _CustomerTile(order: order, readOnly: order.isClosed),
                         const SizedBox(height: 16),
                         Text(
                           'Resumen del pedido',
@@ -212,25 +298,18 @@ class _WebOrder extends StatelessWidget {
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 8),
-                        _Totals(store: store),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Método de pago',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 8),
-                        _PaymentPicker(store: store),
+                        _Totals(order: order),
                         const SizedBox(height: 20),
-                        FilledButton(
-                          onPressed: store.lines.isEmpty ||
-                                  store.selectedCustomer == null
-                              ? null
-                              : () => context.go('/pedido/facturar'),
-                          child: Text(
-                            'Confirmar y facturar  ${MoneyFormat.detailed(store.total)}',
+                        WhatsAppButton(order: order),
+                        if (!order.isClosed) ...[
+                          const SizedBox(height: 10),
+                          FilledButton(
+                            onPressed: order.lines.isEmpty
+                                ? null
+                                : () => closeOrderFlow(context, order),
+                            child: const Text('Cerrar pedido'),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -266,8 +345,9 @@ class _Panel extends StatelessWidget {
 }
 
 class _SearchHits extends StatelessWidget {
-  const _SearchHits({required this.query});
+  const _SearchHits({required this.query, required this.orderId});
   final String query;
+  final String orderId;
 
   @override
   Widget build(BuildContext context) {
@@ -289,15 +369,17 @@ class _SearchHits extends StatelessWidget {
     }
     return Column(
       children: [
-        for (final product in hits) _HitTile(product: product),
+        for (final product in hits)
+          _HitTile(product: product, orderId: orderId),
       ],
     );
   }
 }
 
 class _HitTile extends StatelessWidget {
-  const _HitTile({required this.product});
+  const _HitTile({required this.product, required this.orderId});
   final Product product;
+  final String orderId;
 
   @override
   Widget build(BuildContext context) {
@@ -320,19 +402,25 @@ class _HitTile extends StatelessWidget {
   Future<void> _pickAndAdd(BuildContext context, Product product) async {
     final variant = await showVariantPickerSheet(context, product);
     if (variant == null || !context.mounted) return;
-    context.read<AppStore>().addToOrder(product, variant);
+    context.read<AppStore>().addToOrder(
+      product,
+      variant,
+      orderId: orderId,
+    );
   }
 }
 
 class _CustomerTile extends StatelessWidget {
-  const _CustomerTile({required this.customer});
-  final Customer? customer;
+  const _CustomerTile({required this.order, this.readOnly = false});
+  final DraftOrder order;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
+    final customer = order.customer;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
-      onTap: () => _pickCustomer(context),
+      onTap: readOnly ? null : () => _pickCustomer(context),
       borderRadius: BorderRadius.circular(AppRadii.md),
       child: Ink(
         padding: const EdgeInsets.all(14),
@@ -348,30 +436,29 @@ class _CustomerTile extends StatelessWidget {
             const Icon(Icons.person_outline, color: AppColors.slate),
             const SizedBox(width: 10),
             Expanded(
-              child: customer == null
-                  ? const Text('Cliente / facturar')
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Cliente / facturar',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: AppColors.mutedText),
-                        ),
-                        Text(
-                          customer!.name.toUpperCase(),
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        Text(
-                          'CUIT ${customer!.cuit}',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.slate),
-                        ),
-                      ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Cliente',
+                    style: Theme.of(context).textTheme.labelSmall
+                        ?.copyWith(color: AppColors.mutedText),
+                  ),
+                  Text(
+                    customer.name.toUpperCase(),
+                    style: Theme.of(context).textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  if (customer.detailSubtitle != null)
+                    Text(
+                      customer.detailSubtitle!,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: AppColors.slate),
                     ),
+                ],
+              ),
             ),
-            const Icon(Icons.chevron_right),
+            if (!readOnly) const Icon(Icons.chevron_right),
           ],
         ),
       ),
@@ -379,32 +466,21 @@ class _CustomerTile extends StatelessWidget {
   }
 
   Future<void> _pickCustomer(BuildContext context) async {
-    final store = context.read<AppStore>();
-    final selected = await showModalBottomSheet<Customer>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return ListView(
-          children: [
-            const ListTile(title: Text('Elegí un cliente')),
-            for (final customer in store.customers)
-              ListTile(
-                title: Text(customer.name),
-                subtitle: Text('CUIT ${customer.cuit} · ${customer.taxCondition.label}'),
-                onTap: () => Navigator.pop(context, customer),
-              ),
-          ],
-        );
-      },
-    );
-    if (selected != null) store.selectCustomer(selected);
+    final selected = await showCustomerPicker(context);
+    if (selected == null || !context.mounted) return;
+    context.read<AppStore>().selectCustomer(order.id, selected);
   }
 }
 
 class _LineTile extends StatelessWidget {
-  const _LineTile({required this.line, this.dense = true});
+  const _LineTile({
+    required this.orderId,
+    required this.line,
+    this.readOnly = false,
+  });
+  final String orderId;
   final OrderLine line;
-  final bool dense;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -440,13 +516,13 @@ class _LineTile extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  'SKU: ${line.variantSku}',
+                  '${line.product.category.label} · SKU: ${line.variantSku}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.mutedText,
                   ),
                 ),
                 Text(
-                  '${line.product.name} · ${line.variant.size} · ${line.variant.color}',
+                  '${line.variant.size} · ${line.variant.color}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -455,16 +531,22 @@ class _LineTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              QtyStepper(
-                value: line.quantity,
-                min: 1,
-                max: context.watch<AppStore>()
-                        .productById(line.product.id)
-                        ?.variantFor(line.variant.size, line.variant.color)
-                        ?.stock ??
-                    line.variant.stock,
-                onChanged: (q) => store.setLineQty(line.lineKey, q),
-              ),
+              if (readOnly)
+                Text(
+                  '×${line.quantity}',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                )
+              else
+                QtyStepper(
+                  value: line.quantity,
+                  min: 1,
+                  max: context.watch<AppStore>()
+                          .productById(line.product.id)
+                          ?.variantFor(line.variant.size, line.variant.color)
+                          ?.stock ??
+                      line.variant.stock,
+                  onChanged: (q) => store.setLineQty(orderId, line.lineKey, q),
+                ),
               const SizedBox(height: 6),
               Text(
                 MoneyFormat.detailed(line.unitPrice),
@@ -476,10 +558,11 @@ class _LineTile extends StatelessWidget {
               ),
             ],
           ),
-          IconButton(
-            onPressed: () => store.removeLine(line.lineKey),
-            icon: const Icon(Icons.delete_outline),
-          ),
+          if (!readOnly)
+            IconButton(
+              onPressed: () => store.removeLine(orderId, line.lineKey),
+              icon: const Icon(Icons.delete_outline),
+            ),
         ],
       ),
     );
@@ -487,15 +570,15 @@ class _LineTile extends StatelessWidget {
 }
 
 class _Totals extends StatelessWidget {
-  const _Totals({required this.store});
-  final AppStore store;
+  const _Totals({required this.order});
+  final DraftOrder order;
 
   @override
   Widget build(BuildContext context) {
     final rows = [
-      ('Subtotal', MoneyFormat.detailed(store.subtotal), false),
-      ('IVA 21%', MoneyFormat.detailed(store.iva), false),
-      ('Total', MoneyFormat.detailed(store.total), true),
+      ('Subtotal', MoneyFormat.detailed(order.subtotal), false),
+      ('IVA 21%', MoneyFormat.detailed(order.iva), false),
+      ('Total', MoneyFormat.detailed(order.total), true),
     ];
     return Column(
       children: [
@@ -526,52 +609,24 @@ class _Totals extends StatelessWidget {
   }
 }
 
-class _PaymentPicker extends StatelessWidget {
-  const _PaymentPicker({required this.store});
-  final AppStore store;
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.order});
+  final DraftOrder order;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        RadioGroup<PaymentMethod>(
-          groupValue: store.paymentMethod,
-          onChanged: (v) {
-            if (v != null) store.setPaymentMethod(v);
-          },
-          child: Column(
-            children: [
-              for (final method in PaymentMethod.values)
-                RadioListTile<PaymentMethod>(
-                  value: method,
-                  title: Text(method.label),
-                  subtitle: Text(method.subtitle),
-                  contentPadding: EdgeInsets.zero,
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DraftBadge extends StatelessWidget {
-  const _DraftBadge({required this.number});
-  final String number;
-
-  @override
-  Widget build(BuildContext context) {
+    final closed = order.isClosed;
+    final color = closed ? AppColors.slate : AppColors.terracotta;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadii.pill),
-        border: Border.all(color: AppColors.terracotta.withValues(alpha: 0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
-        '#$number / borrador',
+        '#${order.orderNumber} / ${order.status.label.toLowerCase()}',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: AppColors.terracotta,
+          color: color,
         ),
       ),
     );

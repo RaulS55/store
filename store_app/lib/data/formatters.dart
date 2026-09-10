@@ -22,5 +22,6 @@ class MoneyFormat {
 
 class DateFormatters {
   static final DateFormat invoice = DateFormat("dd/MM/yyyy HH:mm");
+  static final DateFormat short = DateFormat('dd/MM/yyyy');
   static final DateFormat header = DateFormat("d 'de' MMMM 'de' y", 'es');
 }

@@ -45,21 +45,20 @@ class MorePage extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.receipt_long_outlined),
-            title: const Text('Facturas emitidas'),
+            title: const Text('Pedidos cerrados'),
             subtitle: Text(
-              store.invoices.isEmpty
-                  ? 'Todavía no hay facturas en esta sesión'
-                  : '${store.invoices.length} en esta sesión',
+              store.closedOrders.isEmpty
+                  ? 'Todavía no hay pedidos cerrados en esta sesión'
+                  : '${store.closedOrders.length} en esta sesión',
             ),
           ),
-          if (store.invoices.isNotEmpty)
-            for (final invoice in store.invoices)
+          if (store.closedOrders.isNotEmpty)
+            for (final order in store.closedOrders)
               ListTile(
                 dense: true,
-                title: Text(invoice.orderNumber),
-                subtitle: Text(
-                  '${invoice.customerName} · ${invoice.paymentMethod.label}',
-                ),
+                title: Text(order.orderNumber),
+                subtitle: Text(order.customer.name),
+                onTap: () => context.go('/pedido/${order.id}'),
               ),
         ],
       ),

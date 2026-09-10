@@ -328,7 +328,7 @@ class _CartButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      tooltip: 'Pedido',
+      tooltip: 'Pedidos',
       onPressed: () => context.go('/pedido'),
       icon: Badge(
         isLabelVisible: count > 0,

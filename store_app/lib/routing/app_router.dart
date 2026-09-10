@@ -1,9 +1,11 @@
 import 'package:go_router/go_router.dart';
 
+import '../features/customers/customer_detail_page.dart';
 import '../features/customers/customers_page.dart';
 import '../features/more/more_page.dart';
 import '../features/order/invoice_page.dart';
 import '../features/order/order_page.dart';
+import '../features/order/orders_page.dart';
 import '../features/product/product_detail_page.dart';
 import '../features/product/product_form_page.dart';
 import '../features/settings/settings_page.dart';
@@ -25,11 +27,23 @@ GoRouter createRouter() {
           GoRoute(
             path: '/pedido',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: OrderPage()),
+                const NoTransitionPage(child: OrdersPage()),
             routes: [
               GoRoute(
-                path: 'facturar',
-                builder: (context, state) => const InvoicePage(),
+                path: ':orderId',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: OrderPage(
+                    orderId: state.pathParameters['orderId']!,
+                  ),
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'facturar',
+                    builder: (context, state) => InvoicePage(
+                      orderId: state.pathParameters['orderId']!,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -54,6 +68,14 @@ GoRouter createRouter() {
             path: '/clientes',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: CustomersPage()),
+            routes: [
+              GoRoute(
+                path: ':customerId',
+                builder: (context, state) => CustomerDetailPage(
+                  customerId: state.pathParameters['customerId']!,
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: '/config',

@@ -4,16 +4,36 @@ import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
 import '../../data/formatters.dart';
-import '../../models/order.dart';
 import '../../theme/tokens.dart';
+import 'order_actions.dart';
 
 class InvoicePage extends StatelessWidget {
-  const InvoicePage({super.key});
+  const InvoicePage({super.key, required this.orderId});
+
+  final String orderId;
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
-    final customer = store.selectedCustomer;
+    final order = store.orderById(orderId);
+    if (order == null) {
+      return SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Este pedido ya no está abierto.'),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () => context.go('/pedido'),
+                child: const Text('Volver a pedidos'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final customer = order.customer;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SafeArea(
@@ -24,12 +44,12 @@ class InvoicePage extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  onPressed: () => context.go('/pedido'),
+                  onPressed: () => context.go('/pedido/$orderId'),
                   icon: const Icon(Icons.arrow_back),
                 ),
                 Expanded(
                   child: Text(
-                    'Facturar pedido',
+                    'Resumen del pedido',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
@@ -41,7 +61,7 @@ class InvoicePage extends StatelessWidget {
                   icon: Badge(
                     isLabelVisible: store.cartCount > 0,
                     label: Text('${store.cartCount}'),
-                    child: const Icon(Icons.shopping_bag_outlined),
+                    child: const Icon(Icons.assignment_outlined),
                   ),
                 ),
               ],
@@ -73,25 +93,38 @@ class InvoicePage extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'RESUMEN DE FACTURA',
+                        'RESUMEN DE PEDIDO',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: AppColors.mutedText,
                           letterSpacing: 0.8,
                         ),
                       ),
                       const SizedBox(height: 16),
-                      _kv(context, 'Pedido #', store.orderNumber),
-                      _kv(context, 'Cliente', customer?.name ?? '—'),
+                      _kv(context, 'Pedido #', order.orderNumber),
+                      _kv(context, 'Cliente', customer.name),
+                      _kv(
+                        context,
+                        'WhatsApp',
+                        (customer.phone == null || customer.phone!.isEmpty)
+                            ? '—'
+                            : customer.phone!,
+                      ),
                       _kv(
                         context,
                         'Fecha',
                         DateFormatters.invoice.format(DateTime.now()),
                       ),
-                      _kv(context, 'CUIT', customer?.cuit ?? '—'),
+                      _kv(
+                        context,
+                        'CUIT',
+                        (customer.cuit == null || customer.cuit!.isEmpty)
+                            ? '—'
+                            : customer.cuit!,
+                      ),
                       _kv(
                         context,
                         'Condición',
-                        customer?.taxCondition.label ?? '—',
+                        customer.taxCondition?.label ?? '—',
                       ),
                       const Divider(height: 24),
                       Row(
@@ -103,7 +136,7 @@ class InvoicePage extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      for (final line in store.lines) ...[
+                      for (final line in order.lines) ...[
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -118,7 +151,7 @@ class InvoicePage extends StatelessWidget {
                                         ?.copyWith(fontWeight: FontWeight.w600),
                                   ),
                                   Text(
-                                    'Talle ${line.variant.size} · ${line.variant.color} / ${line.variantSku}',
+                                    '${line.product.category.label} · Talle ${line.variant.size} · ${line.variant.color}',
                                     style: Theme.of(context).textTheme.labelSmall
                                         ?.copyWith(color: AppColors.mutedText),
                                   ),
@@ -156,61 +189,41 @@ class InvoicePage extends StatelessWidget {
                       _kv(
                         context,
                         'Subtotal',
-                        MoneyFormat.detailed(store.subtotal),
+                        MoneyFormat.detailed(order.subtotal),
                       ),
                       _kv(
                         context,
                         'IVA (21%)',
-                        MoneyFormat.detailed(store.iva),
+                        MoneyFormat.detailed(order.iva),
                       ),
                       _kv(
                         context,
-                        'Total a facturar',
-                        MoneyFormat.detailed(store.total),
+                        'Total',
+                        MoneyFormat.detailed(order.total),
                         emphasize: true,
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'MÉTODO DE PAGO',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.mutedText,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    for (final method in PaymentMethod.values)
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: _PayChip(
-                            method: method,
-                            selected: store.paymentMethod == method,
-                            onTap: () => store.setPaymentMethod(method),
-                          ),
-                        ),
-                      ),
-                  ],
                 ),
               ],
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: WhatsAppButton(order: order),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: FilledButton.icon(
-              onPressed: store.lines.isEmpty || customer == null
+              onPressed: order.lines.isEmpty || order.isClosed
                   ? null
-                  : () => _confirm(context),
-              icon: const Icon(Icons.check_circle_outline, size: 18),
-              label: const Text('Confirmar y facturar'),
+                  : () => closeOrderFlow(context, order),
+              icon: const Icon(Icons.lock_outline, size: 18),
+              label: const Text('Cerrar pedido'),
             ),
           ),
           TextButton(
-            onPressed: () => context.go('/pedido'),
+            onPressed: () => context.go('/pedido/$orderId'),
             child: const Text('Volver al pedido'),
           ),
           const SizedBox(height: 8),
@@ -249,95 +262,6 @@ class InvoicePage extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Future<void> _confirm(BuildContext context) async {
-    final store = context.read<AppStore>();
-    final ok = store.confirmInvoice();
-    if (!ok) return;
-    if (!context.mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Factura emitida'),
-          content: const Text(
-            'El pedido se facturó con IVA 21% y el stock se actualizó.',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Listo'),
-            ),
-          ],
-        );
-      },
-    );
-    if (context.mounted) context.go('/');
-  }
-}
-
-class _PayChip extends StatelessWidget {
-  const _PayChip({
-    required this.method,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final PaymentMethod method;
-  final bool selected;
-  final VoidCallback onTap;
-
-  IconData get _icon {
-    switch (method) {
-      case PaymentMethod.efectivo:
-        return Icons.payments_outlined;
-      case PaymentMethod.transferencia:
-        return Icons.account_balance_outlined;
-      case PaymentMethod.tarjeta:
-        return Icons.credit_card;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadii.md),
-      child: Ink(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadii.md),
-          border: Border.all(
-            color: selected
-                ? AppColors.terracotta
-                : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
-          ),
-          color: selected
-              ? AppColors.terracotta.withValues(alpha: 0.08)
-              : Colors.transparent,
-        ),
-        child: Column(
-          children: [
-            Icon(
-              _icon,
-              size: 18,
-              color: selected ? AppColors.terracotta : AppColors.slate,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              method.label,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: selected ? AppColors.terracotta : null,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
