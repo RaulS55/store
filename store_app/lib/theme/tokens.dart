@@ -49,5 +49,5 @@ class AppSpacing {
 }
 
 class AppIva {
-  static const rate = 0.21;
+  static const rate = 0.21;  
 }
