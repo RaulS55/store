@@ -158,6 +158,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('Correo'), findsOneWidget);
     expect(find.text('Código de invitación'), findsNothing);
     expect(find.text('¿Tenés un código de invitación?'), findsOneWidget);
 
@@ -166,6 +168,36 @@ void main() {
 
     expect(find.text('¿Tenés un código de invitación?'), findsNothing);
     expect(find.text('Código de invitación'), findsOneWidget);
+
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Moda Stock'), findsOneWidget);
+    expect(find.text('Gestioná indumentaria y calzado'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('sign in validates email format', (tester) async {
+    final store = AppStore();
+    final session = createSessionStore()..start();
+    addTearDown(session.dispose);
+    await session.initialized;
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField), 'malo');
+    await tester.tap(find.text('Ingresar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ingresá un email válido.'), findsOneWidget);
+    expect(session.hasIdentity, isFalse);
   });
 
   testWidgets('removed member lands on join page', (tester) async {
