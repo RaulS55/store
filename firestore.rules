@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function email() {
+      return signedIn() && request.auth.token.email is string
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function memberPath(companyId) {
+      return /databases/$(database)/documents/companies/$(companyId)/members/$(request.auth.uid);
+    }
+
+    function isMember(companyId) {
+      return signedIn() && exists(memberPath(companyId));
+    }
+
+    function isOwner(companyId) {
+      return isMember(companyId)
+        && get(memberPath(companyId)).data.role == 'owner';
+    }
+
+    function invitationPath(companyId, invitationId) {
+      return /databases/$(database)/documents/companies/$(companyId)/invitations/$(invitationId);
+    }
+
+    function pendingInviteForEmail(companyId, invitationId) {
+      return exists(invitationPath(companyId, invitationId))
+        && get(invitationPath(companyId, invitationId)).data.status == 'pending'
+        && get(invitationPath(companyId, invitationId)).data.email == email();
+    }
+
+    match /users/{uid} {
+      allow read: if isSelf(uid);
+      allow create: if isSelf(uid)
+        && request.resource.data.email == email()
+        && request.resource.data.companyId is string
+        && request.resource.data.companyId.size() > 0
+        && request.resource.data.displayName is string;
+      allow update: if isSelf(uid)
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.companyId == resource.data.companyId;
+      allow delete: if false;
+    }
+
+    match /companies/{companyId} {
+      allow read: if isMember(companyId)
+        || (signedIn() && resource.data.ownerId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0;
+      allow update, delete: if false;
+
+      match /members/{uid} {
+        allow read: if isMember(companyId)
+          || (signedIn() && request.auth.uid == uid);
+        allow create: if signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.email == email()
+          && (
+            (
+              request.resource.data.role == 'owner'
+              && get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid
+            )
+            || (
+              request.resource.data.role in ['employee', 'administrator']
+              && request.resource.data.invitationId is string
+              && pendingInviteForEmail(companyId, request.resource.data.invitationId)
+              && get(invitationPath(companyId, request.resource.data.invitationId)).data.role == request.resource.data.role
+            )
+          );
+        allow update, delete: if false;
+      }
+
+      match /invitations/{invitationId} {
+        allow read: if isOwner(companyId)
+          || (signedIn() && resource.data.email == email());
+        allow create: if isOwner(companyId)
+          && request.resource.data.role in ['employee', 'administrator']
+          && request.resource.data.status == 'pending'
+          && request.resource.data.email is string
+          && request.resource.data.email.size() > 0
+          && request.resource.data.invitedBy == request.auth.uid;
+        allow update: if (
+          isOwner(companyId)
+          && resource.data.status == 'pending'
+          && request.resource.data.status == 'revoked'
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.role == resource.data.role
+        ) || (
+          signedIn()
+          && resource.data.email == email()
+          && resource.data.status == 'pending'
+          && request.resource.data.status == 'accepted'
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.role == resource.data.role
+        );
+        allow delete: if false;
+      }
+    }
+
+    match /{path=**}/invitations/{invitationId} {
+      allow read: if signedIn() && resource.data.email == email();
+    }
+  }
+}

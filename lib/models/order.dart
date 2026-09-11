@@ -58,8 +58,8 @@ class DraftOrder {
     this.closedAt,
     this.ivaEnabled = false,
     this.ivaPercent = 21,
-  })  : lines = lines ?? <OrderLine>[],
-        createdAt = createdAt ?? DateTime.now();
+  }) : lines = lines ?? <OrderLine>[],
+       createdAt = createdAt ?? DateTime.now();
 
   final String id;
   final String orderNumber;
@@ -108,4 +108,3 @@ class DraftOrder {
     ];
   }
 }
-

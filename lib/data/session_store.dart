@@ -1,0 +1,377 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
+import '../models/app_user.dart';
+import '../models/company.dart';
+import '../models/company_role.dart';
+import '../models/email.dart';
+import '../models/invitation.dart';
+import '../models/membership.dart';
+import 'auth_client.dart';
+import 'company_access.dart';
+import 'session_exception.dart';
+
+class SessionStore extends ChangeNotifier {
+  SessionStore({required AuthClient auth, required CompanyAccess access})
+    : _auth = auth,
+      _access = access;
+
+  final AuthClient _auth;
+  final CompanyAccess _access;
+
+  StreamSubscription<AuthIdentity?>? _authSub;
+  Completer<void>? _readyCompleter;
+  int _loadGen = 0;
+
+  bool _ready = false;
+  bool _busy = false;
+  AuthIdentity? _identity;
+  AppUser? _user;
+  Company? _company;
+  Membership? _membership;
+  List<Membership> _members = const [];
+  List<Invitation> _invitations = const [];
+
+  bool get isReady => _ready;
+  bool get isBusy => _busy;
+  bool get hasIdentity => _identity != null;
+  bool get isSignedIn =>
+      _ready && _user != null && _company != null && _membership != null;
+  bool get isOwner => _membership?.role == CompanyRole.owner;
+
+  AuthIdentity? get identity => _identity;
+  AppUser? get user => _user;
+  Company? get company => _company;
+  Membership? get membership => _membership;
+  String? get companyId => _company?.id;
+  List<Membership> get members => List.unmodifiable(_members);
+  List<Invitation> get invitations => List.unmodifiable(_invitations);
+  List<Invitation> get pendingInvitations => [
+    for (final invitation in _invitations)
+      if (invitation.isPending) invitation,
+  ];
+
+  Future<void> get initialized {
+    final pending = _readyCompleter;
+    if (_ready || pending == null) return Future.value();
+    return pending.future;
+  }
+
+  void start() {
+    if (_authSub != null) return;
+    _readyCompleter = Completer<void>();
+    _authSub = _auth.authStateChanges.listen(_onAuthChanged);
+  }
+
+  Future<void> signIn({
+    required String email,
+    required String password,
+    String? inviteCompanyId,
+    String? inviteId,
+  }) {
+    return _run(() async {
+      final identity = await _auth.signInWithEmail(
+        email: email,
+        password: password,
+      );
+      await _finishAuthenticated(
+        identity: identity,
+        displayName: identity.email,
+        inviteCompanyId: inviteCompanyId,
+        inviteId: inviteId,
+      );
+    });
+  }
+
+  Future<void> signUp({
+    required String email,
+    required String password,
+    required String displayName,
+    String? companyName,
+    String? inviteCompanyId,
+    String? inviteId,
+  }) {
+    return _run(() async {
+      final name = displayName.trim();
+      if (name.isEmpty) {
+        throw const SessionException('Ingresá tu nombre.');
+      }
+      if (!isValidEmail(email)) {
+        throw const SessionException('Ingresá un email válido.');
+      }
+      if (password.length < 6) {
+        throw const SessionException(
+          'La contraseña debe tener al menos 6 caracteres.',
+        );
+      }
+
+      AuthIdentity? created;
+      try {
+        created = await _auth.createUserWithEmail(
+          email: email,
+          password: password,
+        );
+        await _finishAuthenticated(
+          identity: created,
+          displayName: name,
+          companyName: companyName,
+          inviteCompanyId: inviteCompanyId,
+          inviteId: inviteId,
+        );
+      } catch (error) {
+        if (created != null) {
+          await _auth.signOut();
+        }
+        rethrow;
+      }
+    });
+  }
+
+  Future<void> signOut() {
+    return _run(() async {
+      await _auth.signOut();
+      _clearSession();
+    });
+  }
+
+  Future<Invitation> inviteEmployee(
+    String email, {
+    CompanyRole role = CompanyRole.employee,
+  }) async {
+    if (!role.isAssignable) {
+      throw const SessionException('Elegí Administrador o Empleado.');
+    }
+    final current = _requireOwner();
+    final invitation = await _access.createInvitation(
+      companyId: current.company.id,
+      companyName: current.company.name,
+      email: email,
+      invitedBy: current.user.id,
+      role: role,
+    );
+    await loadTeam();
+    return invitation;
+  }
+
+  Future<void> acceptInvitation(String companyId, String invitationId) {
+    return _run(() async {
+      final identity = _identity;
+      if (identity == null) {
+        throw const SessionException('Ingresá para aceptar la invitación.');
+      }
+      if (_user != null && _user!.companyId.isNotEmpty) {
+        throw const SessionException('Ya pertenecés a una empresa.');
+      }
+      await _access.acceptInvitation(
+        uid: identity.uid,
+        email: identity.email,
+        displayName: _displayNameFor(identity),
+        companyId: companyId,
+        invitationId: invitationId,
+      );
+      await _loadProfile(identity);
+    });
+  }
+
+  Future<void> revokeInvitation(String invitationId) async {
+    final current = _requireOwner();
+    await _access.revokeInvitation(
+      companyId: current.company.id,
+      invitationId: invitationId,
+    );
+    await loadTeam();
+  }
+
+  Future<void> loadTeam() async {
+    final company = _company;
+    if (company == null) return;
+    _members = await _access.listMembers(company.id);
+    _invitations = await _access.listInvitations(company.id);
+    notifyListeners();
+  }
+
+  String inviteShareUrl(Invitation invitation) {
+    final path = invitation.path;
+    if (kIsWeb) {
+      return '${Uri.base.origin}/#$path';
+    }
+    return path;
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _onAuthChanged(AuthIdentity? identity) async {
+    _identity = identity;
+    if (_busy) {
+      if (identity == null) _clearSession();
+      return;
+    }
+    final gen = ++_loadGen;
+    if (identity == null) {
+      _clearSession();
+      _markReady();
+      notifyListeners();
+      return;
+    }
+    try {
+      await _loadProfile(identity);
+    } catch (_) {
+      _user = null;
+      _company = null;
+      _membership = null;
+    }
+    if (gen != _loadGen) return;
+    _markReady();
+    notifyListeners();
+  }
+
+  Future<void> _finishAuthenticated({
+    required AuthIdentity identity,
+    required String displayName,
+    String? companyName,
+    String? inviteCompanyId,
+    String? inviteId,
+  }) async {
+    _identity = identity;
+    final user = await _access.getUser(identity.uid);
+    if (user != null) {
+      await _loadProfile(identity);
+      _markReady();
+      notifyListeners();
+      return;
+    }
+
+    final targeted =
+        inviteCompanyId != null &&
+        inviteCompanyId.isNotEmpty &&
+        inviteId != null &&
+        inviteId.isNotEmpty;
+    if (targeted) {
+      await _access.acceptInvitation(
+        uid: identity.uid,
+        email: identity.email,
+        displayName: displayName,
+        companyId: inviteCompanyId,
+        invitationId: inviteId,
+      );
+    } else {
+      final pending = await _access.findPendingInvitationByEmail(
+        identity.email,
+      );
+      if (pending != null) {
+        await _access.acceptInvitation(
+          uid: identity.uid,
+          email: identity.email,
+          displayName: displayName,
+          companyId: pending.companyId,
+          invitationId: pending.id,
+        );
+      } else {
+        final name = companyName?.trim() ?? '';
+        if (name.isEmpty) {
+          throw const SessionException('Ingresá el nombre de la empresa.');
+        }
+        await _access.createOwnerCompany(
+          uid: identity.uid,
+          email: identity.email,
+          displayName: displayName,
+          companyName: name,
+        );
+      }
+    }
+    await _loadProfile(identity);
+    _markReady();
+    notifyListeners();
+  }
+
+  Future<void> _loadProfile(AuthIdentity identity) async {
+    _identity = identity;
+    var user = await _access.getUser(identity.uid);
+    if (user == null) {
+      final owned = await _access.findCompanyByOwner(identity.uid);
+      if (owned != null) {
+        await _access.ensureOwnerProfile(
+          uid: identity.uid,
+          email: identity.email,
+          displayName: _displayNameFor(identity),
+          company: owned,
+        );
+        user = await _access.getUser(identity.uid);
+      }
+    }
+    if (user == null || user.companyId.isEmpty) {
+      _user = null;
+      _company = null;
+      _membership = null;
+      _members = const [];
+      _invitations = const [];
+      return;
+    }
+    final company = await _access.getCompany(user.companyId);
+    final membership = await _access.getMembership(user.companyId, user.id);
+    if (company == null || membership == null) {
+      throw const SessionException(
+        'No se pudo cargar el contexto de la empresa.',
+      );
+    }
+    _user = user;
+    _company = company;
+    _membership = membership;
+  }
+
+  Future<void> _run(Future<void> Function() action) async {
+    _busy = true;
+    notifyListeners();
+    try {
+      await action();
+    } on SessionException {
+      rethrow;
+    } catch (_) {
+      throw const SessionException('No se pudo completar el acceso.');
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  void _clearSession() {
+    _identity = null;
+    _user = null;
+    _company = null;
+    _membership = null;
+    _members = const [];
+    _invitations = const [];
+  }
+
+  void _markReady() {
+    _ready = true;
+    final pending = _readyCompleter;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete();
+    }
+  }
+
+  String _displayNameFor(AuthIdentity identity) {
+    final name = _user?.displayName.trim();
+    if (name != null && name.isNotEmpty) return name;
+    return identity.email;
+  }
+
+  ({AppUser user, Company company, Membership membership}) _requireOwner() {
+    final user = _user;
+    final company = _company;
+    final membership = _membership;
+    if (user == null || company == null || membership == null) {
+      throw const SessionException('Ingresá para continuar.');
+    }
+    if (membership.role != CompanyRole.owner) {
+      throw const SessionException('Solo el propietario puede invitar.');
+    }
+    return (user: user, company: company, membership: membership);
+  }
+}

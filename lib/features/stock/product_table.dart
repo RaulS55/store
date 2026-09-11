@@ -105,7 +105,9 @@ class ProductTable extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: color.color,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: AppColors.lightBorder),
+                                border: Border.all(
+                                  color: AppColors.lightBorder,
+                                ),
                               ),
                             ),
                           ],
@@ -119,9 +121,7 @@ class ProductTable extends StatelessWidget {
                       Text(
                         'Stock: ${product.stock}',
                         style: TextStyle(
-                          color: product.isLowStock
-                              ? AppColors.stockLow
-                              : null,
+                          color: product.isLowStock ? AppColors.stockLow : null,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

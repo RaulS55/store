@@ -37,7 +37,10 @@ void main() {
     expect(store.closedOrders.any((order) => order.id == activeId), isTrue);
 
     final history = store.ordersForCustomer(customerId);
-    expect(history.any((order) => order.id == activeId && order.isClosed), isTrue);
+    expect(
+      history.any((order) => order.id == activeId && order.isClosed),
+      isTrue,
+    );
     expect(history.any((order) => order.isActive), isFalse);
   });
 

@@ -75,7 +75,12 @@ class InvoicePage extends StatelessWidget {
           ),
           Expanded(
             child: ListView(
-              padding: EdgeInsets.fromLTRB(wide ? 24 : 20, 8, wide ? 24 : 20, 20),
+              padding: EdgeInsets.fromLTRB(
+                wide ? 24 : 20,
+                8,
+                wide ? 24 : 20,
+                20,
+              ),
               children: [
                 Center(
                   child: ConstrainedBox(
@@ -105,17 +110,17 @@ class InvoicePage extends StatelessWidget {
                             'MODA STOCK',
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(
-                              letterSpacing: 1.2,
-                              fontWeight: FontWeight.w700,
-                            ),
+                                  letterSpacing: 1.2,
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
                           Text(
                             'RESUMEN DE FACTURA',
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
-                              color: AppColors.mutedText,
-                              letterSpacing: 0.8,
-                            ),
+                                  color: AppColors.mutedText,
+                                  letterSpacing: 0.8,
+                                ),
                           ),
                           const SizedBox(height: 16),
                           _kv(context, 'Pedido #', order.orderNumber),
@@ -149,7 +154,10 @@ class InvoicePage extends StatelessWidget {
                             children: [
                               Expanded(flex: 4, child: _th(context, 'ÍTEM')),
                               Expanded(child: _th(context, 'CANT.')),
-                              Expanded(flex: 2, child: _th(context, 'P. UNIT.')),
+                              Expanded(
+                                flex: 2,
+                                child: _th(context, 'P. UNIT.'),
+                              ),
                               Expanded(flex: 2, child: _th(context, 'TOTAL')),
                             ],
                           ),
@@ -189,8 +197,9 @@ class InvoicePage extends StatelessWidget {
                                   child: Text(
                                     '${line.quantity}',
                                     textAlign: TextAlign.center,
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   ),
                                 ),
                                 Expanded(
@@ -198,8 +207,9 @@ class InvoicePage extends StatelessWidget {
                                   child: Text(
                                     MoneyFormat.detailed(line.unitPrice),
                                     textAlign: TextAlign.right,
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   ),
                                 ),
                                 Expanded(
@@ -207,8 +217,9 @@ class InvoicePage extends StatelessWidget {
                                   child: Text(
                                     MoneyFormat.detailed(line.lineTotal),
                                     textAlign: TextAlign.right,
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   ),
                                 ),
                               ],

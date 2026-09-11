@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../../data/session_store.dart';
 import '../../theme/tokens.dart';
 import '../order/order_actions.dart';
 
@@ -12,15 +13,16 @@ class MorePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
+    final session = context.watch<SessionStore>();
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         children: [
           Text(
             'Más',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
           SwitchListTile(
@@ -37,6 +39,13 @@ class MorePage extends StatelessWidget {
             title: const Text('Clientes'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.go('/clientes'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.groups_outlined),
+            title: const Text('Equipo'),
+            subtitle: Text(session.company?.name ?? ''),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/equipo'),
           ),
           ListTile(
             leading: const Icon(Icons.settings_outlined),
@@ -61,6 +70,13 @@ class MorePage extends StatelessWidget {
                 subtitle: Text(order.customer.name),
                 onTap: () => context.go(invoiceRoute(order.id)),
               ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Cerrar sesión'),
+            subtitle: Text(session.user?.email ?? ''),
+            onTap: session.isBusy ? null : session.signOut,
+          ),
         ],
       ),
     );

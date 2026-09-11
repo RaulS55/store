@@ -1,10 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:store_app/data/app_store.dart';
+import 'package:store_app/data/session_store.dart';
 import 'package:store_app/features/order/invoice_page.dart';
 import 'package:store_app/features/order/order_actions.dart';
 import 'package:store_app/routing/app_router.dart';
+
+import 'fakes/session_harness.dart';
+
+Widget _app({
+  required AppStore store,
+  required SessionStore session,
+  required GoRouter router,
+}) {
+  return MultiProvider(
+    providers: [
+      ChangeNotifierProvider.value(value: store),
+      ChangeNotifierProvider.value(value: session),
+    ],
+    child: MaterialApp.router(routerConfig: router),
+  );
+}
 
 void main() {
   testWidgets('closed order shows the billing summary', (tester) async {
@@ -14,9 +32,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider.value(
         value: store,
-        child: MaterialApp(
-          home: InvoicePage(orderId: closed.id),
-        ),
+        child: MaterialApp(home: InvoicePage(orderId: closed.id)),
       ),
     );
 
@@ -32,14 +48,12 @@ void main() {
 
   testWidgets('closing an order opens the billing view', (tester) async {
     final store = AppStore();
+    final session = await signedInOwnerSession();
     final order = store.orders.first;
-    final router = createRouter();
+    final router = createRouter(session);
 
     await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: store,
-        child: MaterialApp.router(routerConfig: router),
-      ),
+      _app(store: store, session: session, router: router),
     );
     await tester.pumpAndSettle();
 
@@ -55,16 +69,16 @@ void main() {
     expect(order.isClosed, isTrue);
   });
 
-  testWidgets('customers history opens billing for a closed order', (tester) async {
+  testWidgets('customers history opens billing for a closed order', (
+    tester,
+  ) async {
     final store = AppStore();
+    final session = await signedInOwnerSession();
     final closed = store.closedOrders.first;
-    final router = createRouter();
+    final router = createRouter(session);
 
     await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: store,
-        child: MaterialApp.router(routerConfig: router),
-      ),
+      _app(store: store, session: session, router: router),
     );
     await tester.pumpAndSettle();
 

@@ -36,6 +36,14 @@ dependencies:
   google_fonts: ^6.3.2
   intl: ^0.20.2
   url_launcher: ^6.3.2
+  firebase_core: ^4.14.0
+  firebase_auth: ^6.6.1
+  cloud_firestore: ^6.9.0
+
+# firebase_core_web 3.11.0 calls e.isA<JSObject>() on Object.
+# That API exists from Dart 3.12. This app uses Dart 3.9.2 (Flutter 3.35.5).
+dependency_overrides:
+  firebase_core_web: 3.10.0
 
 dev_dependencies:
   flutter_test:

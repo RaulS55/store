@@ -100,9 +100,9 @@ Future<void> sendOrderWhatsApp(BuildContext context, DraftOrder order) async {
   final ok = await OrderShare.openWhatsApp(current);
   if (!context.mounted) return;
   if (!ok) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No se pudo abrir WhatsApp.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('No se pudo abrir WhatsApp.')));
   }
 }
 
@@ -123,9 +123,7 @@ Future<String?> _askWhatsAppPhone(BuildContext context, String customerName) {
               controller: controller,
               autofocus: true,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                hintText: '+54 9 11 0000-0000',
-              ),
+              decoration: const InputDecoration(hintText: '+54 9 11 0000-0000'),
               onSubmitted: (value) => Navigator.pop(context, value.trim()),
             ),
           ],
@@ -147,11 +145,7 @@ Future<String?> _askWhatsAppPhone(BuildContext context, String customerName) {
 }
 
 class WhatsAppButton extends StatelessWidget {
-  const WhatsAppButton({
-    super.key,
-    required this.order,
-    this.outlined = false,
-  });
+  const WhatsAppButton({super.key, required this.order, this.outlined = false});
 
   final DraftOrder order;
   final bool outlined;

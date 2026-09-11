@@ -255,7 +255,8 @@ class _WebOrder extends StatelessWidget {
                           const SizedBox(height: 12),
                           SearchField(
                             controller: search,
-                            hint: 'Buscar por nombre, código, SKU o categoría...',
+                            hint:
+                                'Buscar por nombre, código, SKU o categoría...',
                             onChanged: onQuery,
                           ),
                           if (query.isNotEmpty)
@@ -371,11 +372,13 @@ class _SearchHits extends StatelessWidget {
     final store = context.watch<AppStore>();
     final q = query.toLowerCase();
     final hits = store.products
-        .where((p) =>
-            p.name.toLowerCase().contains(q) ||
-            p.sku.toLowerCase().contains(q) ||
-            p.brand.toLowerCase().contains(q) ||
-            p.category.label.toLowerCase().contains(q))
+        .where(
+          (p) =>
+              p.name.toLowerCase().contains(q) ||
+              p.sku.toLowerCase().contains(q) ||
+              p.brand.toLowerCase().contains(q) ||
+              p.category.label.toLowerCase().contains(q),
+        )
         .take(6)
         .toList();
     if (hits.isEmpty) {
@@ -419,11 +422,7 @@ class _HitTile extends StatelessWidget {
   Future<void> _pickAndAdd(BuildContext context, Product product) async {
     final variant = await showVariantPickerSheet(context, product);
     if (variant == null || !context.mounted) return;
-    context.read<AppStore>().addToOrder(
-      product,
-      variant,
-      orderId: orderId,
-    );
+    context.read<AppStore>().addToOrder(product, variant, orderId: orderId);
   }
 }
 
@@ -458,19 +457,22 @@ class _CustomerTile extends StatelessWidget {
                 children: [
                   Text(
                     'Cliente',
-                    style: Theme.of(context).textTheme.labelSmall
-                        ?.copyWith(color: AppColors.mutedText),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.mutedText,
+                    ),
                   ),
                   Text(
                     customer.name.toUpperCase(),
-                    style: Theme.of(context).textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   if (customer.detailSubtitle != null)
                     Text(
                       customer.detailSubtitle!,
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: AppColors.slate),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
                     ),
                 ],
               ),
@@ -534,9 +536,9 @@ class _LineTile extends StatelessWidget {
                 ),
                 Text(
                   '${line.product.category.label} · SKU: ${line.variantSku}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.mutedText,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
                 ),
                 Text(
                   '${line.variant.size} · ${line.variant.color}',
@@ -557,7 +559,9 @@ class _LineTile extends StatelessWidget {
                 QtyStepper(
                   value: line.quantity,
                   min: 1,
-                  max: context.watch<AppStore>()
+                  max:
+                      context
+                          .watch<AppStore>()
                           .productById(line.product.id)
                           ?.variantFor(line.variant.size, line.variant.color)
                           ?.stock ??
@@ -643,9 +647,7 @@ class _StatusBadge extends StatelessWidget {
       ),
       child: Text(
         '#${order.orderNumber} / ${order.status.label.toLowerCase()}',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: color,
-        ),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
       ),
     );
   }
@@ -668,9 +670,9 @@ class _EmptyLines extends StatelessWidget {
           ),
           Text(
             'Buscá un producto para agregarlo.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.slate,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
           ),
         ],
       ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../data/app_store.dart';
+import '../data/session_store.dart';
 import '../theme/tokens.dart';
 import 'brand_logo.dart';
 
@@ -31,12 +31,8 @@ class AppShell extends StatelessWidget {
       Icons.people_alt_rounded,
       Icons.people_alt_outlined,
     ),
-    _Dest(
-      '/config',
-      'Config',
-      Icons.settings_rounded,
-      Icons.settings_outlined,
-    ),
+    _Dest('/equipo', 'Equipo', Icons.groups_rounded, Icons.groups_outlined),
+    _Dest('/config', 'Config', Icons.settings_rounded, Icons.settings_outlined),
   ];
 
   static const _mobileDestinations = [
@@ -60,7 +56,7 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final wide = AppBreakpoints.isWide(context);
     if (wide) {
-          return _WebShell(destinations: _wideDestinations, child: child);
+      return _WebShell(destinations: _wideDestinations, child: child);
     }
     return _MobileShell(destinations: _mobileDestinations, child: child);
   }
@@ -79,8 +75,8 @@ int _indexFor(String location, List<_Dest> dests) {
   var bestLen = -1;
   for (var i = 0; i < dests.length; i++) {
     final path = dests[i].path;
-    final match = location == path ||
-        (path != '/' && location.startsWith(path));
+    final match =
+        location == path || (path != '/' && location.startsWith(path));
     if (match && path.length > bestLen) {
       best = i;
       bestLen = path.length;
@@ -111,10 +107,13 @@ class _WebShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<AppStore>();
+    final session = context.watch<SessionStore>();
     final location = GoRouterState.of(context).uri.path;
     final selected = _indexFor(location, destinations);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final name = session.user?.displayName ?? '';
+    final role = session.membership?.role.label ?? '';
+    final initial = name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
 
     return Scaffold(
       body: Row(
@@ -179,7 +178,7 @@ class _WebShell extends StatelessWidget {
                         radius: 16,
                         backgroundColor: AppColors.terracottaSoft,
                         child: Text(
-                          store.sessionUser.substring(0, 1),
+                          initial,
                           style: const TextStyle(
                             color: AppColors.terracotta,
                             fontWeight: FontWeight.w700,
@@ -192,17 +191,22 @@ class _WebShell extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              store.sessionUser,
+                              name,
                               style: Theme.of(context).textTheme.labelLarge
                                   ?.copyWith(fontWeight: FontWeight.w600),
                             ),
                             Text(
-                              store.sessionRole,
+                              role,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: AppColors.mutedText),
                             ),
                           ],
                         ),
+                      ),
+                      IconButton(
+                        tooltip: 'Cerrar sesión',
+                        onPressed: session.isBusy ? null : session.signOut,
+                        icon: const Icon(Icons.logout, size: 20),
                       ),
                     ],
                   ),
@@ -239,7 +243,9 @@ class _MobileShell extends StatelessWidget {
                 color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                 border: Border(
                   top: BorderSide(
-                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    color: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.lightBorder,
                   ),
                 ),
               ),

@@ -57,9 +57,9 @@ class CustomerDetailPage extends StatelessWidget {
               Expanded(
                 child: Text(
                   customer.name,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
             ],
@@ -69,9 +69,9 @@ class CustomerDetailPage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
               child: Text(
                 customer.detailSubtitle!,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.slate,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.slate),
               ),
             ),
           if (customer.address != null && customer.address!.trim().isNotEmpty)
@@ -79,9 +79,9 @@ class CustomerDetailPage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
               child: Text(
                 customer.address!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.slate,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
               ),
             ),
           const SizedBox(height: 20),
@@ -89,9 +89,9 @@ class CustomerDetailPage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
               'Historial de pedidos',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(height: 4),
@@ -101,9 +101,9 @@ class CustomerDetailPage extends StatelessWidget {
               history.isEmpty
                   ? 'Todavía no hay pedidos para este cliente.'
                   : '${history.length} pedidos · activos y cerrados',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.slate,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
             ),
           ),
           const SizedBox(height: 12),
@@ -112,7 +112,10 @@ class CustomerDetailPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 32),
               child: Column(
                 children: [
-                  const Icon(Icons.assignment_outlined, color: AppColors.mutedText),
+                  const Icon(
+                    Icons.assignment_outlined,
+                    color: AppColors.mutedText,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Sin pedidos',

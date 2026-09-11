@@ -32,8 +32,6 @@ class AppStore extends ChangeNotifier {
   int _customerSeq = 4;
   String? activeOrderId;
 
-  String sessionUser = 'Valeria Soto';
-  String sessionRole = 'Administradora';
   bool ivaEnabled = false;
   double ivaPercent = 21;
 
@@ -48,8 +46,7 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
-  int get cartCount =>
-      orders.fold(0, (sum, order) => sum + order.itemCount);
+  int get cartCount => orders.fold(0, (sum, order) => sum + order.itemCount);
 
   List<String> get allBrands {
     final set = _products.map((p) => p.brand).toSet().toList()..sort();
@@ -74,9 +71,7 @@ class AppStore extends ChangeNotifier {
       '41',
       '42',
     ];
-    final extra = <String>{
-      for (final product in _products) ...product.sizes,
-    };
+    final extra = <String>{for (final product in _products) ...product.sizes};
     return [
       ...preferred.where(extra.contains),
       ...extra.where((s) => !preferred.contains(s)).toList()..sort(),
@@ -98,8 +93,8 @@ class AppStore extends ChangeNotifier {
     final q = searchQuery.trim().toLowerCase();
     var list = _products.where((product) {
       if (q.isNotEmpty) {
-        final hay =
-            '${product.name} ${product.sku} ${product.brand}'.toLowerCase();
+        final hay = '${product.name} ${product.sku} ${product.brand}'
+            .toLowerCase();
         if (!hay.contains(q)) return false;
       }
       if (chipCategory != null &&
@@ -123,7 +118,8 @@ class AppStore extends ChangeNotifier {
               .isEmpty) {
         return false;
       }
-      if (filters.brands.isNotEmpty && !filters.brands.contains(product.brand)) {
+      if (filters.brands.isNotEmpty &&
+          !filters.brands.contains(product.brand)) {
         return false;
       }
       if (filters.onlyLowStock && !product.isLowStock) return false;
@@ -208,8 +204,7 @@ class AppStore extends ChangeNotifier {
   }
 
   void toggleTheme() {
-    themeMode =
-        themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+    themeMode = themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
     notifyListeners();
   }
 
@@ -399,12 +394,18 @@ class AppStore extends ChangeNotifier {
     if (variant.stock <= 0) return false;
     final order = orderById(orderId ?? activeOrderId ?? '');
     if (order == null || order.isClosed) return false;
-    final live = productById(product.id)?.variantFor(variant.size, variant.color);
+    final live = productById(
+      product.id,
+    )?.variantFor(variant.size, variant.color);
     final available = live?.stock ?? variant.stock;
-    final index =
-        order.lines.indexWhere((l) => l.lineKey == '${product.id}::${variant.key}');
+    final index = order.lines.indexWhere(
+      (l) => l.lineKey == '${product.id}::${variant.key}',
+    );
     if (index >= 0) {
-      final nextQty = (order.lines[index].quantity + quantity).clamp(1, available);
+      final nextQty = (order.lines[index].quantity + quantity).clamp(
+        1,
+        available,
+      );
       order.lines[index] = order.lines[index].copyWith(quantity: nextQty);
     } else {
       order.lines.add(
@@ -430,8 +431,9 @@ class AppStore extends ChangeNotifier {
       order.lines.removeAt(index);
     } else {
       final line = order.lines[index];
-      final live = productById(line.product.id)
-          ?.variantFor(line.variant.size, line.variant.color);
+      final live = productById(
+        line.product.id,
+      )?.variantFor(line.variant.size, line.variant.color);
       final max = live?.stock ?? line.variant.stock;
       order.lines[index] = line.copyWith(quantity: quantity.clamp(1, max));
     }
@@ -450,7 +452,10 @@ class AppStore extends ChangeNotifier {
     if (order == null || order.isClosed || order.lines.isEmpty) return false;
     for (final line in order.lines) {
       final product = productById(line.product.id);
-      final variant = product?.variantFor(line.variant.size, line.variant.color);
+      final variant = product?.variantFor(
+        line.variant.size,
+        line.variant.color,
+      );
       if (product == null || variant == null) continue;
       updateVariantStock(
         product.id,

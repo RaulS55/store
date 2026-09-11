@@ -6,15 +6,15 @@ import 'package:store_app/data/formatters.dart';
 import 'package:store_app/features/settings/settings_page.dart';
 
 void main() {
-  testWidgets('settings can enable VAT and edit the percentage', (tester) async {
+  testWidgets('settings can enable VAT and edit the percentage', (
+    tester,
+  ) async {
     final store = AppStore();
 
     await tester.pumpWidget(
       ChangeNotifierProvider.value(
         value: store,
-        child: const MaterialApp(
-          home: Scaffold(body: SettingsPage()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: SettingsPage())),
       ),
     );
 

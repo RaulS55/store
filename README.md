@@ -2,6 +2,21 @@
 
 A new Flutter project.
 
+## Firebase
+
+The app uses Firebase Authentication (email/password) and Firestore for company access.
+
+Project: `stockapp-9c34c` (web, Android, iOS).
+
+1. Enable **Email/Password** in Authentication.
+2. Create a Firestore database if it does not exist.
+3. Deploy rules and indexes:
+
+```
+firebase deploy --only firestore:rules,firestore:indexes --project=stockapp-9c34c
+```
+
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
