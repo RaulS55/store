@@ -28,6 +28,7 @@ class AppStore extends ChangeNotifier {
   final void Function(String message) _log;
   StreamSubscription<List<Product>>? _productsSub;
   String? _companyId;
+  final Map<String, Uint8List> _imageBytes = {};
 
   ThemeMode themeMode = ThemeMode.light;
   List<Product> _products = [];
@@ -60,16 +61,24 @@ class AppStore extends ChangeNotifier {
     _productsSub = null;
     _companyId = companyId;
     _products = [];
+    _imageBytes.clear();
     notifyListeners();
     final access = _productAccess;
     if (companyId == null || access == null) return;
-    _productsSub = access.watchProducts(companyId).listen((list) {
-      _products = [
-        for (final product in list)
-          if (!product.isDeleted) product,
-      ];
-      notifyListeners();
-    });
+    _productsSub = access
+        .watchProducts(companyId)
+        .listen(
+          (list) {
+            _products = [
+              for (final product in list)
+                if (!product.isDeleted) product,
+            ];
+            notifyListeners();
+          },
+          onError: (Object error) {
+            _log('Products watch failed: $error');
+          },
+        );
   }
 
   Product _stamp(Product product) {
@@ -356,7 +365,14 @@ class AppStore extends ChangeNotifier {
     if (companyId == null || access == null) {
       throw const ImageUploadException('No hay una empresa activa.');
     }
-    final compressed = compressProductImage(bytes);
+    _log('Image compress start originalBytes=${bytes.lengthInBytes}');
+    final compressed = await compressProductImage(bytes);
+    _log(
+      imageUploadSizeLog(
+        originalByteCount: compressed.originalByteCount,
+        compressedByteCount: compressed.compressedByteCount,
+      ),
+    );
     final fileName = '${DateTime.now().microsecondsSinceEpoch}.jpg';
     final url = await access.uploadProductImage(
       companyId: companyId,
@@ -365,14 +381,11 @@ class AppStore extends ChangeNotifier {
       bytes: compressed.bytes,
       contentType: 'image/jpeg',
     );
-    _log(
-      imageUploadSizeLog(
-        originalByteCount: compressed.originalByteCount,
-        compressedByteCount: compressed.compressedByteCount,
-      ),
-    );
+    _imageBytes[url] = compressed.bytes;
     return url;
   }
+
+  Uint8List? cachedProductImage(String url) => _imageBytes[url];
 
   void updateVariantStock(
     String productId,

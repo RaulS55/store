@@ -19,9 +19,13 @@ Uint8List _png({int width = 240, int height = 240}) {
 }
 
 void main() {
-  test('compressProductImage encodes a JPEG and reports both sizes', () {
+  test('a product keeps at most 3 images', () {
+    expect(maxProductImages, 3);
+  });
+
+  test('compressProductImage encodes a JPEG and reports both sizes', () async {
     final original = _png();
-    final compressed = compressProductImage(original);
+    final compressed = await compressProductImage(original);
     expect(compressed.originalByteCount, original.lengthInBytes);
     expect(compressed.compressedByteCount, compressed.bytes.lengthInBytes);
     expect(compressed.bytes.lengthInBytes, greaterThan(0));
@@ -37,20 +41,23 @@ void main() {
     );
   });
 
-  test('compressProductImage rejects empty, invalid and oversized files', () {
-    expect(
-      () => compressProductImage(Uint8List(0)),
-      throwsA(isA<ImageUploadException>()),
-    );
-    expect(
-      () => compressProductImage(Uint8List.fromList([1, 2, 3, 4])),
-      throwsA(isA<ImageUploadException>()),
-    );
-    expect(
-      () => compressProductImage(Uint8List(maxOriginalImageBytes + 1)),
-      throwsA(isA<ImageUploadException>()),
-    );
-  });
+  test(
+    'compressProductImage rejects empty, invalid and oversized files',
+    () async {
+      expect(
+        () => compressProductImage(Uint8List(0)),
+        throwsA(isA<ImageUploadException>()),
+      );
+      expect(
+        () => compressProductImage(Uint8List.fromList([1, 2, 3, 4])),
+        throwsA(isA<ImageUploadException>()),
+      );
+      expect(
+        () => compressProductImage(Uint8List(maxOriginalImageBytes + 1)),
+        throwsA(isA<ImageUploadException>()),
+      );
+    },
+  );
 
   test(
     'upload compresses first, then stores JPEG and logs both sizes',
@@ -82,9 +89,11 @@ void main() {
       expect(upload.bytes[1], 0xD8);
       expect(upload.bytes.lengthInBytes, isNot(original.lengthInBytes));
       expect(logs, [
+        'Image compress start originalBytes=${original.lengthInBytes}',
         'Image upload originalBytes=${original.lengthInBytes} '
             'compressedBytes=${upload.bytes.lengthInBytes}',
       ]);
+      expect(store.cachedProductImage(url), upload.bytes);
     },
   );
 

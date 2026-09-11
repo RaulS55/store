@@ -524,6 +524,7 @@ class _VariantMatrix extends StatelessWidget {
       child: DataTable(
         headingRowHeight: 44,
         dataRowMinHeight: 56,
+        dataRowMaxHeight: 56,
         columns: [
           const DataColumn(label: Text('Talle')),
           for (final color in draft.colors)

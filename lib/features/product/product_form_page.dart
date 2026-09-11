@@ -1,9 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../../data/gallery_picker.dart';
 import '../../data/image_compress.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
@@ -27,10 +29,10 @@ class _ProductFormPageState extends State<ProductFormPage> {
   late final TextEditingController _price;
   late final VariantDraft _draft;
   ApparelCategory? _category;
-  final List<String> _images = [];
+  final List<_ProductImageDraft> _images = [];
   String? _error;
   late final String _productId;
-  bool _uploading = false;
+  bool _saving = false;
 
   bool get isEditing => widget.id != null;
 
@@ -52,7 +54,9 @@ class _ProductFormPageState extends State<ProductFormPage> {
       variants: existing?.variants,
     );
     if (existing != null) {
-      _images.addAll(existing.images);
+      _images.addAll([
+        for (final image in existing.images) _ProductImageDraft.url(image),
+      ]);
     }
     _productId = existing?.id ?? store.nextProductId();
   }
@@ -70,38 +74,27 @@ class _ProductFormPageState extends State<ProductFormPage> {
     final remaining = maxProductImages - _images.length;
     if (remaining <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Podés cargar hasta 10 fotos.')),
+        const SnackBar(content: Text('Podés cargar hasta 3 fotos.')),
       );
       return;
     }
-    final files = await ImagePicker().pickMultiImage(
-      requestFullMetadata: false,
-    );
+    final files = await pickGalleryImages(limit: remaining);
     if (!mounted || files.isEmpty) return;
     setState(() {
       _error = null;
-      _uploading = true;
-    });
-    final store = context.read<AppStore>();
-    try {
-      for (final file in files.take(remaining)) {
-        final bytes = await file.readAsBytes();
-        final url = await store.uploadProductImage(
-          productId: _productId,
-          bytes: bytes,
-        );
-        if (!mounted) return;
-        setState(() => _images.add(url));
+      for (final file in files) {
+        if (_images.length >= maxProductImages) break;
+        if (file.bytes.isEmpty) {
+          _error = 'El archivo de imagen está vacío.';
+          continue;
+        }
+        if (file.bytes.lengthInBytes > maxOriginalImageBytes) {
+          _error = 'La imagen supera los 10 MB.';
+          continue;
+        }
+        _images.add(_ProductImageDraft.pending(file.bytes));
       }
-    } on ImageUploadException catch (error) {
-      if (!mounted) return;
-      setState(() => _error = error.message);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _error = 'No se pudo cargar la foto.');
-    } finally {
-      if (mounted) setState(() => _uploading = false);
-    }
+    });
   }
 
   Future<void> _save() async {
@@ -114,38 +107,60 @@ class _ProductFormPageState extends State<ProductFormPage> {
       setState(() => _error = 'Agregá al menos una variante talle × color.');
       return;
     }
+    setState(() => _saving = true);
     final store = context.read<AppStore>();
-    final existing = widget.id == null ? null : store.productById(widget.id!);
-    final now = DateTime.now().toUtc();
-    final product = Product(
-      id: _productId,
-      name: _name.text.trim(),
-      sku: _sku.text.trim(),
-      category: _category!,
-      brand: _brand.text.trim(),
-      price: double.parse(_price.text.trim().replaceAll('.', '')),
-      images: List.of(_images),
-      variants: List.of(_draft.variants),
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-      deletedAt: existing?.deletedAt,
-    );
     try {
+      final urls = <String>[];
+      for (final image in _images) {
+        final url = image.url;
+        if (url != null) {
+          urls.add(url);
+          continue;
+        }
+        final bytes = image.bytes;
+        if (bytes == null) continue;
+        urls.add(
+          await store.uploadProductImage(productId: _productId, bytes: bytes),
+        );
+      }
+      if (!mounted) return;
+      final existing = widget.id == null ? null : store.productById(widget.id!);
+      final now = DateTime.now().toUtc();
+      final product = Product(
+        id: _productId,
+        name: _name.text.trim(),
+        sku: _sku.text.trim(),
+        category: _category!,
+        brand: _brand.text.trim(),
+        price: double.parse(_price.text.trim().replaceAll('.', '')),
+        images: urls,
+        variants: List.of(_draft.variants),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        deletedAt: existing?.deletedAt,
+      );
       await store.upsertProduct(product);
-    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isEditing ? 'Prenda actualizada' : 'Prenda guardada en el catálogo',
+          ),
+        ),
+      );
+      context.go('/producto/${product.id}');
+    } on ImageUploadException catch (error) {
+      debugPrint('Image upload failed: $error');
+      if (!mounted) return;
+      setState(() => _error = error.message);
+    } catch (error, stack) {
+      debugPrint('Product save failed: $error');
+      debugPrint('$stack');
       if (!mounted) return;
       setState(() => _error = 'No se pudo guardar la prenda.');
-      return;
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isEditing ? 'Prenda actualizada' : 'Prenda guardada en el catálogo',
-        ),
-      ),
-    );
-    context.go('/producto/${product.id}');
   }
 
   @override
@@ -187,9 +202,9 @@ class _ProductFormPageState extends State<ProductFormPage> {
       children: [
         _ImagesEditor(
           images: _images,
-          uploading: _uploading,
-          onAdd: _uploading ? null : _addImage,
-          onRemove: (i) => setState(() => _images.removeAt(i)),
+          saving: _saving,
+          onAdd: _saving ? null : _addImage,
+          onRemove: _saving ? null : (i) => setState(() => _images.removeAt(i)),
         ),
         const SizedBox(height: 20),
         ..._fields(),
@@ -202,9 +217,15 @@ class _ProductFormPageState extends State<ProductFormPage> {
         ),
         const SizedBox(height: 20),
         FilledButton.icon(
-          onPressed: _uploading ? null : _save,
-          icon: const Icon(Icons.check_circle_outline, size: 18),
-          label: const Text('Guardar prenda'),
+          onPressed: _saving ? null : _save,
+          icon: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.check_circle_outline, size: 18),
+          label: Text(_saving ? 'Guardando…' : 'Guardar prenda'),
         ),
       ],
     );
@@ -220,9 +241,11 @@ class _ProductFormPageState extends State<ProductFormPage> {
             Expanded(
               child: _ImagesEditor(
                 images: _images,
-                uploading: _uploading,
-                onAdd: _uploading ? null : _addImage,
-                onRemove: (i) => setState(() => _images.removeAt(i)),
+                saving: _saving,
+                onAdd: _saving ? null : _addImage,
+                onRemove: _saving
+                    ? null
+                    : (i) => setState(() => _images.removeAt(i)),
                 wide: true,
               ),
             ),
@@ -243,9 +266,15 @@ class _ProductFormPageState extends State<ProductFormPage> {
           child: SizedBox(
             width: 220,
             child: FilledButton.icon(
-              onPressed: _uploading ? null : _save,
-              icon: const Icon(Icons.save_outlined, size: 18),
-              label: const Text('Guardar prenda'),
+              onPressed: _saving ? null : _save,
+              icon: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined, size: 18),
+              label: Text(_saving ? 'Guardando…' : 'Guardar prenda'),
             ),
           ),
         ),
@@ -420,19 +449,28 @@ class _LabeledField extends StatelessWidget {
   }
 }
 
+class _ProductImageDraft {
+  const _ProductImageDraft.url(this.url) : bytes = null;
+
+  const _ProductImageDraft.pending(this.bytes) : url = null;
+
+  final String? url;
+  final Uint8List? bytes;
+}
+
 class _ImagesEditor extends StatelessWidget {
   const _ImagesEditor({
     required this.images,
     required this.onRemove,
     this.onAdd,
-    this.uploading = false,
+    this.saving = false,
     this.wide = false,
   });
 
-  final List<String> images;
+  final List<_ProductImageDraft> images;
   final VoidCallback? onAdd;
-  final ValueChanged<int> onRemove;
-  final bool uploading;
+  final ValueChanged<int>? onRemove;
+  final bool saving;
   final bool wide;
 
   @override
@@ -450,8 +488,8 @@ class _ImagesEditor extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           wide
-              ? 'Arrastrá o hacé clic para subir imágenes (máx. 10)'
-              : 'Agregá o seleccioná imágenes (una o más)',
+              ? 'Arrastrá o hacé clic para elegir imágenes (máx. 3)'
+              : 'Agregá hasta 3 imágenes',
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
@@ -469,7 +507,8 @@ class _ImagesEditor extends StatelessWidget {
                   children: [
                     Positioned.fill(
                       child: ProductImage(
-                        path: images[i],
+                        path: images[i].url ?? '',
+                        bytes: images[i].bytes,
                         borderRadius: BorderRadius.circular(AppRadii.md),
                       ),
                     ),
@@ -477,7 +516,7 @@ class _ImagesEditor extends StatelessWidget {
                       top: 4,
                       right: 4,
                       child: InkWell(
-                        onTap: () => onRemove(i),
+                        onTap: () => onRemove?.call(i),
                         child: const CircleAvatar(
                           radius: 10,
                           backgroundColor: Colors.white,
@@ -504,7 +543,7 @@ class _ImagesEditor extends StatelessWidget {
                       ? AppColors.terracotta.withValues(alpha: 0.08)
                       : AppColors.terracottaChip,
                 ),
-                child: uploading
+                child: saving
                     ? const Center(
                         child: SizedBox(
                           width: 22,
@@ -522,7 +561,7 @@ class _ImagesEditor extends StatelessWidget {
                           ),
                           SizedBox(height: 6),
                           Text(
-                            'Agregar foto (una o más)',
+                            'Agregar foto (máx. 3)',
                             style: TextStyle(color: AppColors.terracotta),
                           ),
                           Text(
