@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -6,15 +7,25 @@ import '../models/customer.dart';
 import '../models/filters.dart';
 import '../models/order.dart';
 import '../models/product.dart';
+import 'image_access.dart';
+import 'image_compress.dart';
 import 'mock_data.dart';
 import 'product_access.dart';
 
 class AppStore extends ChangeNotifier {
-  AppStore({ProductAccess? products}) : _productAccess = products {
+  AppStore({
+    ProductAccess? products,
+    ImageAccess? images,
+    void Function(String message)? log,
+  }) : _productAccess = products,
+       _imageAccess = images,
+       _log = log ?? debugPrint {
     _customers = List<Customer>.from(MockCatalog.customers());
   }
 
   final ProductAccess? _productAccess;
+  final ImageAccess? _imageAccess;
+  final void Function(String message) _log;
   StreamSubscription<List<Product>>? _productsSub;
   String? _companyId;
 
@@ -53,7 +64,10 @@ class AppStore extends ChangeNotifier {
     final access = _productAccess;
     if (companyId == null || access == null) return;
     _productsSub = access.watchProducts(companyId).listen((list) {
-      _products = [for (final product in list) if (!product.isDeleted) product];
+      _products = [
+        for (final product in list)
+          if (!product.isDeleted) product,
+      ];
       notifyListeners();
     });
   }
@@ -331,6 +345,33 @@ class AppStore extends ChangeNotifier {
     }
     notifyListeners();
     await _persist(next);
+  }
+
+  Future<String> uploadProductImage({
+    required String productId,
+    required Uint8List bytes,
+  }) async {
+    final companyId = _companyId;
+    final access = _imageAccess;
+    if (companyId == null || access == null) {
+      throw const ImageUploadException('No hay una empresa activa.');
+    }
+    final compressed = compressProductImage(bytes);
+    final fileName = '${DateTime.now().microsecondsSinceEpoch}.jpg';
+    final url = await access.uploadProductImage(
+      companyId: companyId,
+      productId: productId,
+      fileName: fileName,
+      bytes: compressed.bytes,
+      contentType: 'image/jpeg',
+    );
+    _log(
+      imageUploadSizeLog(
+        originalByteCount: compressed.originalByteCount,
+        compressedByteCount: compressed.compressedByteCount,
+      ),
+    );
+    return url;
   }
 
   void updateVariantStock(

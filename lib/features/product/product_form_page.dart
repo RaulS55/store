@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../../data/image_compress.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/product_image.dart';
@@ -27,6 +29,8 @@ class _ProductFormPageState extends State<ProductFormPage> {
   ApparelCategory? _category;
   final List<String> _images = [];
   String? _error;
+  late final String _productId;
+  bool _uploading = false;
 
   bool get isEditing => widget.id != null;
 
@@ -50,6 +54,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
     if (existing != null) {
       _images.addAll(existing.images);
     }
+    _productId = existing?.id ?? store.nextProductId();
   }
 
   @override
@@ -61,10 +66,42 @@ class _ProductFormPageState extends State<ProductFormPage> {
     super.dispose();
   }
 
-  void _addImage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Todavía no se pueden cargar fotos.')),
+  Future<void> _addImage() async {
+    final remaining = maxProductImages - _images.length;
+    if (remaining <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Podés cargar hasta 10 fotos.')),
+      );
+      return;
+    }
+    final files = await ImagePicker().pickMultiImage(
+      requestFullMetadata: false,
     );
+    if (!mounted || files.isEmpty) return;
+    setState(() {
+      _error = null;
+      _uploading = true;
+    });
+    final store = context.read<AppStore>();
+    try {
+      for (final file in files.take(remaining)) {
+        final bytes = await file.readAsBytes();
+        final url = await store.uploadProductImage(
+          productId: _productId,
+          bytes: bytes,
+        );
+        if (!mounted) return;
+        setState(() => _images.add(url));
+      }
+    } on ImageUploadException catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'No se pudo cargar la foto.');
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
   }
 
   Future<void> _save() async {
@@ -81,7 +118,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
     final existing = widget.id == null ? null : store.productById(widget.id!);
     final now = DateTime.now().toUtc();
     final product = Product(
-      id: existing?.id ?? store.nextProductId(),
+      id: _productId,
       name: _name.text.trim(),
       sku: _sku.text.trim(),
       category: _category!,
@@ -119,9 +156,12 @@ class _ProductFormPageState extends State<ProductFormPage> {
     return SafeArea(
       child: Column(
         children: [
-          _Header(title: title, subtitle: wide && !isEditing
-              ? 'Completá los datos de la nueva prenda y sumala al catálogo.'
-              : null),
+          _Header(
+            title: title,
+            subtitle: wide && !isEditing
+                ? 'Completá los datos de la nueva prenda y sumala al catálogo.'
+                : null,
+          ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -134,10 +174,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
               ),
             ),
           Expanded(
-            child: Form(
-              key: _form,
-              child: wide ? _wideBody() : _mobileBody(),
-            ),
+            child: Form(key: _form, child: wide ? _wideBody() : _mobileBody()),
           ),
         ],
       ),
@@ -150,7 +187,8 @@ class _ProductFormPageState extends State<ProductFormPage> {
       children: [
         _ImagesEditor(
           images: _images,
-          onAdd: _addImage,
+          uploading: _uploading,
+          onAdd: _uploading ? null : _addImage,
           onRemove: (i) => setState(() => _images.removeAt(i)),
         ),
         const SizedBox(height: 20),
@@ -164,7 +202,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
         ),
         const SizedBox(height: 20),
         FilledButton.icon(
-          onPressed: _save,
+          onPressed: _uploading ? null : _save,
           icon: const Icon(Icons.check_circle_outline, size: 18),
           label: const Text('Guardar prenda'),
         ),
@@ -182,19 +220,14 @@ class _ProductFormPageState extends State<ProductFormPage> {
             Expanded(
               child: _ImagesEditor(
                 images: _images,
-                onAdd: _addImage,
+                uploading: _uploading,
+                onAdd: _uploading ? null : _addImage,
                 onRemove: (i) => setState(() => _images.removeAt(i)),
                 wide: true,
               ),
             ),
             const SizedBox(width: 32),
-            Expanded(
-              child: Column(
-                children: [
-                  ..._fields(),
-                ],
-              ),
-            ),
+            Expanded(child: Column(children: [..._fields()])),
           ],
         ),
         const SizedBox(height: 24),
@@ -210,7 +243,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
           child: SizedBox(
             width: 220,
             child: FilledButton.icon(
-              onPressed: _save,
+              onPressed: _uploading ? null : _save,
               icon: const Icon(Icons.save_outlined, size: 18),
               label: const Text('Guardar prenda'),
             ),
@@ -321,9 +354,9 @@ class _Header extends StatelessWidget {
                   Text(
                     subtitle!,
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.slate,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
                   ),
               ],
             ),
@@ -390,14 +423,16 @@ class _LabeledField extends StatelessWidget {
 class _ImagesEditor extends StatelessWidget {
   const _ImagesEditor({
     required this.images,
-    required this.onAdd,
     required this.onRemove,
+    this.onAdd,
+    this.uploading = false,
     this.wide = false,
   });
 
   final List<String> images;
-  final VoidCallback onAdd;
+  final VoidCallback? onAdd;
   final ValueChanged<int> onRemove;
+  final bool uploading;
   final bool wide;
 
   @override
@@ -408,18 +443,18 @@ class _ImagesEditor extends StatelessWidget {
       children: [
         Text(
           wide ? 'Imágenes de la prenda' : 'Fotos de la prenda',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 4),
         Text(
           wide
               ? 'Arrastrá o hacé clic para subir imágenes (máx. 10)'
               : 'Agregá o seleccioná imágenes (una o más)',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppColors.mutedText,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
         ),
         const SizedBox(height: 12),
         Wrap(
@@ -469,12 +504,22 @@ class _ImagesEditor extends StatelessWidget {
                       ? AppColors.terracotta.withValues(alpha: 0.08)
                       : AppColors.terracottaChip,
                 ),
-                child: wide
+                child: uploading
+                    ? const Center(
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : wide
                     ? const Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_photo_alternate_outlined,
-                              color: AppColors.terracotta),
+                          Icon(
+                            Icons.add_photo_alternate_outlined,
+                            color: AppColors.terracotta,
+                          ),
                           SizedBox(height: 6),
                           Text(
                             'Agregar foto (una o más)',

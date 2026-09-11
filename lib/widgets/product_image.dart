@@ -30,13 +30,24 @@ class ProductImage extends StatelessWidget {
 
     final image = path.isEmpty
         ? fallback
-        : Image.asset(
+        : _isNetworkPath(path)
+        ? Image.network(
             path,
             fit: fit,
             errorBuilder: (_, _, _) => fallback,
-          );
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return fallback;
+            },
+          )
+        : Image.asset(path, fit: fit, errorBuilder: (_, _, _) => fallback);
 
     if (borderRadius == null) return image;
     return ClipRRect(borderRadius: borderRadius!, child: image);
+  }
+
+  bool _isNetworkPath(String path) {
+    final uri = Uri.tryParse(path);
+    return uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
   }
 }

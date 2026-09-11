@@ -39,6 +39,9 @@ dependencies:
   firebase_core: ^4.14.0
   firebase_auth: ^6.6.1
   cloud_firestore: ^6.9.0
+  firebase_storage: ^13.5.0
+  image_picker: ^1.2.2
+  image: ^4.9.2
 
 # firebase_core_web 3.11.0 calls e.isA<JSObject>() on Object.
 # That API exists from Dart 3.12. This app uses Dart 3.9.2 (Flutter 3.35.5).

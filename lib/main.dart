@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import 'data/app_store.dart';
 import 'data/firebase_auth_client.dart';
+import 'data/firebase_image_access.dart';
 import 'data/firestore_company_access.dart';
 import 'data/firestore_product_access.dart';
 import 'data/session_store.dart';
@@ -37,7 +38,10 @@ class _ModaStockAppState extends State<ModaStockApp> {
   @override
   void initState() {
     super.initState();
-    _store = AppStore(products: FirestoreProductAccess());
+    _store = AppStore(
+      products: FirestoreProductAccess(),
+      images: FirebaseImageAccess(),
+    );
     _session = SessionStore(
       auth: FirebaseAuthClient(),
       access: FirestoreCompanyAccess(),
