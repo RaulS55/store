@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../data/app_store.dart';
 import '../../models/customer.dart';
 import '../../theme/tokens.dart';
+import '../order/order_actions.dart';
 import '../order/order_card.dart';
 
 class CustomerDetailPage extends StatelessWidget {
@@ -129,8 +130,10 @@ class CustomerDetailPage extends StatelessWidget {
                 onTap: () {
                   if (order.isActive) {
                     store.setActiveOrder(order.id);
+                    context.push('/pedido/${order.id}');
+                    return;
                   }
-                  context.push('/pedido/${order.id}');
+                  context.push(invoiceRoute(order.id));
                 },
               ),
         ],

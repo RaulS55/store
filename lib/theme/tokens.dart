@@ -48,7 +48,3 @@ class AppSpacing {
   static const lg = 16.0;
   static const xl = 24.0;
 }
-
-class AppIva {
-  static const rate = 0.21;  
-}

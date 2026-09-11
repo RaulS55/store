@@ -50,6 +50,12 @@ Future<DraftOrder?> showOrderTargetSheet(BuildContext context) async {
   return store.activeOrder;
 }
 
+String invoiceRoute(String orderId) => '/pedido/$orderId/facturar';
+
+void openInvoice(BuildContext context, String orderId) {
+  context.push(invoiceRoute(orderId));
+}
+
 Future<void> closeOrderFlow(BuildContext context, DraftOrder order) async {
   if (order.lines.isEmpty || order.isClosed) return;
   final confirmed = await showDialog<bool>(
@@ -75,13 +81,10 @@ Future<void> closeOrderFlow(BuildContext context, DraftOrder order) async {
     },
   );
   if (confirmed != true || !context.mounted) return;
-  final ok = context.read<AppStore>().closeOrder(order.id);
+  final orderId = order.id;
+  final ok = context.read<AppStore>().closeOrder(orderId);
   if (!ok || !context.mounted) return;
-  if (context.canPop()) {
-    context.pop();
-  } else {
-    context.go('/pedido');
-  }
+  context.go(invoiceRoute(orderId));
 }
 
 Future<void> sendOrderWhatsApp(BuildContext context, DraftOrder order) async {

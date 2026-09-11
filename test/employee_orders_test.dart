@@ -40,4 +40,33 @@ void main() {
     expect(history.any((order) => order.id == activeId && order.isClosed), isTrue);
     expect(history.any((order) => order.isActive), isFalse);
   });
+
+  test('VAT is disabled by default and applies only to active orders', () {
+    final store = AppStore();
+    final order = store.orders.first;
+    expect(store.ivaEnabled, isFalse);
+    expect(order.iva, 0);
+    expect(order.total, order.subtotal);
+    expect(OrderShare.message(order), isNot(contains('IVA')));
+
+    store.setIvaEnabled(true);
+    store.setIvaPercent(10.5);
+    expect(order.ivaEnabled, isTrue);
+    expect(order.ivaPercent, 10.5);
+    expect(order.iva, closeTo(order.subtotal * 0.105, 0.001));
+    expect(order.total, closeTo(order.subtotal + order.iva, 0.001));
+    expect(OrderShare.message(order), contains('IVA (10.5%)'));
+
+    final closedId = order.id;
+    expect(store.closeOrder(closedId), isTrue);
+    store.setIvaPercent(21);
+    store.setIvaEnabled(false);
+    final closed = store.orderById(closedId)!;
+    expect(closed.ivaEnabled, isTrue);
+    expect(closed.ivaPercent, 10.5);
+
+    final created = store.createOrder(store.customers.first);
+    expect(created.ivaEnabled, isFalse);
+    expect(created.ivaPercent, 21);
+  });
 }

@@ -18,8 +18,11 @@ class OrderShare {
     }
     buffer
       ..writeln()
-      ..writeln('Subtotal: ${MoneyFormat.detailed(order.subtotal)}')
-      ..writeln('IVA 21%: ${MoneyFormat.detailed(order.iva)}')
+      ..writeln('Subtotal: ${MoneyFormat.detailed(order.subtotal)}');
+    if (order.ivaEnabled) {
+      buffer.writeln('${order.ivaLabel}: ${MoneyFormat.detailed(order.iva)}');
+    }
+    buffer
       ..writeln('Total: ${MoneyFormat.detailed(order.total)}')
       ..writeln()
       ..writeln('Moda Stock');

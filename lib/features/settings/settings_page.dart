@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../../data/formatters.dart';
 import '../../theme/tokens.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -29,10 +31,7 @@ class SettingsPage extends StatelessWidget {
             activeTrackColor: AppColors.terracotta,
           ),
           const Divider(),
-          const ListTile(
-            title: Text('IVA'),
-            subtitle: Text('21% sobre el subtotal del pedido'),
-          ),
+          const _IvaSettings(),
           const ListTile(
             title: Text('Moneda'),
             subtitle: Text('Pesos argentinos (ARS)'),
@@ -43,6 +42,90 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _IvaSettings extends StatefulWidget {
+  const _IvaSettings();
+
+  @override
+  State<_IvaSettings> createState() => _IvaSettingsState();
+}
+
+class _IvaSettingsState extends State<_IvaSettings> {
+  late final TextEditingController _percent;
+  late final FocusNode _focus;
+
+  @override
+  void initState() {
+    super.initState();
+    final store = context.read<AppStore>();
+    _percent = TextEditingController(text: PercentFormat.of(store.ivaPercent));
+    _focus = FocusNode()..addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focus.removeListener(_onFocusChange);
+    _focus.dispose();
+    _percent.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (!_focus.hasFocus) {
+      _commitPercent();
+    }
+  }
+
+  void _commitPercent() {
+    final store = context.read<AppStore>();
+    final parsed = PercentFormat.tryParse(_percent.text);
+    if (parsed == null) {
+      _percent.text = PercentFormat.of(store.ivaPercent);
+      return;
+    }
+    store.setIvaPercent(parsed);
+    _percent.text = PercentFormat.of(store.ivaPercent);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<AppStore>();
+    return Column(
+      children: [
+        SwitchListTile(
+          value: store.ivaEnabled,
+          onChanged: store.setIvaEnabled,
+          title: const Text('IVA'),
+          subtitle: Text(
+            store.ivaEnabled
+                ? '${PercentFormat.of(store.ivaPercent)}% sobre el subtotal del pedido'
+                : 'Desactivado. El total es el subtotal.',
+          ),
+          activeTrackColor: AppColors.terracotta,
+        ),
+        if (store.ivaEnabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: TextField(
+              controller: _percent,
+              focusNode: _focus,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Porcentaje de IVA',
+                suffixText: '%',
+              ),
+              onSubmitted: (_) => _commitPercent(),
+            ),
+          ),
+      ],
     );
   }
 }

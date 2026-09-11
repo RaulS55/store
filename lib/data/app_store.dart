@@ -34,6 +34,8 @@ class AppStore extends ChangeNotifier {
 
   String sessionUser = 'Valeria Soto';
   String sessionRole = 'Administradora';
+  bool ivaEnabled = false;
+  double ivaPercent = 21;
 
   List<Product> get products => List.unmodifiable(_products);
   List<Customer> get customers => List.unmodifiable(_customers);
@@ -216,6 +218,28 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setIvaEnabled(bool enabled) {
+    if (ivaEnabled == enabled) return;
+    ivaEnabled = enabled;
+    _applyIvaToActiveOrders();
+    notifyListeners();
+  }
+
+  void setIvaPercent(double percent) {
+    final next = (percent.clamp(0, 100) * 100).round() / 100;
+    if (ivaPercent == next) return;
+    ivaPercent = next;
+    _applyIvaToActiveOrders();
+    notifyListeners();
+  }
+
+  void _applyIvaToActiveOrders() {
+    for (final order in orders) {
+      order.ivaEnabled = ivaEnabled;
+      order.ivaPercent = ivaPercent;
+    }
+  }
+
   void setSearch(String value) {
     searchQuery = value;
     page = 0;
@@ -309,6 +333,8 @@ class AppStore extends ChangeNotifier {
       id: 'o$_draftSeq',
       orderNumber: 'PED-$_orderSeq',
       customer: customer,
+      ivaEnabled: ivaEnabled,
+      ivaPercent: ivaPercent,
     );
     orders.insert(0, order);
     activeOrderId = order.id;

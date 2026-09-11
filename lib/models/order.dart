@@ -1,4 +1,3 @@
-import '../theme/tokens.dart';
 import 'customer.dart';
 import 'product.dart';
 
@@ -57,6 +56,8 @@ class DraftOrder {
     this.status = OrderStatus.borrador,
     DateTime? createdAt,
     this.closedAt,
+    this.ivaEnabled = false,
+    this.ivaPercent = 21,
   })  : lines = lines ?? <OrderLine>[],
         createdAt = createdAt ?? DateTime.now();
 
@@ -67,6 +68,8 @@ class DraftOrder {
   OrderStatus status;
   final DateTime createdAt;
   DateTime? closedAt;
+  bool ivaEnabled;
+  double ivaPercent;
 
   bool get isClosed => status == OrderStatus.cerrado;
 
@@ -76,9 +79,20 @@ class DraftOrder {
 
   double get subtotal => lines.fold(0, (sum, line) => sum + line.lineTotal);
 
-  double get iva => subtotal * AppIva.rate;
+  double get ivaRate => ivaEnabled ? ivaPercent / 100 : 0;
+
+  double get iva => subtotal * ivaRate;
 
   double get total => subtotal + iva;
+
+  String get ivaLabel => 'IVA ($_ivaPercentText%)';
+
+  String get _ivaPercentText {
+    if (ivaPercent == ivaPercent.roundToDouble()) {
+      return ivaPercent.toInt().toString();
+    }
+    return ivaPercent.toString();
+  }
 
   List<CategoryQty> get categorySummary {
     final counts = <ApparelCategory, int>{};

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
 import '../../theme/tokens.dart';
+import '../order/order_actions.dart';
 
 class MorePage extends StatelessWidget {
   const MorePage({super.key});
@@ -58,7 +59,7 @@ class MorePage extends StatelessWidget {
                 dense: true,
                 title: Text(order.orderNumber),
                 subtitle: Text(order.customer.name),
-                onTap: () => context.go('/pedido/${order.id}'),
+                onTap: () => context.go(invoiceRoute(order.id)),
               ),
         ],
       ),

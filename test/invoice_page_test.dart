@@ -1,0 +1,83 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:store_app/data/app_store.dart';
+import 'package:store_app/features/order/invoice_page.dart';
+import 'package:store_app/features/order/order_actions.dart';
+import 'package:store_app/routing/app_router.dart';
+
+void main() {
+  testWidgets('closed order shows the billing summary', (tester) async {
+    final store = AppStore();
+    final closed = store.closedOrders.first;
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp(
+          home: InvoicePage(orderId: closed.id),
+        ),
+      ),
+    );
+
+    expect(find.text('Factura'), findsOneWidget);
+    expect(find.text('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.text('Total a facturar'), findsOneWidget);
+    expect(find.text(closed.orderNumber), findsOneWidget);
+    expect(find.text(closed.customer.name), findsOneWidget);
+    expect(find.text('Cerrar pedido'), findsNothing);
+    expect(find.text('Volver al cliente'), findsOneWidget);
+    expect(find.textContaining('IVA ('), findsNothing);
+  });
+
+  testWidgets('closing an order opens the billing view', (tester) async {
+    final store = AppStore();
+    final order = store.orders.first;
+    final router = createRouter();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/pedido/${order.id}');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cerrar pedido'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cerrar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.text('Total a facturar'), findsOneWidget);
+    expect(order.isClosed, isTrue);
+  });
+
+  testWidgets('customers history opens billing for a closed order', (tester) async {
+    final store = AppStore();
+    final closed = store.closedOrders.first;
+    final router = createRouter();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/clientes/${closed.customer.id}');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(closed.orderNumber));
+    await tester.pumpAndSettle();
+
+    expect(find.text('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.text('Total a facturar'), findsOneWidget);
+  });
+
+  test('invoice route points to the billing view of the order', () {
+    expect(invoiceRoute('o1'), '/pedido/o1/facturar');
+  });
+}

@@ -181,7 +181,14 @@ class _MobileOrder extends StatelessWidget {
               ),
             )
           else
-            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: OutlinedButton.icon(
+                onPressed: () => openInvoice(context, order.id),
+                icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                label: const Text('Ver factura'),
+              ),
+            ),
         ],
       ),
     );
@@ -308,6 +315,16 @@ class _WebOrder extends StatelessWidget {
                                 ? null
                                 : () => closeOrderFlow(context, order),
                             child: const Text('Cerrar pedido'),
+                          ),
+                        ] else ...[
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: () => openInvoice(context, order.id),
+                            icon: const Icon(
+                              Icons.receipt_long_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('Ver factura'),
                           ),
                         ],
                       ],
@@ -577,7 +594,8 @@ class _Totals extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = [
       ('Subtotal', MoneyFormat.detailed(order.subtotal), false),
-      ('IVA 21%', MoneyFormat.detailed(order.iva), false),
+      if (order.ivaEnabled)
+        (order.ivaLabel, MoneyFormat.detailed(order.iva), false),
       ('Total', MoneyFormat.detailed(order.total), true),
     ];
     return Column(

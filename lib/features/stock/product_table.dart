@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../data/app_store.dart';
 import '../../data/formatters.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
@@ -15,6 +17,7 @@ class ProductTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ivaEnabled = context.watch<AppStore>().ivaEnabled;
     final headerStyle = Theme.of(context).textTheme.labelMedium?.copyWith(
       color: AppColors.mutedText,
       fontWeight: FontWeight.w600,
@@ -132,11 +135,12 @@ class ProductTable extends StatelessWidget {
                             MoneyFormat.compact(product.price),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
-                          Text(
-                            'IVA incl.',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: AppColors.mutedText),
-                          ),
+                          if (ivaEnabled)
+                            Text(
+                              '+ IVA',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: AppColors.mutedText),
+                            ),
                         ],
                       ),
                     ),
