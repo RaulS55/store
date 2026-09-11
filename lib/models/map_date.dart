@@ -14,3 +14,9 @@ DateTime parseMapDate(dynamic value) {
   }
   throw FormatException('Invalid date: $value');
 }
+
+DateTime? parseOptionalMapDate(dynamic value) {
+  if (value == null) return null;
+  if (value is String && value.isEmpty) return null;
+  return parseMapDate(value);
+}

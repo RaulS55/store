@@ -36,6 +36,22 @@ service cloud.firestore {
         && get(memberPath(companyId)).data.role == 'owner';
     }
 
+    function hasSyncFields(id) {
+      return request.resource.data.keys().hasAll([
+          'id',
+          'createdAt',
+          'updatedAt',
+          'deletedAt',
+        ])
+        && request.resource.data.id == id
+        && request.resource.data.createdAt is string
+        && request.resource.data.updatedAt is string
+        && (
+          request.resource.data.deletedAt == null
+          || request.resource.data.deletedAt is string
+        );
+    }
+
     function invitationPath(companyId, invitationId) {
       return /databases/$(database)/documents/companies/$(companyId)/invitations/$(invitationId);
     }
@@ -165,6 +181,16 @@ service cloud.firestore {
           && request.resource.data.email == resource.data.email
           && request.resource.data.role == resource.data.role
         );
+        allow delete: if false;
+      }
+
+      match /products/{productId} {
+        allow read: if isMember(companyId);
+        allow create: if isMember(companyId) && hasSyncFields(productId);
+        allow update: if isMember(companyId)
+          && hasSyncFields(productId)
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.createdAt == resource.data.createdAt;
         allow delete: if false;
       }
     }

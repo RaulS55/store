@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'sync_record.dart';
+
 enum ApparelCategory {
   remeras('Remeras'),
   pantalones('Pantalones'),
@@ -17,6 +19,13 @@ enum ApparelCategory {
 
   const ApparelCategory(this.label);
   final String label;
+
+  static ApparelCategory fromStorage(String value) {
+    for (final category in ApparelCategory.values) {
+      if (category.name == value) return category;
+    }
+    throw FormatException('Unknown category: $value');
+  }
 
   ApparelCategory get chipFamily {
     switch (this) {
@@ -49,6 +58,13 @@ enum ProductStatus {
 
   const ProductStatus(this.label);
   final String label;
+
+  static ProductStatus fromStorage(String value) {
+    for (final status in ProductStatus.values) {
+      if (status.name == value) return status;
+    }
+    throw FormatException('Unknown product status: $value');
+  }
 }
 
 class SwatchColor {
@@ -65,6 +81,28 @@ class SwatchColor {
 
   @override
   int get hashCode => Object.hash(name, hex);
+}
+
+class Swatches {
+  static const negro = SwatchColor(name: 'Negro', hex: 0xFF1E1E1E);
+  static const beige = SwatchColor(name: 'Beige', hex: 0xFFD4B896);
+  static const terracota = SwatchColor(name: 'Terracota', hex: 0xFFC45C3E);
+  static const azul = SwatchColor(name: 'Azul', hex: 0xFF3B5BA5);
+  static const blanco = SwatchColor(name: 'Blanco', hex: 0xFFF5F5F5);
+  static const oxido = SwatchColor(name: 'Óxido', hex: 0xFFB85C38);
+  static const crema = SwatchColor(name: 'Crema', hex: 0xFFF3E6D8);
+  static const arena = SwatchColor(name: 'Beige arena', hex: 0xFFC8B59A);
+
+  static const all = [
+    negro,
+    beige,
+    terracota,
+    azul,
+    blanco,
+    oxido,
+    crema,
+    arena,
+  ];
 }
 
 class ProductVariant {
@@ -102,6 +140,26 @@ class ProductVariant {
 
   SwatchColor get swatchColor => SwatchColor(name: color, hex: hexValue);
 
+  factory ProductVariant.fromMap(Map<String, dynamic> map) {
+    return ProductVariant(
+      size: map['size'] as String? ?? '',
+      color: map['color'] as String? ?? '',
+      colorHex: map['colorHex'] as String?,
+      stock: (map['stock'] as num?)?.toInt() ?? 0,
+      skuSuffix: map['skuSuffix'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'size': size,
+      'color': color,
+      'colorHex': colorHex,
+      'stock': stock,
+      if (skuSuffix != null) 'skuSuffix': skuSuffix,
+    };
+  }
+
   ProductVariant copyWith({
     String? size,
     String? color,
@@ -129,6 +187,9 @@ class Product {
     required this.price,
     required this.images,
     required this.variants,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
     this.status = ProductStatus.activo,
   });
 
@@ -140,7 +201,12 @@ class Product {
   final double price;
   final List<String> images;
   final List<ProductVariant> variants;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
   final ProductStatus status;
+
+  bool get isDeleted => deletedAt != null;
 
   static const lowStockThreshold = 8;
 
@@ -206,6 +272,51 @@ class Product {
   String variantSku(ProductVariant variant) =>
       '$sku-${variant.effectiveSkuSuffix}';
 
+  factory Product.fromMap(String id, Map<String, dynamic> map) {
+    final record = SyncRecord.fromMap(id, map);
+    final rawVariants = map['variants'] as List<dynamic>? ?? const [];
+    final rawImages = map['images'] as List<dynamic>? ?? const [];
+    return Product(
+      id: record.id,
+      name: (map['name'] as String? ?? '').trim(),
+      sku: (map['sku'] as String? ?? '').trim(),
+      category: ApparelCategory.fromStorage(map['category'] as String? ?? ''),
+      brand: (map['brand'] as String? ?? '').trim(),
+      price: (map['price'] as num?)?.toDouble() ?? 0,
+      images: [for (final image in rawImages) '$image'],
+      variants: [
+        for (final variant in rawVariants)
+          if (variant is Map)
+            ProductVariant.fromMap(Map<String, dynamic>.from(variant)),
+      ],
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      deletedAt: record.deletedAt,
+      status: ProductStatus.fromStorage(
+        map['status'] as String? ?? ProductStatus.activo.name,
+      ),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      ...SyncRecord(
+        id: id,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        deletedAt: deletedAt,
+      ).toMap(),
+      'name': name.trim(),
+      'sku': sku.trim(),
+      'category': category.name,
+      'brand': brand.trim(),
+      'price': price,
+      'images': images,
+      'variants': [for (final variant in variants) variant.toMap()],
+      'status': status.name,
+    };
+  }
+
   Product copyWith({
     String? id,
     String? name,
@@ -215,6 +326,9 @@ class Product {
     double? price,
     List<String>? images,
     List<ProductVariant>? variants,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? deletedAt,
     ProductStatus? status,
   }) {
     return Product(
@@ -226,6 +340,9 @@ class Product {
       price: price ?? this.price,
       images: images ?? this.images,
       variants: variants ?? this.variants,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       status: status ?? this.status,
     );
   }

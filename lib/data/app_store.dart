@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/customer.dart';
@@ -5,16 +7,19 @@ import '../models/filters.dart';
 import '../models/order.dart';
 import '../models/product.dart';
 import 'mock_data.dart';
+import 'product_access.dart';
 
 class AppStore extends ChangeNotifier {
-  AppStore() {
-    _products = MockCatalog.products();
+  AppStore({ProductAccess? products}) : _productAccess = products {
     _customers = List<Customer>.from(MockCatalog.customers());
-    _seedOrders();
   }
 
+  final ProductAccess? _productAccess;
+  StreamSubscription<List<Product>>? _productsSub;
+  String? _companyId;
+
   ThemeMode themeMode = ThemeMode.light;
-  late List<Product> _products;
+  List<Product> _products = [];
   late List<Customer> _customers;
   final List<DraftOrder> orders = [];
   final List<DraftOrder> closedOrders = [];
@@ -27,7 +32,7 @@ class AppStore extends ChangeNotifier {
   int page = 0;
   int pageSize = 12;
 
-  int _orderSeq = 10058;
+  int _orderSeq = 0;
   int _draftSeq = 0;
   int _customerSeq = 4;
   String? activeOrderId;
@@ -37,6 +42,38 @@ class AppStore extends ChangeNotifier {
 
   List<Product> get products => List.unmodifiable(_products);
   List<Customer> get customers => List.unmodifiable(_customers);
+
+  void bindCompany(String? companyId) {
+    if (_companyId == companyId) return;
+    _productsSub?.cancel();
+    _productsSub = null;
+    _companyId = companyId;
+    _products = [];
+    notifyListeners();
+    final access = _productAccess;
+    if (companyId == null || access == null) return;
+    _productsSub = access.watchProducts(companyId).listen((list) {
+      _products = [for (final product in list) if (!product.isDeleted) product];
+      notifyListeners();
+    });
+  }
+
+  Product _stamp(Product product) {
+    final now = DateTime.now().toUtc();
+    final existing = productById(product.id);
+    return product.copyWith(
+      createdAt: existing?.createdAt ?? product.createdAt,
+      updatedAt: now,
+      deletedAt: existing?.deletedAt ?? product.deletedAt,
+    );
+  }
+
+  Future<void> _persist(Product product) async {
+    final companyId = _companyId;
+    final access = _productAccess;
+    if (companyId == null || access == null) return;
+    await access.saveProduct(companyId, product);
+  }
 
   DraftOrder? get activeOrder {
     if (activeOrderId == null) return null;
@@ -284,14 +321,16 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void upsertProduct(Product product) {
-    final index = _products.indexWhere((p) => p.id == product.id);
+  Future<void> upsertProduct(Product product) async {
+    final next = _stamp(product);
+    final index = _products.indexWhere((p) => p.id == next.id);
     if (index >= 0) {
-      _products[index] = product;
+      _products[index] = next;
     } else {
-      _products.insert(0, product);
+      _products.insert(0, next);
     }
     notifyListeners();
+    await _persist(next);
   }
 
   void updateVariantStock(
@@ -310,8 +349,10 @@ class AppStore extends ChangeNotifier {
         else
           variant,
     ];
-    _products[index] = product.copyWith(variants: variants);
+    final next = _stamp(product.copyWith(variants: variants));
+    _products[index] = next;
     notifyListeners();
+    unawaited(_persist(next));
   }
 
   void setActiveOrder(String? id) {
@@ -475,127 +516,23 @@ class AppStore extends ChangeNotifier {
     return true;
   }
 
-  void _seedOrders() {
-    final monica = _customers[0];
-    final abril = _customers[1];
-    final ana = _customers[3];
-    final polo = _products.firstWhere((p) => p.id == 'p20');
-    final palazzo = _products.firstWhere((p) => p.id == 'p21');
-    final bag = _products.firstWhere((p) => p.id == 'p22');
-    final jeans = _products.firstWhere((p) => p.id == 'p1');
-    final hoodie = _products.firstWhere((p) => p.id == 'p6');
-    final dress = _products.firstWhere((p) => p.id == 'p12');
-    final tee = _products.firstWhere((p) => p.id == 'p5');
-
-    orders.addAll([
-      DraftOrder(
-        id: _nextDraftId(),
-        orderNumber: 'PED-$_orderSeq',
-        customer: monica,
-        lines: [
-          OrderLine(
-            product: polo,
-            variant: polo.variantFor('M', 'Óxido')!,
-            quantity: 2,
-          ),
-          OrderLine(
-            product: palazzo,
-            variant: palazzo.variantFor('L', 'Beige')!,
-            quantity: 1,
-          ),
-          OrderLine(
-            product: bag,
-            variant: bag.variantFor('Único', 'Negro')!,
-            quantity: 1,
-          ),
-        ],
-      ),
-      DraftOrder(
-        id: _nextDraftId(),
-        orderNumber: 'PED-${_orderSeq + 1}',
-        customer: abril,
-        lines: [
-          OrderLine(
-            product: jeans,
-            variant: jeans.variantFor('38', 'Azul')!,
-            quantity: 2,
-          ),
-          OrderLine(
-            product: hoodie,
-            variant: hoodie.variantFor('L', 'Beige arena')!,
-            quantity: 1,
-          ),
-        ],
-      ),
-      DraftOrder(
-        id: _nextDraftId(),
-        orderNumber: 'PED-${_orderSeq + 2}',
-        customer: ana,
-        lines: [
-          OrderLine(
-            product: dress,
-            variant: dress.variantFor('M', 'Crema')!,
-            quantity: 1,
-          ),
-          OrderLine(
-            product: tee,
-            variant: tee.variantFor('M', 'Negro')!,
-            quantity: 3,
-          ),
-        ],
-      ),
-    ]);
-    final sur = _customers[2];
-    closedOrders.addAll([
-      DraftOrder(
-        id: _nextDraftId(),
-        orderNumber: 'PED-10040',
-        customer: monica,
-        status: OrderStatus.cerrado,
-        createdAt: DateTime(2026, 8, 28, 11, 15),
-        closedAt: DateTime(2026, 8, 28, 12, 40),
-        lines: [
-          OrderLine(
-            product: tee,
-            variant: tee.variantFor('S', 'Negro')!,
-            quantity: 2,
-          ),
-          OrderLine(
-            product: bag,
-            variant: bag.variantFor('Único', 'Negro')!,
-            quantity: 1,
-          ),
-        ],
-      ),
-      DraftOrder(
-        id: _nextDraftId(),
-        orderNumber: 'PED-10041',
-        customer: sur,
-        status: OrderStatus.cerrado,
-        createdAt: DateTime(2026, 9, 2, 16, 10),
-        closedAt: DateTime(2026, 9, 2, 17, 5),
-        lines: [
-          OrderLine(
-            product: jeans,
-            variant: jeans.variantFor('40', 'Azul')!,
-            quantity: 3,
-          ),
-        ],
-      ),
-    ]);
-    _orderSeq += 2;
-    activeOrderId = orders.first.id;
-  }
-
-  String _nextDraftId() {
-    _draftSeq += 1;
-    return 'o$_draftSeq';
-  }
-
   String nextSku() {
-    final n = _products.length + 31;
+    final n = _products.length + 1;
     return 'MS-${n.toString().padLeft(4, '0')}';
   }
 
-  String nextProductId() => 'p${DateTime.now().millisecondsSinceEpoch}';
+  String nextProductId() {
+    final companyId = _companyId;
+    final access = _productAccess;
+    if (companyId != null && access != null) {
+      return access.nextProductId(companyId);
+    }
+    return 'p${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  @override
+  void dispose() {
+    _productsSub?.cancel();
+    super.dispose();
+  }
 }

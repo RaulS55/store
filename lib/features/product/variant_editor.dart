@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/mock_data.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/qty_stepper.dart';

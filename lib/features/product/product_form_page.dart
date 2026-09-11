@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
-import '../../data/mock_data.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/product_image.dart';
@@ -63,14 +62,12 @@ class _ProductFormPageState extends State<ProductFormPage> {
   }
 
   void _addImage() {
-    final unused = MockCatalog.imagePool
-        .where((path) => !_images.contains(path))
-        .toList();
-    if (unused.isEmpty) return;
-    setState(() => _images.add(unused.first));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Todavía no se pueden cargar fotos.')),
+    );
   }
 
-  void _save() {
+  Future<void> _save() async {
     setState(() => _error = null);
     if (!_form.currentState!.validate() || _category == null) {
       setState(() => _error = 'Completá los campos obligatorios.');
@@ -82,6 +79,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
     }
     final store = context.read<AppStore>();
     final existing = widget.id == null ? null : store.productById(widget.id!);
+    final now = DateTime.now().toUtc();
     final product = Product(
       id: existing?.id ?? store.nextProductId(),
       name: _name.text.trim(),
@@ -91,8 +89,18 @@ class _ProductFormPageState extends State<ProductFormPage> {
       price: double.parse(_price.text.trim().replaceAll('.', '')),
       images: List.of(_images),
       variants: List.of(_draft.variants),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      deletedAt: existing?.deletedAt,
     );
-    store.upsertProduct(product);
+    try {
+      await store.upsertProduct(product);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'No se pudo guardar la prenda.');
+      return;
+    }
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'data/app_store.dart';
 import 'data/firebase_auth_client.dart';
 import 'data/firestore_company_access.dart';
+import 'data/firestore_product_access.dart';
 import 'data/session_store.dart';
 import 'firebase_options.dart';
 import 'routing/app_router.dart';
@@ -36,16 +37,24 @@ class _ModaStockAppState extends State<ModaStockApp> {
   @override
   void initState() {
     super.initState();
-    _store = AppStore();
+    _store = AppStore(products: FirestoreProductAccess());
     _session = SessionStore(
       auth: FirebaseAuthClient(),
       access: FirestoreCompanyAccess(),
-    )..start();
+    );
+    _session.addListener(_bindCatalog);
+    _session.start();
+    _bindCatalog();
     _router = createRouter(_session);
+  }
+
+  void _bindCatalog() {
+    _store.bindCompany(_session.companyId);
   }
 
   @override
   void dispose() {
+    _session.removeListener(_bindCatalog);
     _session.dispose();
     _store.dispose();
     super.dispose();

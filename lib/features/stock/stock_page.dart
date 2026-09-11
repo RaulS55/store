@@ -94,7 +94,9 @@ class _StockPageState extends State<StockPage> {
           ),
           SliverToBoxAdapter(child: _CategoryChips(chips: _chips)),
           if (products.isEmpty)
-            const SliverFillRemaining(child: _EmptyStock())
+            SliverFillRemaining(
+              child: _EmptyStock(hasCatalog: store.products.isNotEmpty),
+            )
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -236,7 +238,9 @@ class _StockPageState extends State<StockPage> {
             ),
           ),
           if (products.isEmpty)
-            const SliverFillRemaining(child: _EmptyStock())
+            SliverFillRemaining(
+              child: _EmptyStock(hasCatalog: store.products.isNotEmpty),
+            )
           else if (store.viewMode == StockViewMode.table)
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(28, 0, 28, 16),
@@ -341,10 +345,49 @@ class _CartButton extends StatelessWidget {
 }
 
 class _EmptyStock extends StatelessWidget {
-  const _EmptyStock();
+  const _EmptyStock({required this.hasCatalog});
+
+  final bool hasCatalog;
 
   @override
   Widget build(BuildContext context) {
+    if (!hasCatalog) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.checkroom_outlined,
+                size: 40,
+                color: AppColors.mutedText,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Todavía no hay prendas',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Cargá la primera prenda para armar el catálogo.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.slate,
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => context.go('/producto/nuevo'),
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+                child: const Text('Nueva prenda'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),

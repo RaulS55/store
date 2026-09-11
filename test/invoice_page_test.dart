@@ -8,6 +8,7 @@ import 'package:store_app/features/order/invoice_page.dart';
 import 'package:store_app/features/order/order_actions.dart';
 import 'package:store_app/routing/app_router.dart';
 
+import 'fakes/catalog_harness.dart';
 import 'fakes/session_harness.dart';
 
 Widget _app({
@@ -27,6 +28,8 @@ Widget _app({
 void main() {
   testWidgets('closed order shows the billing summary', (tester) async {
     final store = AppStore();
+    final order = await seedTestOrder(store);
+    expect(store.closeOrder(order.id), isTrue);
     final closed = store.closedOrders.first;
 
     await tester.pumpWidget(
@@ -49,7 +52,7 @@ void main() {
   testWidgets('closing an order opens the billing view', (tester) async {
     final store = AppStore();
     final session = await signedInOwnerSession();
-    final order = store.orders.first;
+    final order = await seedTestOrder(store);
     final router = createRouter(session);
 
     await tester.pumpWidget(
@@ -74,6 +77,8 @@ void main() {
   ) async {
     final store = AppStore();
     final session = await signedInOwnerSession();
+    final order = await seedTestOrder(store);
+    expect(store.closeOrder(order.id), isTrue);
     final closed = store.closedOrders.first;
     final router = createRouter(session);
 
