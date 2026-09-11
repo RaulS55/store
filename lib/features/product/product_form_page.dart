@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -100,7 +99,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
   Future<void> _save() async {
     setState(() => _error = null);
     if (!_form.currentState!.validate() || _category == null) {
-      setState(() => _error = 'Completá los campos obligatorios.');
+      setState(() => _error = 'Revisá los campos del formulario.');
       return;
     }
     if (_draft.variants.isEmpty) {
@@ -301,7 +300,9 @@ class _ProductFormPageState extends State<ProductFormPage> {
         child: TextFormField(
           controller: _sku,
           decoration: const InputDecoration(hintText: 'Ej. CJL-0255'),
-          validator: _required,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          onChanged: (_) => setState(() {}),
+          validator: _skuValidator,
         ),
       ),
       _LabeledField(
@@ -335,8 +336,9 @@ class _ProductFormPageState extends State<ProductFormPage> {
         child: TextFormField(
           controller: _price,
           keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: const InputDecoration(hintText: 'Ej. 12500'),
-          validator: _required,
+          validator: _priceValidator,
         ),
       ),
     ];
@@ -344,6 +346,25 @@ class _ProductFormPageState extends State<ProductFormPage> {
 
   String? _required(String? value) {
     if (value == null || value.trim().isEmpty) return 'Campo obligatorio';
+    return null;
+  }
+
+  String? _skuValidator(String? value) {
+    final required = _required(value);
+    if (required != null) return required;
+    final store = context.read<AppStore>();
+    if (store.isSkuInUse(value!.trim(), excludingProductId: _productId)) {
+      return 'Este SKU ya está en uso';
+    }
+    return null;
+  }
+
+  String? _priceValidator(String? value) {
+    final required = _required(value);
+    if (required != null) return required;
+    if (int.tryParse(value!.trim()) == null) {
+      return 'Ingresá un número';
+    }
     return null;
   }
 }

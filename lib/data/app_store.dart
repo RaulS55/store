@@ -232,6 +232,17 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
+  bool isSkuInUse(String sku, {String? excludingProductId}) {
+    final needle = sku.trim().toLowerCase();
+    if (needle.isEmpty) return false;
+    for (final product in _products) {
+      if (product.isDeleted) continue;
+      if (product.id == excludingProductId) continue;
+      if (product.sku.trim().toLowerCase() == needle) return true;
+    }
+    return false;
+  }
+
   Customer? customerById(String id) {
     for (final customer in _customers) {
       if (customer.id == id) return customer;

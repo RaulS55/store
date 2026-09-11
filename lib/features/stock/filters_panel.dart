@@ -179,9 +179,11 @@ class _FiltersEditorState extends State<FiltersEditor> {
                 runSpacing: 8,
                 children: [
                   for (final size in store.allSizes)
-                    ChoiceChip(
+                    FilterChip(
                       label: Text(size),
                       selected: _draft.sizes.contains(size),
+                      showCheckmark: false,
+                      selectedColor: AppColors.terracottaChip,
                       onSelected: (_) => _toggleSize(size),
                     ),
                 ],
@@ -333,32 +335,46 @@ class WebFilterBar extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _DropdownWrap(
-                label: 'Categoría',
-                child: DropdownButton<ApparelCategory?>(
-                  value: store.chipCategory,
-                  hint: const Text('Todas'),
-                  underline: const SizedBox.shrink(),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Todas')),
-                    for (final c in ApparelCategory.values)
-                      DropdownMenuItem(value: c, child: Text(c.label)),
+              Expanded(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _DropdownWrap(
+                      label: 'Categoría',
+                      child: DropdownButton<ApparelCategory?>(
+                        value: store.chipCategory,
+                        hint: const Text('Todas'),
+                        underline: const SizedBox.shrink(),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('Todas'),
+                          ),
+                          for (final c in ApparelCategory.values)
+                            DropdownMenuItem(value: c, child: Text(c.label)),
+                        ],
+                        onChanged: store.selectChipCategory,
+                      ),
+                    ),
+                    _FilterChipRow(store: store),
+                    FilterChip(
+                      label: const Text('Poco stock'),
+                      selected: store.filters.onlyLowStock,
+                      showCheckmark: false,
+                      selectedColor: AppColors.terracottaChip,
+                      onSelected: (v) => store.applyFilters(
+                        store.filters.copyWith(onlyLowStock: v),
+                      ),
+                    ),
                   ],
-                  onChanged: store.selectChipCategory,
                 ),
               ),
-              _FilterChipRow(store: store),
-              FilterChip(
-                label: const Text('Solo bajo stock'),
-                selected: store.filters.onlyLowStock,
-                onSelected: (v) =>
-                    store.applyFilters(store.filters.copyWith(onlyLowStock: v)),
-              ),
+              const SizedBox(width: 12),
               FilledButton(
                 onPressed: () => showFiltersSheet(context),
                 style: FilledButton.styleFrom(minimumSize: const Size(140, 40)),
@@ -382,10 +398,12 @@ class _FilterChipRow extends StatelessWidget {
     return Wrap(
       spacing: 8,
       children: [
-        for (final size in const ['S', 'M', 'L', '38', '40', '42'])
+        for (final size in const ['S', 'M', 'L'])
           FilterChip(
             label: Text(size),
             selected: store.filters.sizes.contains(size),
+            showCheckmark: false,
+            selectedColor: AppColors.terracottaChip,
             onSelected: (_) {
               final next = {...store.filters.sizes};
               if (!next.add(size)) next.remove(size);

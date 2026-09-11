@@ -200,6 +200,14 @@ class _SizeChips extends StatelessWidget {
   final VariantDraft draft;
   final VoidCallback onChanged;
 
+  List<String> get _sizes {
+    return [
+      ...VariantDraft.suggestedSizes,
+      for (final size in draft.sizes)
+        if (!VariantDraft.suggestedSizes.contains(size)) size,
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Wrap(
@@ -207,27 +215,24 @@ class _SizeChips extends StatelessWidget {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (final size in draft.sizes)
-          InputChip(
+        for (final size in _sizes)
+          FilterChip(
             label: Text(size),
-            selected: true,
+            selected: draft.sizes.contains(size),
+            showCheckmark: false,
             selectedColor: AppColors.terracottaChip,
-            onDeleted: () {
-              draft.removeSize(size);
-              onChanged();
-            },
-          ),
-        for (final size in VariantDraft.suggestedSizes.where((s) => !draft.sizes.contains(s)).take(6))
-          ActionChip(
-            label: Text(size),
-            onPressed: () {
-              draft.addSize(size);
+            onSelected: (selected) {
+              if (selected) {
+                draft.addSize(size);
+              } else {
+                draft.removeSize(size);
+              }
               onChanged();
             },
           ),
         ActionChip(
           avatar: const Icon(Icons.add, size: 16, color: AppColors.terracotta),
-          label: const Text('+ Talle'),
+          label: const Text('Talle'),
           onPressed: () => _addCustomSize(context),
         ),
       ],
@@ -253,6 +258,7 @@ class _SizeChips extends StatelessWidget {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, controller.text.trim()),
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
               child: const Text('Agregar'),
             ),
           ],
@@ -271,6 +277,14 @@ class _ColorChips extends StatelessWidget {
   final VariantDraft draft;
   final VoidCallback onChanged;
 
+  List<SwatchColor> get _colors {
+    return [
+      ...Swatches.all,
+      for (final color in draft.colors)
+        if (!Swatches.all.any((item) => item.name == color.name)) color,
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Wrap(
@@ -278,21 +292,16 @@ class _ColorChips extends StatelessWidget {
       runSpacing: 10,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (final color in draft.colors)
+        for (final color in _colors)
           _Swatch(
             color: color,
-            selected: true,
+            selected: draft.colors.any((item) => item.name == color.name),
             onTap: () {
-              draft.removeColor(color.name);
-              onChanged();
-            },
-          ),
-        for (final color in Swatches.all.where((c) => !draft.colors.any((x) => x.name == c.name)))
-          _Swatch(
-            color: color,
-            selected: false,
-            onTap: () {
-              draft.addColor(color);
+              if (draft.colors.any((item) => item.name == color.name)) {
+                draft.removeColor(color.name);
+              } else {
+                draft.addColor(color);
+              }
               onChanged();
             },
           ),
@@ -501,6 +510,7 @@ class _VariantList extends StatelessWidget {
                 }
                 Navigator.pop(context);
               },
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
               child: const Text('Agregar'),
             ),
           ],
