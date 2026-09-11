@@ -20,6 +20,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final _company = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _code = TextEditingController();
   String? _error;
 
   @override
@@ -28,6 +29,7 @@ class _SignUpPageState extends State<SignUpPage> {
     _company.dispose();
     _email.dispose();
     _password.dispose();
+    _code.dispose();
     super.dispose();
   }
 
@@ -35,17 +37,21 @@ class _SignUpPageState extends State<SignUpPage> {
     return InviteRef.fromQuery(GoRouterState.of(context).uri);
   }
 
+  bool get _hasCode => _code.text.trim().isNotEmpty;
+
   Future<void> _submit() async {
     setState(() => _error = null);
     final invite = _invite;
+    final skipCompany = invite != null || _hasCode;
     try {
       await context.read<SessionStore>().signUp(
         email: _email.text,
         password: _password.text,
         displayName: _name.text,
-        companyName: invite == null ? _company.text : null,
+        companyName: skipCompany ? null : _company.text,
         inviteCompanyId: invite?.companyId,
         inviteId: invite?.invitationId,
+        inviteCode: _code.text,
       );
     } on SessionException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -70,7 +76,7 @@ class _SignUpPageState extends State<SignUpPage> {
             textInputAction: TextInputAction.next,
             decoration: const InputDecoration(labelText: 'Nombre'),
           ),
-          if (invite == null) ...[
+          if (invite == null && !_hasCode) ...[
             const SizedBox(height: 12),
             TextField(
               controller: _company,
@@ -93,10 +99,28 @@ class _SignUpPageState extends State<SignUpPage> {
           TextField(
             controller: _password,
             obscureText: true,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => session.isBusy ? null : _submit(),
+            textInputAction: invite == null
+                ? TextInputAction.next
+                : TextInputAction.done,
+            onSubmitted: invite == null
+                ? null
+                : (_) => session.isBusy ? null : _submit(),
             decoration: const InputDecoration(labelText: 'Contraseña'),
           ),
+          if (invite == null) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _code,
+              textCapitalization: TextCapitalization.characters,
+              autocorrect: false,
+              textInputAction: TextInputAction.done,
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) => session.isBusy ? null : _submit(),
+              decoration: const InputDecoration(
+                labelText: 'Código de invitación',
+              ),
+            ),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(

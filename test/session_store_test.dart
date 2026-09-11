@@ -243,4 +243,315 @@ void main() {
       throwsA(isA<SessionException>()),
     );
   });
+
+  test('employee cannot view team and does not list invitations', () async {
+    final auth = FakeAuthClient();
+    final access = FakeCompanyAccess();
+    final session = SessionStore(auth: auth, access: access)..start();
+    addTearDown(session.dispose);
+
+    await session.signUp(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+      displayName: 'Valeria Soto',
+      companyName: 'Moda Stock',
+    );
+    final invitation = await session.inviteEmployee('emp@moda.stock');
+    await session.signOut();
+    await session.signUp(
+      email: 'emp@moda.stock',
+      password: 'secret12',
+      displayName: 'Ana Pérez',
+      inviteCompanyId: invitation.companyId,
+      inviteId: invitation.id,
+    );
+
+    access.listInvitationsCalls = 0;
+    await session.loadTeam();
+
+    expect(session.canViewTeam, isFalse);
+    expect(session.members, isEmpty);
+    expect(session.invitations, isEmpty);
+    expect(access.listInvitationsCalls, 0);
+  });
+
+  test('administrator can view team members but not invitations', () async {
+    final auth = FakeAuthClient();
+    final access = FakeCompanyAccess();
+    final session = SessionStore(auth: auth, access: access)..start();
+    addTearDown(session.dispose);
+
+    await session.signUp(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+      displayName: 'Valeria Soto',
+      companyName: 'Moda Stock',
+    );
+    final invitation = await session.inviteEmployee(
+      'admin@moda.stock',
+      role: CompanyRole.administrator,
+    );
+    await session.signOut();
+    await session.signUp(
+      email: 'admin@moda.stock',
+      password: 'secret12',
+      displayName: 'Ana Pérez',
+      inviteCompanyId: invitation.companyId,
+      inviteId: invitation.id,
+    );
+
+    access.listInvitationsCalls = 0;
+    await session.loadTeam();
+
+    expect(session.canViewTeam, isTrue);
+    expect(session.isOwner, isFalse);
+    expect(session.members, isNotEmpty);
+    expect(session.invitations, isEmpty);
+    expect(access.listInvitationsCalls, 0);
+  });
+
+  test(
+    'owner can remove an employee and that account needs a company',
+    () async {
+      final auth = FakeAuthClient();
+      final access = FakeCompanyAccess();
+      final session = SessionStore(auth: auth, access: access)..start();
+      addTearDown(session.dispose);
+
+      await session.signUp(
+        email: 'owner@moda.stock',
+        password: 'secret12',
+        displayName: 'Valeria Soto',
+        companyName: 'Moda Stock',
+      );
+      final invitation = await session.inviteEmployee('emp@moda.stock');
+      await session.signOut();
+      await session.signUp(
+        email: 'emp@moda.stock',
+        password: 'secret12',
+        displayName: 'Ana Pérez',
+        inviteCompanyId: invitation.companyId,
+        inviteId: invitation.id,
+      );
+      final employeeUid = session.user!.id;
+      await session.signOut();
+      await session.signIn(email: 'owner@moda.stock', password: 'secret12');
+      await session.removeMember(employeeUid);
+
+      expect(
+        session.members.any((member) => member.uid == employeeUid),
+        isFalse,
+      );
+      expect(access.users[employeeUid]?.companyId, isEmpty);
+
+      await session.signOut();
+      await session.signIn(email: 'emp@moda.stock', password: 'secret12');
+      expect(session.isSignedIn, isFalse);
+      expect(session.needsCompany, isTrue);
+      expect(session.hasIdentity, isTrue);
+    },
+  );
+
+  test('removed employee can join another company with a code', () async {
+    final auth = FakeAuthClient();
+    final access = FakeCompanyAccess();
+    final session = SessionStore(auth: auth, access: access)..start();
+    addTearDown(session.dispose);
+
+    await session.signUp(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+      displayName: 'Valeria Soto',
+      companyName: 'Moda Stock',
+    );
+    final firstInvite = await session.inviteEmployee('emp@moda.stock');
+    await session.signOut();
+    await session.signUp(
+      email: 'emp@moda.stock',
+      password: 'secret12',
+      displayName: 'Ana Pérez',
+      inviteCompanyId: firstInvite.companyId,
+      inviteId: firstInvite.id,
+    );
+    final employeeUid = session.user!.id;
+    await session.signOut();
+    await session.signIn(email: 'owner@moda.stock', password: 'secret12');
+    await session.removeMember(employeeUid);
+    await session.signOut();
+
+    await session.signUp(
+      email: 'otro@moda.stock',
+      password: 'secret12',
+      displayName: 'Bruno',
+      companyName: 'Otra',
+    );
+    final secondInvite = await session.inviteEmployee('emp@moda.stock');
+    expect(secondInvite.code, isNotEmpty);
+    await session.signOut();
+    await session.signIn(
+      email: 'emp@moda.stock',
+      password: 'secret12',
+      inviteCode: secondInvite.code,
+    );
+
+    expect(session.isSignedIn, isTrue);
+    expect(session.membership?.role, CompanyRole.employee);
+    expect(session.company?.name, 'Otra');
+  });
+
+  test('removed employee can create a company', () async {
+    final auth = FakeAuthClient();
+    final access = FakeCompanyAccess();
+    final session = SessionStore(auth: auth, access: access)..start();
+    addTearDown(session.dispose);
+
+    await session.signUp(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+      displayName: 'Valeria Soto',
+      companyName: 'Moda Stock',
+    );
+    final invitation = await session.inviteEmployee('emp@moda.stock');
+    await session.signOut();
+    await session.signUp(
+      email: 'emp@moda.stock',
+      password: 'secret12',
+      displayName: 'Ana Pérez',
+      inviteCompanyId: invitation.companyId,
+      inviteId: invitation.id,
+    );
+    final employeeUid = session.user!.id;
+    await session.signOut();
+    await session.signIn(email: 'owner@moda.stock', password: 'secret12');
+    await session.removeMember(employeeUid);
+    await session.signOut();
+    await session.signIn(email: 'emp@moda.stock', password: 'secret12');
+    await session.createOwnedCompany('Taller Ana');
+
+    expect(session.isSignedIn, isTrue);
+    expect(session.isOwner, isTrue);
+    expect(session.company?.name, 'Taller Ana');
+  });
+
+  test('owner cannot remove the owner', () async {
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+
+    await expectLater(
+      session.removeMember(session.user!.id),
+      throwsA(
+        isA<SessionException>().having(
+          (error) => error.message,
+          'message',
+          'No se puede sacar al propietario.',
+        ),
+      ),
+    );
+  });
+
+  test('employee cannot remove a member', () async {
+    final session = await signedInMemberSession(role: CompanyRole.employee);
+    addTearDown(session.dispose);
+
+    await expectLater(
+      session.removeMember('uid-1'),
+      throwsA(isA<SessionException>()),
+    );
+  });
+
+  test('orphan companyId without membership lands on join', () async {
+    final auth = FakeAuthClient();
+    final access = FakeCompanyAccess();
+    final session = SessionStore(auth: auth, access: access)..start();
+    addTearDown(session.dispose);
+
+    await session.signUp(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+      displayName: 'Valeria Soto',
+      companyName: 'Moda Stock',
+    );
+    final invitation = await session.inviteEmployee('emp@moda.stock');
+    await session.signOut();
+    await session.signUp(
+      email: 'emp@moda.stock',
+      password: 'secret12',
+      displayName: 'Ana Pérez',
+      inviteCompanyId: invitation.companyId,
+      inviteId: invitation.id,
+    );
+    final employeeUid = session.user!.id;
+    final companyId = invitation.companyId;
+    await session.signOut();
+
+    access.members[companyId]?.remove(employeeUid);
+
+    await session.signIn(email: 'emp@moda.stock', password: 'secret12');
+
+    expect(session.isSignedIn, isFalse);
+    expect(session.needsCompany, isTrue);
+    expect(session.user?.id, employeeUid);
+    expect(session.user?.companyId, isEmpty);
+    expect(access.users[employeeUid]?.companyId, isEmpty);
+  });
+
+  test('sign up with a valid invite code joins as that role', () async {
+    final auth = FakeAuthClient();
+    final access = FakeCompanyAccess();
+    final session = SessionStore(auth: auth, access: access)..start();
+    addTearDown(session.dispose);
+
+    await session.signUp(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+      displayName: 'Valeria Soto',
+      companyName: 'Moda Stock',
+    );
+    final invitation = await session.inviteEmployee(
+      'admin@moda.stock',
+      role: CompanyRole.administrator,
+    );
+    await session.signOut();
+    await session.signUp(
+      email: 'admin@moda.stock',
+      password: 'secret12',
+      displayName: 'Ana Pérez',
+      inviteCode: invitation.code,
+    );
+
+    expect(session.membership?.role, CompanyRole.administrator);
+    expect(session.companyId, invitation.companyId);
+  });
+
+  test('invite code for another email is rejected', () async {
+    final auth = FakeAuthClient();
+    final access = FakeCompanyAccess();
+    final session = SessionStore(auth: auth, access: access)..start();
+    addTearDown(session.dispose);
+
+    await session.signUp(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+      displayName: 'Valeria Soto',
+      companyName: 'Moda Stock',
+    );
+    final invitation = await session.inviteEmployee('emp@moda.stock');
+    await session.signOut();
+
+    await expectLater(
+      session.signUp(
+        email: 'otro@moda.stock',
+        password: 'secret12',
+        displayName: 'Otro',
+        inviteCode: invitation.code,
+      ),
+      throwsA(
+        isA<SessionException>().having(
+          (error) => error.message,
+          'message',
+          'El código no es válido.',
+        ),
+      ),
+    );
+  });
 }

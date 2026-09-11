@@ -19,6 +19,14 @@ service cloud.firestore {
       return /databases/$(database)/documents/companies/$(companyId)/members/$(request.auth.uid);
     }
 
+    function memberDoc(companyId, uid) {
+      return /databases/$(database)/documents/companies/$(companyId)/members/$(uid);
+    }
+
+    function companyDoc(companyId) {
+      return /databases/$(database)/documents/companies/$(companyId);
+    }
+
     function isMember(companyId) {
       return signedIn() && exists(memberPath(companyId));
     }
@@ -38,6 +46,42 @@ service cloud.firestore {
         && get(invitationPath(companyId, invitationId)).data.email == email();
     }
 
+    function isJoiningOwnedCompany(companyId) {
+      return existsAfter(memberPath(companyId))
+        && getAfter(memberPath(companyId)).data.email == email()
+        && getAfter(memberPath(companyId)).data.role == 'owner'
+        && getAfter(companyDoc(companyId)).data.ownerId == request.auth.uid;
+    }
+
+    function isJoiningViaInvite(companyId) {
+      return existsAfter(memberPath(companyId))
+        && getAfter(memberPath(companyId)).data.email == email()
+        && getAfter(memberPath(companyId)).data.role in ['employee', 'administrator']
+        && getAfter(memberPath(companyId)).data.invitationId is string;
+    }
+
+    function canOwnerClearCompany(uid) {
+      return signedIn()
+        && resource.data.companyId is string
+        && resource.data.companyId.size() > 0
+        && isOwner(resource.data.companyId)
+        && exists(memberDoc(resource.data.companyId, uid))
+        && get(memberDoc(resource.data.companyId, uid)).data.role in ['employee', 'administrator']
+        && request.resource.data.companyId == ''
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.displayName == resource.data.displayName;
+    }
+
+    function canSelfClearOrphanCompany(uid) {
+      return isSelf(uid)
+        && resource.data.companyId is string
+        && resource.data.companyId.size() > 0
+        && !exists(memberDoc(resource.data.companyId, uid))
+        && request.resource.data.companyId == ''
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.displayName == resource.data.displayName;
+    }
+
     match /users/{uid} {
       allow read: if isSelf(uid);
       allow create: if isSelf(uid)
@@ -45,9 +89,22 @@ service cloud.firestore {
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
         && request.resource.data.displayName is string;
-      allow update: if isSelf(uid)
+      allow update: if (
+        isSelf(uid)
         && request.resource.data.email == resource.data.email
-        && request.resource.data.companyId == resource.data.companyId;
+        && request.resource.data.companyId == resource.data.companyId
+      ) || (
+        isSelf(uid)
+        && request.resource.data.email == resource.data.email
+        && resource.data.companyId == ''
+        && request.resource.data.companyId is string
+        && request.resource.data.companyId.size() > 0
+        && (
+          isJoiningOwnedCompany(request.resource.data.companyId)
+          || isJoiningViaInvite(request.resource.data.companyId)
+        )
+      ) || canOwnerClearCompany(uid)
+        || canSelfClearOrphanCompany(uid);
       allow delete: if false;
     }
 
@@ -78,7 +135,9 @@ service cloud.firestore {
               && get(invitationPath(companyId, request.resource.data.invitationId)).data.role == request.resource.data.role
             )
           );
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if isOwner(companyId)
+          && resource.data.role in ['employee', 'administrator'];
       }
 
       match /invitations/{invitationId} {
@@ -89,7 +148,9 @@ service cloud.firestore {
           && request.resource.data.status == 'pending'
           && request.resource.data.email is string
           && request.resource.data.email.size() > 0
-          && request.resource.data.invitedBy == request.auth.uid;
+          && request.resource.data.invitedBy == request.auth.uid
+          && request.resource.data.code is string
+          && request.resource.data.code.size() == 6;
         allow update: if (
           isOwner(companyId)
           && resource.data.status == 'pending'

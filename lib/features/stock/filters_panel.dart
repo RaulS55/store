@@ -12,7 +12,6 @@ Future<void> showFiltersSheet(BuildContext context) {
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.lg)),
     ),
@@ -321,9 +320,9 @@ class WebFilterBar extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 'Filtros avanzados',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               if (!store.filters.isEmpty)
@@ -357,15 +356,12 @@ class WebFilterBar extends StatelessWidget {
               FilterChip(
                 label: const Text('Solo bajo stock'),
                 selected: store.filters.onlyLowStock,
-                onSelected: (v) => store.applyFilters(
-                  store.filters.copyWith(onlyLowStock: v),
-                ),
+                onSelected: (v) =>
+                    store.applyFilters(store.filters.copyWith(onlyLowStock: v)),
               ),
               FilledButton(
                 onPressed: () => showFiltersSheet(context),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(140, 40),
-                ),
+                style: FilledButton.styleFrom(minimumSize: const Size(140, 40)),
                 child: const Text('Aplicar filtros'),
               ),
             ],
@@ -423,9 +419,9 @@ class _DropdownWrap extends StatelessWidget {
         children: [
           Text(
             '$label  ',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.mutedText,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
           ),
           child,
         ],
@@ -444,9 +440,9 @@ class _Label extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -479,7 +475,9 @@ class _ColorDot extends StatelessWidget {
               color: color,
               shape: BoxShape.circle,
               border: Border.all(
-                color: selected ? AppColors.terracotta : const Color(0x22000000),
+                color: selected
+                    ? AppColors.terracotta
+                    : const Color(0x22000000),
                 width: selected ? 2 : 1,
               ),
             ),

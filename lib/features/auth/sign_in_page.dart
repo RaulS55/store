@@ -18,17 +18,29 @@ class SignInPage extends StatefulWidget {
 class _SignInPageState extends State<SignInPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _code = TextEditingController();
+  final _codeFocus = FocusNode();
+  bool _showCode = false;
   String? _error;
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _code.dispose();
+    _codeFocus.dispose();
     super.dispose();
   }
 
   InviteRef? get _invite {
     return InviteRef.fromQuery(GoRouterState.of(context).uri);
+  }
+
+  void _revealCode() {
+    setState(() => _showCode = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _codeFocus.requestFocus();
+    });
   }
 
   Future<void> _submit() async {
@@ -40,6 +52,7 @@ class _SignInPageState extends State<SignInPage> {
         password: _password.text,
         inviteCompanyId: invite?.companyId,
         inviteId: invite?.invitationId,
+        inviteCode: _code.text,
       );
     } on SessionException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -69,10 +82,36 @@ class _SignInPageState extends State<SignInPage> {
           TextField(
             controller: _password,
             obscureText: true,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => session.isBusy ? null : _submit(),
+            textInputAction: invite == null && _showCode
+                ? TextInputAction.next
+                : TextInputAction.done,
+            onSubmitted: invite == null && _showCode
+                ? null
+                : (_) => session.isBusy ? null : _submit(),
             decoration: const InputDecoration(labelText: 'Contraseña'),
           ),
+          if (invite == null && _showCode) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _code,
+              focusNode: _codeFocus,
+              textCapitalization: TextCapitalization.characters,
+              autocorrect: false,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => session.isBusy ? null : _submit(),
+              decoration: const InputDecoration(
+                labelText: 'Código de invitación',
+              ),
+            ),
+          ],
+          if (invite == null && !_showCode)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: _revealCode,
+                child: const Text('¿Tenés un código de invitación?'),
+              ),
+            ),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(

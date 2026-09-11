@@ -39,6 +39,8 @@ class SessionStore extends ChangeNotifier {
   bool get isSignedIn =>
       _ready && _user != null && _company != null && _membership != null;
   bool get isOwner => _membership?.role == CompanyRole.owner;
+  bool get canViewTeam => _membership?.role.canViewTeam ?? false;
+  bool get needsCompany => isReady && hasIdentity && !isSignedIn;
 
   AuthIdentity? get identity => _identity;
   AppUser? get user => _user;
@@ -69,6 +71,7 @@ class SessionStore extends ChangeNotifier {
     required String password,
     String? inviteCompanyId,
     String? inviteId,
+    String? inviteCode,
   }) {
     return _run(() async {
       final identity = await _auth.signInWithEmail(
@@ -80,6 +83,7 @@ class SessionStore extends ChangeNotifier {
         displayName: identity.email,
         inviteCompanyId: inviteCompanyId,
         inviteId: inviteId,
+        inviteCode: inviteCode,
       );
     });
   }
@@ -91,6 +95,7 @@ class SessionStore extends ChangeNotifier {
     String? companyName,
     String? inviteCompanyId,
     String? inviteId,
+    String? inviteCode,
   }) {
     return _run(() async {
       final name = displayName.trim();
@@ -118,6 +123,7 @@ class SessionStore extends ChangeNotifier {
           companyName: companyName,
           inviteCompanyId: inviteCompanyId,
           inviteId: inviteId,
+          inviteCode: inviteCode,
         );
       } catch (error) {
         if (created != null) {
@@ -183,11 +189,73 @@ class SessionStore extends ChangeNotifier {
     await loadTeam();
   }
 
+  Future<void> removeMember(String uid) async {
+    final current = _requireOwner();
+    if (uid == current.user.id) {
+      throw const SessionException('No se puede sacar al propietario.');
+    }
+    await _access.removeMember(companyId: current.company.id, uid: uid);
+    await loadTeam();
+  }
+
+  Future<void> joinWithInviteCode(String code) {
+    return _run(() async {
+      final identity = _identity;
+      if (identity == null) {
+        throw const SessionException('Ingresá para aceptar la invitación.');
+      }
+      if (isSignedIn) {
+        throw const SessionException('Ya pertenecés a una empresa.');
+      }
+      await _acceptInviteByCode(identity, code);
+      await _loadProfile(identity);
+    });
+  }
+
+  Future<void> createOwnedCompany(String companyName) {
+    return _run(() async {
+      final identity = _identity;
+      if (identity == null) {
+        throw const SessionException('Ingresá para continuar.');
+      }
+      if (isSignedIn) {
+        throw const SessionException('Ya pertenecés a una empresa.');
+      }
+      final name = companyName.trim();
+      if (name.isEmpty) {
+        throw const SessionException('Ingresá el nombre de la empresa.');
+      }
+      await _access.createOwnerCompany(
+        uid: identity.uid,
+        email: identity.email,
+        displayName: _displayNameFor(identity),
+        companyName: name,
+      );
+      await _loadProfile(identity);
+    });
+  }
+
   Future<void> loadTeam() async {
     final company = _company;
     if (company == null) return;
-    _members = await _access.listMembers(company.id);
-    _invitations = await _access.listInvitations(company.id);
+    if (!canViewTeam) {
+      _members = const [];
+      _invitations = const [];
+      notifyListeners();
+      return;
+    }
+    try {
+      _members = await _access.listMembers(company.id);
+      if (isOwner) {
+        _invitations = await _access.listInvitations(company.id);
+      } else {
+        _invitations = const [];
+      }
+    } on SessionException {
+      rethrow;
+    } catch (_) {
+      throw const SessionException('No se pudo cargar el equipo.');
+    }
     notifyListeners();
   }
 
@@ -236,22 +304,36 @@ class SessionStore extends ChangeNotifier {
     String? companyName,
     String? inviteCompanyId,
     String? inviteId,
+    String? inviteCode,
   }) async {
     _identity = identity;
     final user = await _access.getUser(identity.uid);
-    if (user != null) {
+    if (user != null && user.companyId.isNotEmpty) {
       await _loadProfile(identity);
       _markReady();
       notifyListeners();
       return;
     }
 
+    final code = normalizeInviteCode(inviteCode ?? '');
     final targeted =
         inviteCompanyId != null &&
         inviteCompanyId.isNotEmpty &&
         inviteId != null &&
         inviteId.isNotEmpty;
-    if (targeted) {
+    final name = companyName?.trim() ?? '';
+    final wantsJoin = code.isNotEmpty || targeted || name.isNotEmpty;
+
+    if (user != null && !wantsJoin) {
+      await _loadProfile(identity);
+      _markReady();
+      notifyListeners();
+      return;
+    }
+
+    if (code.isNotEmpty) {
+      await _acceptInviteByCode(identity, code, displayName: displayName);
+    } else if (targeted) {
       await _access.acceptInvitation(
         uid: identity.uid,
         email: identity.email,
@@ -272,7 +354,6 @@ class SessionStore extends ChangeNotifier {
           invitationId: pending.id,
         );
       } else {
-        final name = companyName?.trim() ?? '';
         if (name.isEmpty) {
           throw const SessionException('Ingresá el nombre de la empresa.');
         }
@@ -287,6 +368,29 @@ class SessionStore extends ChangeNotifier {
     await _loadProfile(identity);
     _markReady();
     notifyListeners();
+  }
+
+  Future<void> _acceptInviteByCode(
+    AuthIdentity identity,
+    String code, {
+    String? displayName,
+  }) async {
+    final pending = await _access.findPendingInvitationByCode(
+      identity.email,
+      code,
+    );
+    if (pending == null) {
+      throw const SessionException('El código no es válido.');
+    }
+    await _access.acceptInvitation(
+      uid: identity.uid,
+      email: identity.email,
+      displayName: (displayName == null || displayName.trim().isEmpty)
+          ? _displayNameFor(identity)
+          : displayName.trim(),
+      companyId: pending.companyId,
+      invitationId: pending.id,
+    );
   }
 
   Future<void> _loadProfile(AuthIdentity identity) async {
@@ -304,7 +408,7 @@ class SessionStore extends ChangeNotifier {
         user = await _access.getUser(identity.uid);
       }
     }
-    if (user == null || user.companyId.isEmpty) {
+    if (user == null) {
       _user = null;
       _company = null;
       _membership = null;
@@ -312,9 +416,35 @@ class SessionStore extends ChangeNotifier {
       _invitations = const [];
       return;
     }
-    final company = await _access.getCompany(user.companyId);
+    if (user.companyId.isEmpty) {
+      _user = user;
+      _company = null;
+      _membership = null;
+      _members = const [];
+      _invitations = const [];
+      return;
+    }
     final membership = await _access.getMembership(user.companyId, user.id);
-    if (company == null || membership == null) {
+    if (membership == null) {
+      try {
+        await _access.clearOrphanCompany(user.id);
+      } catch (_) {}
+      final detached = await _access.getUser(user.id);
+      _user = AppUser(
+        id: user.id,
+        email: detached?.email ?? user.email,
+        displayName: detached?.displayName ?? user.displayName,
+        companyId: '',
+        createdAt: detached?.createdAt ?? user.createdAt,
+      );
+      _company = null;
+      _membership = null;
+      _members = const [];
+      _invitations = const [];
+      return;
+    }
+    final company = await _access.getCompany(user.companyId);
+    if (company == null) {
       throw const SessionException(
         'No se pudo cargar el contexto de la empresa.',
       );
@@ -370,7 +500,9 @@ class SessionStore extends ChangeNotifier {
       throw const SessionException('Ingresá para continuar.');
     }
     if (membership.role != CompanyRole.owner) {
-      throw const SessionException('Solo el propietario puede invitar.');
+      throw const SessionException(
+        'Solo el propietario puede gestionar el equipo.',
+      );
     }
     return (user: user, company: company, membership: membership);
   }

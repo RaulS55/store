@@ -40,13 +40,14 @@ class MorePage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.go('/clientes'),
           ),
-          ListTile(
-            leading: const Icon(Icons.groups_outlined),
-            title: const Text('Equipo'),
-            subtitle: Text(session.company?.name ?? ''),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/equipo'),
-          ),
+          if (session.canViewTeam)
+            ListTile(
+              leading: const Icon(Icons.groups_outlined),
+              title: const Text('Equipo'),
+              subtitle: Text(session.company?.name ?? ''),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go('/equipo'),
+            ),
           ListTile(
             leading: const Icon(Icons.settings_outlined),
             title: const Text('Configuración'),

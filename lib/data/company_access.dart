@@ -21,6 +21,8 @@ abstract class CompanyAccess {
 
   Future<Invitation?> findPendingInvitationByEmail(String email);
 
+  Future<Invitation?> findPendingInvitationByCode(String email, String code);
+
   Future<void> createOwnerCompany({
     required String uid,
     required String email,
@@ -55,4 +57,8 @@ abstract class CompanyAccess {
     required String companyId,
     required String invitationId,
   });
+
+  Future<void> removeMember({required String companyId, required String uid});
+
+  Future<void> clearOrphanCompany(String uid);
 }

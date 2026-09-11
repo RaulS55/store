@@ -54,11 +54,22 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final session = context.watch<SessionStore>();
     final wide = AppBreakpoints.isWide(context);
+    final destinations = _destinationsFor(session, wide);
     if (wide) {
-      return _WebShell(destinations: _wideDestinations, child: child);
+      return _WebShell(destinations: destinations, child: child);
     }
-    return _MobileShell(destinations: _mobileDestinations, child: child);
+    return _MobileShell(destinations: destinations, child: child);
+  }
+
+  static List<_Dest> _destinationsFor(SessionStore session, bool wide) {
+    final all = wide ? _wideDestinations : _mobileDestinations;
+    if (session.canViewTeam) return all;
+    return [
+      for (final dest in all)
+        if (dest.path != '/equipo') dest,
+    ];
   }
 }
 

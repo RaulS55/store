@@ -12,7 +12,9 @@ class FakeCompanyAccess implements CompanyAccess {
   final companies = <String, Company>{};
   final members = <String, Map<String, Membership>>{};
   final invitations = <String, Map<String, Invitation>>{};
+  var listInvitationsCalls = 0;
   var _seq = 0;
+  var _codeSeq = 0;
 
   String _id() => 'id-${++_seq}';
 
@@ -46,6 +48,7 @@ class FakeCompanyAccess implements CompanyAccess {
 
   @override
   Future<List<Invitation>> listInvitations(String companyId) async {
+    listInvitationsCalls++;
     final list = [...?invitations[companyId]?.values];
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
@@ -65,6 +68,26 @@ class FakeCompanyAccess implements CompanyAccess {
     for (final byCompany in invitations.values) {
       for (final invitation in byCompany.values) {
         if (invitation.isPending && invitation.email == normalized) {
+          return invitation;
+        }
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<Invitation?> findPendingInvitationByCode(
+    String email,
+    String code,
+  ) async {
+    final normalized = normalizeEmail(email);
+    final normalizedCode = normalizeInviteCode(code);
+    if (normalizedCode.length != inviteCodeLength) return null;
+    for (final byCompany in invitations.values) {
+      for (final invitation in byCompany.values) {
+        if (invitation.isPending &&
+            invitation.email == normalized &&
+            invitation.code == normalizedCode) {
           return invitation;
         }
       }
@@ -159,6 +182,7 @@ class FakeCompanyAccess implements CompanyAccess {
       invitedBy: invitedBy,
       createdAt: _now,
       companyName: companyName.trim(),
+      code: _nextCode(),
     );
     companyInvites[invitation.id] = invitation;
     return invitation;
@@ -223,5 +247,54 @@ class FakeCompanyAccess implements CompanyAccess {
     invitations[companyId]![invitationId] = invitation.copyWith(
       status: InvitationStatus.revoked,
     );
+  }
+
+  @override
+  Future<void> removeMember({
+    required String companyId,
+    required String uid,
+  }) async {
+    final member = members[companyId]?[uid];
+    if (member == null) {
+      throw const SessionException('Esa persona no es miembro.');
+    }
+    if (member.role == CompanyRole.owner) {
+      throw const SessionException('No se puede sacar al propietario.');
+    }
+    final user = users[uid];
+    if (user != null) {
+      users[uid] = AppUser(
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        companyId: '',
+        createdAt: user.createdAt,
+      );
+    }
+    members[companyId]!.remove(uid);
+  }
+
+  @override
+  Future<void> clearOrphanCompany(String uid) async {
+    final user = users[uid];
+    if (user == null || user.companyId.isEmpty) return;
+    if (members[user.companyId]?[uid] != null) return;
+    users[uid] = AppUser(
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      companyId: '',
+      createdAt: user.createdAt,
+    );
+  }
+
+  String _nextCode() {
+    var n = ++_codeSeq;
+    final chars = List.filled(inviteCodeLength, inviteCodeAlphabet[0]);
+    for (var i = inviteCodeLength - 1; i >= 0 && n > 0; i--) {
+      chars[i] = inviteCodeAlphabet[n % inviteCodeAlphabet.length];
+      n ~/= inviteCodeAlphabet.length;
+    }
+    return chars.join();
   }
 }

@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import '../data/session_store.dart';
 import '../features/auth/accept_invite_page.dart';
+import '../features/auth/join_company_page.dart';
 import '../features/auth/loading_page.dart';
 import '../features/auth/sign_in_page.dart';
 import '../features/auth/sign_up_page.dart';
@@ -28,18 +29,33 @@ GoRouter createRouter(SessionStore session) {
       final isAuth =
           path == '/ingresar' ||
           path == '/registro' ||
-          path.startsWith('/invitar');
+          path.startsWith('/invitar') ||
+          path == '/unirse';
 
       if (!session.isReady) {
         return isLoading ? null : '/cargando';
       }
+      final needsCompany = session.needsCompany;
+      final isInvite = path.startsWith('/invitar');
+      final isJoin = path == '/unirse';
       if (isLoading) {
-        return session.isSignedIn ? '/' : '/ingresar';
+        if (session.isSignedIn) return '/';
+        if (needsCompany) return '/unirse';
+        return '/ingresar';
       }
-      if (!session.isSignedIn && !isAuth) return '/ingresar';
-      if (session.isSignedIn && (path == '/ingresar' || path == '/registro')) {
-        return '/';
+      if (session.isSignedIn) {
+        if (path == '/ingresar' || path == '/registro' || isJoin || isInvite) {
+          return '/';
+        }
+        if (path == '/equipo' && !session.canViewTeam) return '/';
+        return null;
       }
+      if (needsCompany) {
+        if (isJoin || isInvite) return null;
+        return '/unirse';
+      }
+      if (isJoin) return '/ingresar';
+      if (!isAuth) return '/ingresar';
       return null;
     },
     routes: [
@@ -61,6 +77,10 @@ GoRouter createRouter(SessionStore session) {
           companyId: state.pathParameters['companyId']!,
           invitationId: state.pathParameters['invitationId']!,
         ),
+      ),
+      GoRoute(
+        path: '/unirse',
+        builder: (context, state) => const JoinCompanyPage(),
       ),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),

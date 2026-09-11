@@ -5,10 +5,7 @@ import 'tokens.dart';
 
 class AppTheme {
   static ThemeData light() {
-    final base = ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.light,
-    );
+    final base = ThemeData(useMaterial3: true, brightness: Brightness.light);
     final scheme = ColorScheme.fromSeed(
       seedColor: AppColors.terracotta,
       brightness: Brightness.light,
@@ -21,10 +18,7 @@ class AppTheme {
   }
 
   static ThemeData dark() {
-    final base = ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-    );
+    final base = ThemeData(useMaterial3: true, brightness: Brightness.dark);
     final scheme = ColorScheme.fromSeed(
       seedColor: AppColors.terracotta,
       brightness: Brightness.dark,
@@ -43,13 +37,14 @@ class AppTheme {
   ) {
     final isDark = brightness == Brightness.dark;
     final bg = isDark ? AppColors.darkBg : AppColors.lightBg;
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).apply(
-      bodyColor: scheme.onSurface,
-      displayColor: scheme.onSurface,
-    );
+    final overlay = AppColors.overlaySurface(isDark: isDark);
+    final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textTheme = GoogleFonts.interTextTheme(
+      base.textTheme,
+    ).apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
 
     return base.copyWith(
-      colorScheme: scheme,
+      colorScheme: scheme.copyWith(surfaceTint: Colors.transparent),
       scaffoldBackgroundColor: bg,
       textTheme: textTheme,
       appBarTheme: AppBarTheme(
@@ -117,7 +112,9 @@ class AppTheme {
         thickness: 1,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        backgroundColor: isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface,
         indicatorColor: Colors.transparent,
         elevation: 0,
         height: 68,
@@ -137,7 +134,9 @@ class AppTheme {
         }),
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        backgroundColor: isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface,
         selectedIconTheme: const IconThemeData(color: AppColors.terracotta),
         selectedLabelTextStyle: textTheme.labelLarge?.copyWith(
           color: AppColors.terracotta,
@@ -182,6 +181,72 @@ class AppTheme {
           borderRadius: BorderRadius.circular(AppRadii.md),
         ),
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: overlay,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+          side: BorderSide(color: border),
+        ),
+        titleTextStyle: textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: AppColors.slate,
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: overlay,
+        modalBackgroundColor: overlay,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadii.lg),
+          ),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: overlay,
+        surfaceTintColor: Colors.transparent,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          side: BorderSide(color: border),
+        ),
+      ),
+      menuTheme: MenuThemeData(
+        style: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(overlay),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(4),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.md),
+              side: BorderSide(color: border),
+            ),
+          ),
+        ),
+      ),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        menuStyle: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(overlay),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(4),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.md),
+              side: BorderSide(color: border),
+            ),
+          ),
+        ),
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: overlay,
+        surfaceTintColor: Colors.transparent,
+      ),
+      timePickerTheme: TimePickerThemeData(backgroundColor: overlay),
     );
   }
 }

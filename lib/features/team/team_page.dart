@@ -8,6 +8,7 @@ import '../../models/company_role.dart';
 import '../../models/invitation.dart';
 import '../../models/membership.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_confirm_dialog.dart';
 
 class TeamPage extends StatefulWidget {
   const TeamPage({super.key});
@@ -23,6 +24,8 @@ class _TeamPageState extends State<TeamPage> {
   var _loading = true;
   var _inviting = false;
   String? _revokingId;
+  String? _removingId;
+  var _copiedKind = _CopiedKind.link;
   var _role = CompanyRole.employee;
 
   @override
@@ -38,8 +41,22 @@ class _TeamPageState extends State<TeamPage> {
   }
 
   Future<void> _load() async {
-    await context.read<SessionStore>().loadTeam();
-    if (mounted) setState(() => _loading = false);
+    final session = context.read<SessionStore>();
+    if (!session.canViewTeam) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      await session.loadTeam();
+    } on SessionException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'No se pudo cargar el equipo.');
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _invite() async {
@@ -66,7 +83,24 @@ class _TeamPageState extends State<TeamPage> {
     await Clipboard.setData(
       ClipboardData(text: session.inviteShareUrl(invitation)),
     );
-    if (mounted) setState(() => _copiedId = invitation.id);
+    if (mounted) {
+      setState(() {
+        _copiedId = invitation.id;
+        _copiedKind = _CopiedKind.link;
+      });
+    }
+  }
+
+  Future<void> _copyCode(Invitation invitation) async {
+    final code = invitation.code;
+    if (code == null || code.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: code));
+    if (mounted) {
+      setState(() {
+        _copiedId = invitation.id;
+        _copiedKind = _CopiedKind.code;
+      });
+    }
   }
 
   Future<void> _revoke(Invitation invitation) async {
@@ -80,6 +114,30 @@ class _TeamPageState extends State<TeamPage> {
       if (mounted) setState(() => _error = error.message);
     } finally {
       if (mounted) setState(() => _revokingId = null);
+    }
+  }
+
+  Future<void> _remove(Membership member) async {
+    final companyName =
+        context.read<SessionStore>().company?.name ?? 'la empresa';
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: 'Eliminar del equipo',
+      message:
+          '¿Eliminar a ${member.displayName} de $companyName? Va a perder el acceso.',
+      confirmLabel: 'Eliminar',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() {
+      _error = null;
+      _removingId = member.uid;
+    });
+    try {
+      await context.read<SessionStore>().removeMember(member.uid);
+    } on SessionException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } finally {
+      if (mounted) setState(() => _removingId = null);
     }
   }
 
@@ -104,6 +162,15 @@ class _TeamPageState extends State<TeamPage> {
             ).textTheme.bodyMedium?.copyWith(color: AppColors.mutedText),
           ),
           const SizedBox(height: 16),
+          if (_error != null) ...[
+            Text(
+              _error!,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.stockLow),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (_loading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
@@ -126,7 +193,13 @@ class _TeamPageState extends State<TeamPage> {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            for (final member in session.members) _MemberTile(member: member),
+            for (final member in session.members)
+              _MemberTile(
+                member: member,
+                canRemove: session.isOwner && member.role != CompanyRole.owner,
+                removing: _removingId == member.uid,
+                onRemove: () => _remove(member),
+              ),
             if (session.isOwner) ...[
               const SizedBox(height: 24),
               Text(
@@ -160,15 +233,6 @@ class _TeamPageState extends State<TeamPage> {
                 autocorrect: false,
                 decoration: const InputDecoration(labelText: 'Email'),
               ),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _error!,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: AppColors.stockLow),
-                ),
-              ],
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: _inviting ? null : _invite,
@@ -196,8 +260,10 @@ class _TeamPageState extends State<TeamPage> {
                   _InviteTile(
                     invitation: invitation,
                     copied: _copiedId == invitation.id,
+                    copiedKind: _copiedKind,
                     revoking: _revokingId == invitation.id,
-                    onCopy: () => _copy(invitation),
+                    onCopyLink: () => _copy(invitation),
+                    onCopyCode: () => _copyCode(invitation),
                     onRevoke: () => _revoke(invitation),
                   ),
               ],
@@ -209,10 +275,20 @@ class _TeamPageState extends State<TeamPage> {
   }
 }
 
+enum _CopiedKind { link, code }
+
 class _MemberTile extends StatelessWidget {
-  const _MemberTile({required this.member});
+  const _MemberTile({
+    required this.member,
+    required this.canRemove,
+    required this.removing,
+    required this.onRemove,
+  });
 
   final Membership member;
+  final bool canRemove;
+  final bool removing;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -232,11 +308,33 @@ class _MemberTile extends StatelessWidget {
       ),
       title: Text(member.displayName),
       subtitle: Text(member.email),
-      trailing: Text(
-        member.role.label,
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            member.role.label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
+          ),
+          if (canRemove) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'Eliminar',
+              onPressed: removing ? null : onRemove,
+              icon: removing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: AppColors.terracotta,
+                      ),
+                    )
+                  : const Icon(Icons.delete_outline),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -246,33 +344,47 @@ class _InviteTile extends StatelessWidget {
   const _InviteTile({
     required this.invitation,
     required this.copied,
+    required this.copiedKind,
     required this.revoking,
-    required this.onCopy,
+    required this.onCopyLink,
+    required this.onCopyCode,
     required this.onRevoke,
   });
 
   final Invitation invitation;
   final bool copied;
+  final _CopiedKind copiedKind;
   final bool revoking;
-  final VoidCallback onCopy;
+  final VoidCallback onCopyLink;
+  final VoidCallback onCopyCode;
   final VoidCallback onRevoke;
 
   @override
   Widget build(BuildContext context) {
+    final code = invitation.code;
+    final subtitle = copied
+        ? (copiedKind == _CopiedKind.code
+              ? 'Código copiado · ${invitation.role.label}'
+              : 'Enlace copiado · ${invitation.role.label}')
+        : (code == null || code.isEmpty
+              ? 'Pendiente · ${invitation.role.label}'
+              : 'Pendiente · ${invitation.role.label} · $code');
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(invitation.email),
-      subtitle: Text(
-        copied
-            ? 'Enlace copiado · ${invitation.role.label}'
-            : 'Pendiente · ${invitation.role.label}',
-      ),
+      subtitle: Text(subtitle),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (code != null && code.isNotEmpty)
+            IconButton(
+              tooltip: 'Copiar código',
+              onPressed: revoking ? null : onCopyCode,
+              icon: const Icon(Icons.pin_outlined),
+            ),
           IconButton(
             tooltip: 'Copiar enlace',
-            onPressed: revoking ? null : onCopy,
+            onPressed: revoking ? null : onCopyLink,
             icon: const Icon(Icons.link),
           ),
           IconButton(

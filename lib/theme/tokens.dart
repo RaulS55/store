@@ -24,6 +24,10 @@ class AppColors {
   static const stockLow = Color(0xFFE03131);
   static const warning = Color(0xFFE67700);
   static const whatsapp = Color(0xFF25D366);
+
+  static Color overlaySurface({required bool isDark}) {
+    return isDark ? darkElevated : lightSurface;
+  }
 }
 
 class AppRadii {

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/models/app_user.dart';
 import 'package:store_app/models/company.dart';
@@ -37,6 +39,9 @@ void main() {
     expect(CompanyRole.administrator.isAssignable, isTrue);
     expect(CompanyRole.employee.isAssignable, isTrue);
     expect(CompanyRole.owner.isAssignable, isFalse);
+    expect(CompanyRole.owner.canViewTeam, isTrue);
+    expect(CompanyRole.administrator.canViewTeam, isTrue);
+    expect(CompanyRole.employee.canViewTeam, isFalse);
   });
 
   test('Invitation.fromMap reads pending status and path', () {
@@ -47,10 +52,12 @@ void main() {
       'invitedBy': 'u1',
       'createdAt': createdAt.toIso8601String(),
       'companyName': 'Moda Stock',
+      'code': 'abcd23',
     });
     expect(invitation.email, 'emp@moda.stock');
     expect(invitation.isPending, isTrue);
     expect(invitation.path, '/invitar/co1/inv1');
+    expect(invitation.code, 'ABCD23');
     expect(
       invitation.copyWith(status: InvitationStatus.accepted).isPending,
       isFalse,
@@ -78,5 +85,12 @@ void main() {
     });
     expect(company.name, 'Moda Stock');
     expect(company.ownerId, 'u1');
+  });
+
+  test('generateInviteCode uses six unambiguous characters', () {
+    final code = generateInviteCode(Random(4));
+    expect(code.length, inviteCodeLength);
+    expect(code.split('').every(inviteCodeAlphabet.contains), isTrue);
+    expect(normalizeInviteCode(' ab cd '), 'ABCD');
   });
 }
