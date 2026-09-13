@@ -42,6 +42,9 @@ void main() {
     expect(CompanyRole.owner.canViewTeam, isTrue);
     expect(CompanyRole.administrator.canViewTeam, isTrue);
     expect(CompanyRole.employee.canViewTeam, isFalse);
+    expect(CompanyRole.owner.canDeleteProduct, isTrue);
+    expect(CompanyRole.administrator.canDeleteProduct, isTrue);
+    expect(CompanyRole.employee.canDeleteProduct, isFalse);
   });
 
   test('Invitation.fromMap reads pending status and path', () {

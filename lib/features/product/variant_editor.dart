@@ -18,21 +18,6 @@ class VariantDraft {
   final List<SwatchColor> colors;
   List<ProductVariant> variants;
 
-  static const suggestedSizes = [
-    'XS',
-    'S',
-    'M',
-    'L',
-    'XL',
-    'Único',
-    '36',
-    '38',
-    '39',
-    '40',
-    '41',
-    '42',
-  ];
-
   ProductVariant? find(String size, String color) {
     for (final variant in variants) {
       if (variant.size == size && variant.color == color) return variant;
@@ -46,18 +31,18 @@ class VariantDraft {
       ProductVariant(
         size: size,
         color: color.name,
-        colorHex:
-            '#${color.hex.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
+        colorHex: color.isCustom ? null : color.hexCode,
         stock: stock,
       ),
     );
   }
 
   void addSize(String size) {
-    if (sizes.contains(size)) return;
-    sizes.add(size);
+    final resolved = ApparelSizes.resolve(size);
+    if (sizes.contains(resolved)) return;
+    sizes.add(resolved);
     for (final color in colors) {
-      ensureCell(size, color);
+      ensureCell(resolved, color);
     }
   }
 
@@ -67,10 +52,11 @@ class VariantDraft {
   }
 
   void addColor(SwatchColor color) {
-    if (colors.any((c) => c.name == color.name)) return;
-    colors.add(color);
+    final resolved = Swatches.find(color.name) ?? color;
+    if (colors.any((c) => c.name == resolved.name)) return;
+    colors.add(resolved);
     for (final size in sizes) {
-      ensureCell(size, color);
+      ensureCell(size, resolved);
     }
   }
 
@@ -107,6 +93,29 @@ class VariantDraft {
     addSize(size);
     addColor(color);
     ensureCell(size, color);
+  }
+
+  List<String> get sizeChoices {
+    return [
+      ...ApparelSizes.all,
+      for (final size in sizes)
+        if (ApparelSizes.isCustom(size)) size,
+    ];
+  }
+
+  List<SwatchColor> get colorChoices {
+    return [
+      ...Swatches.all,
+      for (final color in colors)
+        if (color.isCustom) color,
+    ];
+  }
+
+  SwatchColor? colorByName(String name) {
+    for (final color in colorChoices) {
+      if (color.name == name) return color;
+    }
+    return null;
   }
 }
 
@@ -200,14 +209,6 @@ class _SizeChips extends StatelessWidget {
   final VariantDraft draft;
   final VoidCallback onChanged;
 
-  List<String> get _sizes {
-    return [
-      ...VariantDraft.suggestedSizes,
-      for (final size in draft.sizes)
-        if (!VariantDraft.suggestedSizes.contains(size)) size,
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     return Wrap(
@@ -215,7 +216,7 @@ class _SizeChips extends StatelessWidget {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (final size in _sizes)
+        for (final size in ApparelSizes.all)
           FilterChip(
             label: Text(size),
             selected: draft.sizes.contains(size),
@@ -230,6 +231,18 @@ class _SizeChips extends StatelessWidget {
               onChanged();
             },
           ),
+        for (final size in draft.sizes)
+          if (ApparelSizes.isCustom(size))
+            FilterChip(
+              label: Text(size),
+              selected: true,
+              showCheckmark: false,
+              selectedColor: AppColors.terracottaChip,
+              onSelected: (_) {
+                draft.removeSize(size);
+                onChanged();
+              },
+            ),
         ActionChip(
           avatar: const Icon(Icons.add, size: 16, color: AppColors.terracotta),
           label: const Text('Talle'),
@@ -249,7 +262,7 @@ class _SizeChips extends StatelessWidget {
           content: TextField(
             controller: controller,
             autofocus: true,
-            decoration: const InputDecoration(hintText: 'Ej. XL / 37 / Único'),
+            decoration: const InputDecoration(hintText: 'Ej. 44 / Oversize / 3'),
           ),
           actions: [
             TextButton(
@@ -266,7 +279,7 @@ class _SizeChips extends StatelessWidget {
       },
     );
     if (value != null && value.isNotEmpty) {
-      draft.addSize(value);
+      draft.addSize(ApparelSizes.resolve(value));
       onChanged();
     }
   }
@@ -277,14 +290,6 @@ class _ColorChips extends StatelessWidget {
   final VariantDraft draft;
   final VoidCallback onChanged;
 
-  List<SwatchColor> get _colors {
-    return [
-      ...Swatches.all,
-      for (final color in draft.colors)
-        if (!Swatches.all.any((item) => item.name == color.name)) color,
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     return Wrap(
@@ -292,7 +297,7 @@ class _ColorChips extends StatelessWidget {
       runSpacing: 10,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (final color in _colors)
+        for (final color in Swatches.all)
           _Swatch(
             color: color,
             selected: draft.colors.any((item) => item.name == color.name),
@@ -305,8 +310,57 @@ class _ColorChips extends StatelessWidget {
               onChanged();
             },
           ),
+        for (final color in draft.colors)
+          if (color.isCustom)
+            FilterChip(
+              label: Text(color.name),
+              selected: true,
+              showCheckmark: false,
+              selectedColor: AppColors.terracottaChip,
+              onSelected: (_) {
+                draft.removeColor(color.name);
+                onChanged();
+              },
+            ),
+        ActionChip(
+          avatar: const Icon(Icons.add, size: 16, color: AppColors.terracotta),
+          label: const Text('Color'),
+          onPressed: () => _addCustomColor(context),
+        ),
       ],
     );
+  }
+
+  Future<void> _addCustomColor(BuildContext context) async {
+    final controller = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Agregar color'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: 'Ej. Lila / Estampado'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+              child: const Text('Agregar'),
+            ),
+          ],
+        );
+      },
+    );
+    if (value != null && value.isNotEmpty) {
+      draft.addColor(Swatches.resolve(value));
+      onChanged();
+    }
   }
 }
 
@@ -382,16 +436,18 @@ class _VariantList extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: variant.swatch,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0x22000000)),
+                if (!variant.swatchColor.isCustom) ...[
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: variant.swatch,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0x22000000)),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -470,10 +526,7 @@ class _VariantList extends StatelessWidget {
                   DropdownButtonFormField<String>(
                     initialValue: size,
                     items: [
-                      for (final s in {
-                        ...draft.sizes,
-                        ...VariantDraft.suggestedSizes,
-                      })
+                      for (final s in draft.sizeChoices)
                         DropdownMenuItem(value: s, child: Text(s)),
                     ],
                     onChanged: (v) => setState(() => size = v),
@@ -483,13 +536,11 @@ class _VariantList extends StatelessWidget {
                   DropdownButtonFormField<String>(
                     initialValue: color?.name,
                     items: [
-                      for (final c in Swatches.all)
+                      for (final c in draft.colorChoices)
                         DropdownMenuItem(value: c.name, child: Text(c.name)),
                     ],
                     onChanged: (v) {
-                      setState(() {
-                        color = Swatches.all.firstWhere((c) => c.name == v);
-                      });
+                      setState(() => color = v == null ? null : draft.colorByName(v));
                     },
                     decoration: const InputDecoration(labelText: 'Color'),
                   ),
@@ -541,15 +592,17 @@ class _VariantMatrix extends StatelessWidget {
             DataColumn(
               label: Row(
                 children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: color.color,
-                      shape: BoxShape.circle,
+                  if (!color.isCustom) ...[
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: color.color,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
+                    const SizedBox(width: 6),
+                  ],
                   Text(color.name),
                 ],
               ),

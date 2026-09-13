@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 import 'package:store_app/data/app_store.dart';
+import 'package:store_app/data/picked_image_file.dart';
 import 'package:store_app/features/product/product_form_page.dart';
 
 import 'fakes/catalog_harness.dart';
+import 'fakes/fake_image_access.dart';
+import 'fakes/fake_product_access.dart';
 
 Finder _fieldWithHint(String hint) {
   return find.byWidgetPredicate(
@@ -13,12 +17,17 @@ Finder _fieldWithHint(String hint) {
   );
 }
 
-Widget _formApp(AppStore store, {String? productId}) {
+Widget _formApp(
+  AppStore store, {
+  String? productId,
+  Future<List<PickedImageFile>> Function({required int limit})? pickImages,
+}) {
+  final form = pickImages == null
+      ? ProductFormPage(id: productId)
+      : ProductFormPage(id: productId, pickImages: pickImages);
   return ChangeNotifierProvider.value(
     value: store,
-    child: MaterialApp(
-      home: Scaffold(body: ProductFormPage(id: productId)),
-    ),
+    child: MaterialApp(home: Scaffold(body: form)),
   );
 }
 
@@ -87,6 +96,8 @@ void main() {
 
     expect(find.text('+ Talle'), findsNothing);
     expect(find.text('Talle'), findsOneWidget);
+    expect(find.text('+ Color'), findsNothing);
+    expect(find.text('Color'), findsOneWidget);
   });
 
   testWidgets('form header paints an opaque background', (tester) async {
@@ -127,4 +138,53 @@ void main() {
       expect(addPhoto.hitTestable(), findsNothing);
     },
   );
+
+  testWidgets(
+    'picking a photo compresses it at once and does not upload yet',
+    (tester) async {
+      _setTallView(tester);
+      final original = _png();
+      final images = FakeImageAccess();
+      final logs = <String>[];
+      final store = AppStore(
+        products: FakeProductAccess(),
+        images: images,
+        log: logs.add,
+      );
+      addTearDown(store.dispose);
+      store.bindCompany('co1');
+
+      await tester.pumpWidget(
+        _formApp(
+          store,
+          pickImages: ({required int limit}) async {
+            return [PickedImageFile(name: 'foto.png', bytes: original)];
+          },
+        ),
+      );
+
+      await tester.tap(find.text('Agregar'));
+      await tester.pump();
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      });
+      await tester.pump();
+
+      expect(images.uploads, isEmpty);
+      expect(logs.where((line) => line.startsWith('Image compress start')), [
+        'Image compress start originalBytes=${original.lengthInBytes}',
+      ]);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    },
+  );
+}
+
+Uint8List _png({int width = 240, int height = 240}) {
+  final image = img.Image(width: width, height: height);
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      image.setPixelRgb(x, y, (x * 13) & 255, (y * 17) & 255, (x + y) & 255);
+    }
+  }
+  return img.encodePng(image);
 }

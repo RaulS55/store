@@ -59,43 +59,62 @@ void main() {
     },
   );
 
-  test(
-    'upload compresses first, then stores JPEG and logs both sizes',
-    () async {
-      final original = _png();
-      final images = FakeImageAccess();
-      final logs = <String>[];
-      final store = AppStore(
-        products: FakeProductAccess(),
-        images: images,
-        log: logs.add,
-      );
-      addTearDown(store.dispose);
-      store.bindCompany('co1');
+  test('prepareProductImage compresses JPEG and logs both sizes', () async {
+    final original = _png();
+    final images = FakeImageAccess();
+    final logs = <String>[];
+    final store = AppStore(
+      products: FakeProductAccess(),
+      images: images,
+      log: logs.add,
+    );
+    addTearDown(store.dispose);
+    store.bindCompany('co1');
 
-      final url = await store.uploadProductImage(
-        productId: 'p1',
-        bytes: original,
-      );
+    final compressed = await store.prepareProductImage(original);
 
-      expect(images.uploads, hasLength(1));
-      final upload = images.uploads.single;
-      expect(url, upload.url);
-      expect(upload.companyId, 'co1');
-      expect(upload.productId, 'p1');
-      expect(upload.fileName, endsWith('.jpg'));
-      expect(upload.contentType, 'image/jpeg');
-      expect(upload.bytes[0], 0xFF);
-      expect(upload.bytes[1], 0xD8);
-      expect(upload.bytes.lengthInBytes, isNot(original.lengthInBytes));
-      expect(logs, [
-        'Image compress start originalBytes=${original.lengthInBytes}',
-        'Image upload originalBytes=${original.lengthInBytes} '
-            'compressedBytes=${upload.bytes.lengthInBytes}',
-      ]);
-      expect(store.cachedProductImage(url), upload.bytes);
-    },
-  );
+    expect(images.uploads, isEmpty);
+    expect(compressed.originalByteCount, original.lengthInBytes);
+    expect(compressed.bytes[0], 0xFF);
+    expect(compressed.bytes[1], 0xD8);
+    expect(logs, [
+      'Image compress start originalBytes=${original.lengthInBytes}',
+      'Image upload originalBytes=${original.lengthInBytes} '
+          'compressedBytes=${compressed.compressedByteCount}',
+    ]);
+  });
+
+  test('upload stores the given JPEG without compressing again', () async {
+    final original = _png();
+    final images = FakeImageAccess();
+    final logs = <String>[];
+    final store = AppStore(
+      products: FakeProductAccess(),
+      images: images,
+      log: logs.add,
+    );
+    addTearDown(store.dispose);
+    store.bindCompany('co1');
+
+    final compressed = await store.prepareProductImage(original);
+    logs.clear();
+
+    final url = await store.uploadProductImage(
+      productId: 'p1',
+      bytes: compressed.bytes,
+    );
+
+    expect(images.uploads, hasLength(1));
+    final upload = images.uploads.single;
+    expect(url, upload.url);
+    expect(upload.companyId, 'co1');
+    expect(upload.productId, 'p1');
+    expect(upload.fileName, endsWith('.jpg'));
+    expect(upload.contentType, 'image/jpeg');
+    expect(upload.bytes, compressed.bytes);
+    expect(logs, isEmpty);
+    expect(store.cachedProductImage(url), compressed.bytes);
+  });
 
   test('upload fails when the catalog has no company', () async {
     final store = AppStore(

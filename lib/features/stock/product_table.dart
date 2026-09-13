@@ -97,20 +97,20 @@ class ProductTable extends StatelessWidget {
                     DataCell(
                       Row(
                         children: [
-                          for (final color in product.colors.take(4)) ...[
-                            Container(
-                              width: 10,
-                              height: 10,
-                              margin: const EdgeInsets.only(right: 4),
-                              decoration: BoxDecoration(
-                                color: color.color,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppColors.lightBorder,
+                          for (final color in product.colors.take(4))
+                            if (!color.isCustom)
+                              Container(
+                                width: 10,
+                                height: 10,
+                                margin: const EdgeInsets.only(right: 4),
+                                decoration: BoxDecoration(
+                                  color: color.color,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: AppColors.lightBorder,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
                           const SizedBox(width: 4),
                           Text(product.colorLabel),
                         ],

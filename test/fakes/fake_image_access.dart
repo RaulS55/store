@@ -42,4 +42,15 @@ class FakeImageAccess implements ImageAccess {
     uploads.add(upload);
     return upload.url;
   }
+
+  @override
+  Future<void> deleteProductImages({
+    required String companyId,
+    required String productId,
+  }) async {
+    uploads.removeWhere(
+      (upload) =>
+          upload.companyId == companyId && upload.productId == productId,
+    );
+  }
 }

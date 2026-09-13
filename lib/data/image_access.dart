@@ -8,4 +8,9 @@ abstract class ImageAccess {
     required Uint8List bytes,
     required String contentType,
   });
+
+  Future<void> deleteProductImages({
+    required String companyId,
+    required String productId,
+  });
 }

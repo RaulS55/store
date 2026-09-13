@@ -75,6 +75,11 @@ class SwatchColor {
 
   Color get color => Color(hex);
 
+  bool get isCustom => Swatches.find(name) == null;
+
+  String get hexCode =>
+      '#${hex.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+
   @override
   bool operator ==(Object other) =>
       other is SwatchColor && other.name == name && other.hex == hex;
@@ -85,24 +90,71 @@ class SwatchColor {
 
 class Swatches {
   static const negro = SwatchColor(name: 'Negro', hex: 0xFF1E1E1E);
-  static const beige = SwatchColor(name: 'Beige', hex: 0xFFD4B896);
-  static const terracota = SwatchColor(name: 'Terracota', hex: 0xFFC45C3E);
-  static const azul = SwatchColor(name: 'Azul', hex: 0xFF3B5BA5);
   static const blanco = SwatchColor(name: 'Blanco', hex: 0xFFF5F5F5);
-  static const oxido = SwatchColor(name: 'Óxido', hex: 0xFFB85C38);
-  static const crema = SwatchColor(name: 'Crema', hex: 0xFFF3E6D8);
-  static const arena = SwatchColor(name: 'Beige arena', hex: 0xFFC8B59A);
+  static const gris = SwatchColor(name: 'Gris', hex: 0xFF8D8D8D);
+  static const beige = SwatchColor(name: 'Beige', hex: 0xFFD4B896);
+  static const marron = SwatchColor(name: 'Marrón', hex: 0xFF6B3A1F);
+  static const azul = SwatchColor(name: 'Azul', hex: 0xFF3B5BA5);
+  static const azulMarino = SwatchColor(name: 'Azul marino', hex: 0xFF1A365D);
+  static const rojo = SwatchColor(name: 'Rojo', hex: 0xFFC62828);
+  static const verde = SwatchColor(name: 'Verde', hex: 0xFF2E7D4F);
+  static const rosa = SwatchColor(name: 'Rosa', hex: 0xFFE091A8);
+  static const amarillo = SwatchColor(name: 'Amarillo', hex: 0xFFE6C200);
+  static const bordo = SwatchColor(name: 'Bordó', hex: 0xFF7A1F32);
 
   static const all = [
     negro,
-    beige,
-    terracota,
-    azul,
     blanco,
-    oxido,
-    crema,
-    arena,
+    gris,
+    beige,
+    marron,
+    azul,
+    azulMarino,
+    rojo,
+    verde,
+    rosa,
+    amarillo,
+    bordo,
   ];
+
+  static SwatchColor? find(String name) {
+    for (final color in all) {
+      if (color.name == name) return color;
+    }
+    return null;
+  }
+
+  static SwatchColor resolve(String name, {int? hex}) {
+    return find(name) ?? SwatchColor(name: name, hex: hex ?? 0xFFCCCCCC);
+  }
+}
+
+class ApparelSizes {
+  static const all = [
+    'XS',
+    'S',
+    'M',
+    'L',
+    'XL',
+    'XXL',
+    'Único',
+    '36',
+    '37',
+    '38',
+    '39',
+    '40',
+    '41',
+    '42',
+  ];
+
+  static bool isCustom(String size) => !all.contains(size);
+
+  static String resolve(String size) {
+    for (final item in all) {
+      if (item == size) return item;
+    }
+    return size;
+  }
 }
 
 class ProductVariant {
@@ -138,7 +190,8 @@ class ProductVariant {
 
   Color get swatch => Color(hexValue);
 
-  SwatchColor get swatchColor => SwatchColor(name: color, hex: hexValue);
+  SwatchColor get swatchColor =>
+      Swatches.resolve(color, hex: colorHex == null ? null : hexValue);
 
   factory ProductVariant.fromMap(Map<String, dynamic> map) {
     return ProductVariant(

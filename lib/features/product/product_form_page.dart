@@ -9,12 +9,18 @@ import '../../data/image_compress.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/product_image.dart';
+import 'product_actions.dart';
 import 'variant_editor.dart';
 
 class ProductFormPage extends StatefulWidget {
-  const ProductFormPage({super.key, this.id});
+  const ProductFormPage({
+    super.key,
+    this.id,
+    this.pickImages = pickGalleryImages,
+  });
 
   final String? id;
+  final Future<List<PickedImageFile>> Function({required int limit}) pickImages;
 
   @override
   State<ProductFormPage> createState() => _ProductFormPageState();
@@ -77,8 +83,9 @@ class _ProductFormPageState extends State<ProductFormPage> {
       );
       return;
     }
-    final files = await pickGalleryImages(limit: remaining);
+    final files = await widget.pickImages(limit: remaining);
     if (!mounted || files.isEmpty) return;
+    final added = <_ProductImageDraft>[];
     setState(() {
       _error = null;
       for (final file in files) {
@@ -91,9 +98,41 @@ class _ProductFormPageState extends State<ProductFormPage> {
           _error = 'La imagen supera los 10 MB.';
           continue;
         }
-        _images.add(_ProductImageDraft.pending(file.bytes));
+        final draft = _ProductImageDraft.pending(file.bytes);
+        _images.add(draft);
+        added.add(draft);
       }
     });
+    for (final draft in added) {
+      draft.compression = _compressDraft(draft);
+    }
+  }
+
+  Future<void> _compressDraft(_ProductImageDraft draft) async {
+    try {
+      final compressed = await context.read<AppStore>().prepareProductImage(
+        draft.bytes!,
+      );
+      if (!mounted || !_images.contains(draft)) return;
+      setState(() {
+        draft.bytes = compressed.bytes;
+        draft.compressing = false;
+      });
+    } on ImageUploadException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _images.remove(draft);
+        _error = error.message;
+      });
+    } catch (error, stack) {
+      debugPrint('Image compress failed: $error');
+      debugPrint('$stack');
+      if (!mounted) return;
+      setState(() {
+        _images.remove(draft);
+        _error = 'No se pudo procesar la imagen.';
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -109,6 +148,12 @@ class _ProductFormPageState extends State<ProductFormPage> {
     setState(() => _saving = true);
     final store = context.read<AppStore>();
     try {
+      await Future.wait([
+        for (final image in List<_ProductImageDraft>.of(_images))
+          if (image.compression != null) image.compression!,
+      ]);
+      if (!mounted) return;
+      if (_error != null) return;
       final urls = <String>[];
       for (final image in _images) {
         final url = image.url;
@@ -231,6 +276,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
               : const Icon(Icons.check_circle_outline, size: 18),
           label: Text(_saving ? 'Guardando…' : 'Guardar prenda'),
         ),
+        if (isEditing) _deleteButton(),
       ],
     );
   }
@@ -272,8 +318,17 @@ class _ProductFormPageState extends State<ProductFormPage> {
             ),
           ),
         ),
+        if (isEditing) _deleteButton(),
       ],
     );
+  }
+
+  Widget _deleteButton() {
+    final existing = context.read<AppStore>().productById(_productId);
+    if (existing == null || !canDeleteProduct(context)) {
+      return const SizedBox.shrink();
+    }
+    return DeleteProductButton(product: existing, enabled: !_saving);
   }
 
   List<Widget> _fields() {
@@ -469,12 +524,14 @@ class _LabeledField extends StatelessWidget {
 }
 
 class _ProductImageDraft {
-  const _ProductImageDraft.url(this.url) : bytes = null;
+  _ProductImageDraft.url(this.url) : bytes = null, compressing = false;
 
-  const _ProductImageDraft.pending(this.bytes) : url = null;
+  _ProductImageDraft.pending(this.bytes) : url = null, compressing = true;
 
   final String? url;
-  final Uint8List? bytes;
+  Uint8List? bytes;
+  Future<void>? compression;
+  bool compressing;
 }
 
 class _ImagesEditor extends StatelessWidget {
@@ -522,28 +579,46 @@ class _ImagesEditor extends StatelessWidget {
               SizedBox(
                 width: 88,
                 height: 88,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: ProductImage(
-                        path: images[i].url ?? '',
-                        bytes: images[i].bytes,
-                        borderRadius: BorderRadius.circular(AppRadii.md),
-                      ),
-                    ),
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: InkWell(
-                        onTap: () => onRemove?.call(i),
-                        child: const CircleAvatar(
-                          radius: 10,
-                          backgroundColor: Colors.white,
-                          child: Icon(Icons.close, size: 12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadii.md),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: ProductImage(
+                          path: images[i].url ?? '',
+                          bytes: images[i].bytes,
+                          borderRadius: BorderRadius.circular(AppRadii.md),
                         ),
                       ),
-                    ),
-                  ],
+                      if (images[i].compressing)
+                        const Positioned.fill(
+                          child: ColoredBox(
+                            color: Color(0x66000000),
+                            child: Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: InkWell(
+                          onTap: () => onRemove?.call(i),
+                          child: const CircleAvatar(
+                            radius: 10,
+                            backgroundColor: Colors.white,
+                            child: Icon(Icons.close, size: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             Material(

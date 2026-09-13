@@ -195,12 +195,21 @@ class _FiltersEditorState extends State<FiltersEditor> {
                 runSpacing: 12,
                 children: [
                   for (final color in store.allColors)
-                    _ColorDot(
-                      color: color.color,
-                      label: color.name,
-                      selected: _draft.colorNames.contains(color.name),
-                      onTap: () => _toggleColor(color.name),
-                    ),
+                    if (color.isCustom)
+                      FilterChip(
+                        label: Text(color.name),
+                        selected: _draft.colorNames.contains(color.name),
+                        showCheckmark: false,
+                        selectedColor: AppColors.terracottaChip,
+                        onSelected: (_) => _toggleColor(color.name),
+                      )
+                    else
+                      _ColorDot(
+                        color: color.color,
+                        label: color.name,
+                        selected: _draft.colorNames.contains(color.name),
+                        onTap: () => _toggleColor(color.name),
+                      ),
                 ],
               ),
               const SizedBox(height: 18),

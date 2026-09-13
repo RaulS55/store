@@ -12,6 +12,7 @@ import '../../widgets/qty_stepper.dart';
 import '../../widgets/stock_dot.dart';
 import '../../widgets/variant_picker.dart';
 import '../order/order_actions.dart';
+import 'product_actions.dart';
 
 class ProductDetailPage extends StatefulWidget {
   const ProductDetailPage({super.key, required this.id});
@@ -29,9 +30,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   VariantSelection _effective(Product product) {
     return VariantSelection(
-      size: _selection.size ??
+      size:
+          _selection.size ??
           (product.sizes.length == 1 ? product.sizes.first : null),
-      color: _selection.color ??
+      color:
+          _selection.color ??
           (product.colors.length == 1 ? product.colors.first.name : null),
     );
   }
@@ -49,6 +52,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final variant = product.variantFor(selection.size, selection.color);
     final canAdd = variant != null && variant.stock > 0;
     final wide = AppBreakpoints.isWide(context);
+    final canDelete = canDeleteProduct(context);
 
     return SafeArea(
       child: Column(
@@ -104,6 +108,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     variant: variant,
                     onAdd: () => _add(store, product, variant),
                     onEdit: () => context.go('/producto/${product.id}/editar'),
+                    onDelete: canDelete
+                        ? () => deleteProductWithConfirm(
+                            context: context,
+                            product: product,
+                          )
+                        : null,
                   )
                 else ...[
                   _ProductImagePager(
@@ -148,10 +158,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             product.status.label,
                             style: Theme.of(context).textTheme.labelLarge
                                 ?.copyWith(
-                              color: product.isLowStock
-                                  ? AppColors.stockLow
-                                  : AppColors.stockOk,
-                            ),
+                                  color: product.isLowStock
+                                      ? AppColors.stockLow
+                                      : AppColors.stockOk,
+                                ),
                           ),
                         ],
                       ),
@@ -172,7 +182,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _Attr('Categoría', product.category.label, Icons.category_outlined),
+                  _Attr(
+                    'Categoría',
+                    product.category.label,
+                    Icons.category_outlined,
+                  ),
                   _Attr('Marca', product.brand, Icons.storefront_outlined),
                   const SizedBox(height: 12),
                   VariantPicker(
@@ -186,7 +200,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Text('Cantidad', style: Theme.of(context).textTheme.labelLarge),
+                      Text(
+                        'Cantidad',
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
                       const Spacer(),
                       QtyStepper(
                         value: _qty,
@@ -273,6 +290,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       icon: const Icon(Icons.edit_outlined, size: 18),
                       label: const Text('Editar'),
                     ),
+                    if (canDelete) DeleteProductButton(product: product),
                   ],
                 ),
               ),
@@ -325,6 +343,7 @@ class _WideDetail extends StatelessWidget {
     required this.variant,
     required this.onAdd,
     required this.onEdit,
+    this.onDelete,
   });
 
   final Product product;
@@ -339,6 +358,7 @@ class _WideDetail extends StatelessWidget {
   final ProductVariant? variant;
   final VoidCallback onAdd;
   final VoidCallback onEdit;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -410,9 +430,9 @@ class _WideDetail extends StatelessWidget {
               ),
               Text(
                 'SKU: ${variant == null ? product.sku : product.variantSku(variant!)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.mutedText,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
               ),
               const SizedBox(height: 8),
               Text(
@@ -448,6 +468,16 @@ class _WideDetail extends StatelessWidget {
                 ],
               ),
               TextButton(onPressed: onEdit, child: const Text('Editar prenda')),
+              if (onDelete != null)
+                TextButton.icon(
+                  key: const ValueKey('delete-product'),
+                  onPressed: onDelete,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.stockLow,
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Eliminar prenda'),
+                ),
             ],
           ),
         ),
@@ -511,9 +541,7 @@ class _ProductImagePagerState extends State<_ProductImagePager> {
         child: PageView.builder(
           controller: _controller,
           physics: images.length > 1
-              ? const PageScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                )
+              ? const PageScrollPhysics(parent: AlwaysScrollableScrollPhysics())
               : const NeverScrollableScrollPhysics(),
           onPageChanged: (i) {
             if (_syncing) return;
@@ -583,9 +611,9 @@ class _Attr extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],

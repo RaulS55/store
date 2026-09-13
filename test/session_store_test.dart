@@ -13,6 +13,7 @@ void main() {
     addTearDown(session.dispose);
     expect(session.isSignedIn, isTrue);
     expect(session.isOwner, isTrue);
+    expect(session.canDeleteProduct, isTrue);
     expect(session.user?.email, 'owner@moda.stock');
     expect(session.company?.name, 'Moda Stock');
     expect(session.membership?.role, CompanyRole.owner);
@@ -270,6 +271,7 @@ void main() {
     await session.loadTeam();
 
     expect(session.canViewTeam, isFalse);
+    expect(session.canDeleteProduct, isFalse);
     expect(session.members, isEmpty);
     expect(session.invitations, isEmpty);
     expect(access.listInvitationsCalls, 0);
@@ -304,6 +306,7 @@ void main() {
     await session.loadTeam();
 
     expect(session.canViewTeam, isTrue);
+    expect(session.canDeleteProduct, isTrue);
     expect(session.isOwner, isFalse);
     expect(session.members, isNotEmpty);
     expect(session.invitations, isEmpty);

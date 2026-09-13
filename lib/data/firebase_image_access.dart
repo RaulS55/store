@@ -49,16 +49,52 @@ class FirebaseImageAccess implements ImageAccess {
     }
   }
 
-  String _storageMessage(FirebaseException error) {
+  @override
+  Future<void> deleteProductImages({
+    required String companyId,
+    required String productId,
+  }) async {
+    final ref = _storage
+        .ref()
+        .child('companies')
+        .child(companyId)
+        .child('products')
+        .child(productId);
+    try {
+      debugPrint('Storage delete start path=${ref.fullPath}');
+      final result = await ref.listAll().timeout(const Duration(seconds: 20));
+      await Future.wait([
+        for (final item in result.items)
+          item.delete().timeout(const Duration(seconds: 20)),
+      ]);
+      debugPrint(
+        'Storage delete done path=${ref.fullPath} count=${result.items.length}',
+      );
+    } on ImageUploadException {
+      rethrow;
+    } on TimeoutException {
+      throw const ImageUploadException('El borrado de fotos tardó demasiado.');
+    } on FirebaseException catch (error) {
+      debugPrint('Storage delete failed code=${error.code} ${error.message}');
+      throw ImageUploadException(_storageMessage(error, deleting: true));
+    }
+  }
+
+  String _storageMessage(FirebaseException error, {bool deleting = false}) {
     final code = error.code.replaceFirst('storage/', '');
     switch (code) {
       case 'unauthorized':
       case 'permission-denied':
-        return 'No tenés permiso para subir fotos.';
+        return deleting
+            ? 'No tenés permiso para borrar fotos.'
+            : 'No tenés permiso para subir fotos.';
       case 'canceled':
-        return 'La subida se canceló.';
+        return deleting ? 'El borrado se canceló.' : 'La subida se canceló.';
       default:
-        return error.message ?? 'No se pudo subir la foto.';
+        return error.message ??
+            (deleting
+                ? 'No se pudieron borrar las fotos.'
+                : 'No se pudo subir la foto.');
     }
   }
 }

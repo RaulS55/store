@@ -49,6 +49,28 @@ void main() {
     expect(product.toMap().containsKey('deletedAt'), isTrue);
   });
 
+  test('garment swatches are common distinct colors', () {
+    final names = [for (final color in Swatches.all) color.name];
+    expect(Swatches.all.length, greaterThanOrEqualTo(12));
+    expect(names.toSet().length, Swatches.all.length);
+    expect(names, containsAll(['Negro', 'Blanco', 'Gris', 'Beige', 'Marrón']));
+    expect(names, isNot(contains('Óxido')));
+    expect(names, isNot(contains('Terracota')));
+    expect(Swatches.marron.isCustom, isFalse);
+    expect(Swatches.resolve('Lila').isCustom, isTrue);
+    expect(Swatches.resolve('Negro'), Swatches.negro);
+  });
+
+  test('garment sizes are common distinct values', () {
+    expect(ApparelSizes.all.length, greaterThanOrEqualTo(12));
+    expect(ApparelSizes.all.toSet().length, ApparelSizes.all.length);
+    expect(ApparelSizes.all, containsAll(['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Único']));
+    expect(ApparelSizes.isCustom('M'), isFalse);
+    expect(ApparelSizes.isCustom('44'), isTrue);
+    expect(ApparelSizes.resolve('M'), 'M');
+    expect(ApparelSizes.resolve('Oversize'), 'Oversize');
+  });
+
   test('upsert writes products with sync fields', () async {
     final access = FakeProductAccess();
     final store = AppStore(products: access);

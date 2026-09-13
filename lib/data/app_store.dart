@@ -114,23 +114,7 @@ class AppStore extends ChangeNotifier {
   }
 
   List<String> get allSizes {
-    const preferred = [
-      'XS',
-      'S',
-      'M',
-      'L',
-      'XL',
-      'Único',
-      '30',
-      '32',
-      '34',
-      '36',
-      '38',
-      '39',
-      '40',
-      '41',
-      '42',
-    ];
+    const preferred = ApparelSizes.all;
     final extra = <String>{for (final product in _products) ...product.sizes};
     return [
       ...preferred.where(extra.contains),
@@ -367,6 +351,41 @@ class AppStore extends ChangeNotifier {
     await _persist(next);
   }
 
+  Future<void> deleteProduct(String productId) async {
+    final existing = productById(productId);
+    if (existing == null) return;
+    final next = _stamp(existing.copyWith(deletedAt: DateTime.now().toUtc()));
+    await _persist(next);
+    _products.removeWhere((product) => product.id == productId);
+    for (final url in existing.images) {
+      _imageBytes.remove(url);
+    }
+    notifyListeners();
+    final companyId = _companyId;
+    final access = _imageAccess;
+    if (companyId == null || access == null) return;
+    try {
+      await access.deleteProductImages(
+        companyId: companyId,
+        productId: productId,
+      );
+    } catch (error) {
+      _log('Product images delete failed: $error');
+    }
+  }
+
+  Future<CompressedImage> prepareProductImage(Uint8List bytes) async {
+    _log('Image compress start originalBytes=${bytes.lengthInBytes}');
+    final compressed = await compressProductImage(bytes);
+    _log(
+      imageUploadSizeLog(
+        originalByteCount: compressed.originalByteCount,
+        compressedByteCount: compressed.compressedByteCount,
+      ),
+    );
+    return compressed;
+  }
+
   Future<String> uploadProductImage({
     required String productId,
     required Uint8List bytes,
@@ -376,23 +395,15 @@ class AppStore extends ChangeNotifier {
     if (companyId == null || access == null) {
       throw const ImageUploadException('No hay una empresa activa.');
     }
-    _log('Image compress start originalBytes=${bytes.lengthInBytes}');
-    final compressed = await compressProductImage(bytes);
-    _log(
-      imageUploadSizeLog(
-        originalByteCount: compressed.originalByteCount,
-        compressedByteCount: compressed.compressedByteCount,
-      ),
-    );
     final fileName = '${DateTime.now().microsecondsSinceEpoch}.jpg';
     final url = await access.uploadProductImage(
       companyId: companyId,
       productId: productId,
       fileName: fileName,
-      bytes: compressed.bytes,
+      bytes: bytes,
       contentType: 'image/jpeg',
     );
-    _imageBytes[url] = compressed.bytes;
+    _imageBytes[url] = bytes;
     return url;
   }
 

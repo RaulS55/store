@@ -134,6 +134,26 @@ class _ColorChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final out = stock <= 0;
+    if (color.isCustom) {
+      return ChoiceChip(
+        label: Text(
+          out ? '${color.name}  ·  0' : color.name,
+          style: TextStyle(
+            decoration: out ? TextDecoration.lineThrough : null,
+            color: out ? AppColors.mutedText : null,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        selected: selected && !out,
+        onSelected: out ? null : (_) => onTap(),
+        selectedColor: AppColors.terracottaChip,
+        side: BorderSide(
+          color: selected && !out
+              ? AppColors.terracotta
+              : Theme.of(context).dividerColor,
+        ),
+      );
+    }
     return InkWell(
       onTap: out ? null : onTap,
       borderRadius: BorderRadius.circular(AppRadii.md),

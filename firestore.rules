@@ -36,6 +36,11 @@ service cloud.firestore {
         && get(memberPath(companyId)).data.role == 'owner';
     }
 
+    function isOwnerOrAdmin(companyId) {
+      return isMember(companyId)
+        && get(memberPath(companyId)).data.role in ['owner', 'administrator'];
+    }
+
     function hasSyncFields(id) {
       return request.resource.data.keys().hasAll([
           'id',
@@ -190,7 +195,11 @@ service cloud.firestore {
         allow update: if isMember(companyId)
           && hasSyncFields(productId)
           && request.resource.data.id == resource.data.id
-          && request.resource.data.createdAt == resource.data.createdAt;
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (
+            request.resource.data.deletedAt == resource.data.deletedAt
+            || isOwnerOrAdmin(companyId)
+          );
         allow delete: if false;
       }
     }

@@ -40,6 +40,7 @@ class SessionStore extends ChangeNotifier {
       _ready && _user != null && _company != null && _membership != null;
   bool get isOwner => _membership?.role == CompanyRole.owner;
   bool get canViewTeam => _membership?.role.canViewTeam ?? false;
+  bool get canDeleteProduct => _membership?.role.canDeleteProduct ?? false;
   bool get needsCompany => isReady && hasIdentity && !isSignedIn;
 
   AuthIdentity? get identity => _identity;
