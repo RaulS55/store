@@ -1,11 +1,11 @@
 {
-    "name": "store_app",
-    "short_name": "store_app",
+    "name": "Moda Stock",
+    "short_name": "Moda Stock",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#C45C3E",
+    "theme_color": "#C45C3E",
+    "description": "Gestioná indumentaria y calzado",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
