@@ -195,16 +195,21 @@ class _ProductFormPageState extends State<ProductFormPage> {
     );
   }
 
+  Widget _imagesEditor({required bool wide}) {
+    return _ImagesEditor(
+      images: _images,
+      saving: _saving,
+      onAdd: _saving ? null : _addImage,
+      onRemove: _saving ? null : (i) => setState(() => _images.removeAt(i)),
+      wide: wide,
+    );
+  }
+
   Widget _mobileBody() {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       children: [
-        _ImagesEditor(
-          images: _images,
-          saving: _saving,
-          onAdd: _saving ? null : _addImage,
-          onRemove: _saving ? null : (i) => setState(() => _images.removeAt(i)),
-        ),
+        _imagesEditor(wide: false),
         const SizedBox(height: 20),
         ..._fields(),
         const SizedBox(height: 8),
@@ -237,17 +242,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: _ImagesEditor(
-                images: _images,
-                saving: _saving,
-                onAdd: _saving ? null : _addImage,
-                onRemove: _saving
-                    ? null
-                    : (i) => setState(() => _images.removeAt(i)),
-                wide: true,
-              ),
-            ),
+            Expanded(child: _imagesEditor(wide: true)),
             const SizedBox(width: 32),
             Expanded(child: Column(children: [..._fields()])),
           ],
@@ -377,42 +372,45 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go('/');
-              }
-            },
-            icon: const Icon(Icons.arrow_back),
-          ),
-          Expanded(
-            child: Column(
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle!,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
-                  ),
-              ],
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/');
+                }
+              },
+              icon: const Icon(Icons.arrow_back),
             ),
-          ),
-          const SizedBox(width: 48),
-        ],
+            Expanded(
+              child: Column(
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 48),
+          ],
+        ),
       ),
     );
   }
@@ -548,65 +546,67 @@ class _ImagesEditor extends StatelessWidget {
                   ],
                 ),
               ),
-            InkWell(
-              onTap: onAdd,
-              borderRadius: BorderRadius.circular(AppRadii.md),
-              child: Ink(
-                width: wide ? double.infinity : 88,
-                height: wide ? 120 : 88,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppRadii.md),
-                  border: Border.all(
-                    color: AppColors.terracotta.withValues(alpha: 0.45),
-                    style: BorderStyle.solid,
-                  ),
-                  color: isDark
-                      ? AppColors.terracotta.withValues(alpha: 0.08)
-                      : AppColors.terracottaChip,
+            Material(
+              color: isDark
+                  ? AppColors.terracotta.withValues(alpha: 0.08)
+                  : AppColors.terracottaChip,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.md),
+                side: BorderSide(
+                  color: AppColors.terracotta.withValues(alpha: 0.45),
                 ),
-                child: saving
-                    ? const Center(
-                        child: SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : wide
-                    ? const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_photo_alternate_outlined,
-                            color: AppColors.terracotta,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onAdd,
+                borderRadius: BorderRadius.circular(AppRadii.md),
+                child: SizedBox(
+                  width: wide ? double.infinity : 88,
+                  height: wide ? 120 : 88,
+                  child: saving
+                      ? const Center(
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
-                          SizedBox(height: 6),
-                          Text(
-                            'Agregar foto (máx. 3)',
-                            style: TextStyle(color: AppColors.terracotta),
-                          ),
-                          Text(
-                            'JPEG, PNG o WEBP hasta 10 MB.',
-                            style: TextStyle(
-                              color: AppColors.mutedText,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      )
-                    : const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add, color: AppColors.terracotta),
-                          Text(
-                            'Agregar',
-                            style: TextStyle(
+                        )
+                      : wide
+                      ? const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_photo_alternate_outlined,
                               color: AppColors.terracotta,
-                              fontSize: 11,
                             ),
-                          ),
-                        ],
-                      ),
+                            SizedBox(height: 6),
+                            Text(
+                              'Agregar foto (máx. 3)',
+                              style: TextStyle(color: AppColors.terracotta),
+                            ),
+                            Text(
+                              'JPEG, PNG o WEBP hasta 10 MB.',
+                              style: TextStyle(
+                                color: AppColors.mutedText,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add, color: AppColors.terracotta),
+                            Text(
+                              'Agregar',
+                              style: TextStyle(
+                                color: AppColors.terracotta,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
               ),
             ),
           ],

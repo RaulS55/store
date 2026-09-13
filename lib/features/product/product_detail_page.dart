@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -105,13 +106,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     onEdit: () => context.go('/producto/${product.id}/editar'),
                   )
                 else ...[
-                  AspectRatio(
+                  _ProductImagePager(
+                    images: images,
+                    index: _index,
+                    onIndex: (i) => setState(() => _index = i),
                     aspectRatio: 1.15,
-                    child: ProductImage(
-                      path: images[_index.clamp(0, images.length - 1)],
-                      fit: BoxFit.contain,
-                      borderRadius: BorderRadius.circular(AppRadii.lg),
-                    ),
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -218,6 +217,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       itemBuilder: (context, i) {
                         final selected = i == _index;
                         return InkWell(
+                          key: ValueKey('product-gallery-thumb-$i'),
                           onTap: () => setState(() => _index = i),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 160),
@@ -348,13 +348,11 @@ class _WideDetail extends StatelessWidget {
         Expanded(
           child: Column(
             children: [
-              AspectRatio(
+              _ProductImagePager(
+                images: images,
+                index: index,
+                onIndex: onIndex,
                 aspectRatio: 1,
-                child: ProductImage(
-                  path: images[index.clamp(0, images.length - 1)],
-                  fit: BoxFit.contain,
-                  borderRadius: BorderRadius.circular(AppRadii.lg),
-                ),
               ),
               const SizedBox(height: 10),
               SizedBox(
@@ -364,11 +362,26 @@ class _WideDetail extends StatelessWidget {
                   itemCount: images.length,
                   separatorBuilder: (_, _) => const SizedBox(width: 8),
                   itemBuilder: (context, i) {
+                    final selected = i == index;
                     return InkWell(
+                      key: ValueKey('product-gallery-thumb-$i'),
                       onTap: () => onIndex(i),
-                      child: ProductImage(
-                        path: images[i],
-                        borderRadius: BorderRadius.circular(8),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        width: 72,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: selected
+                                ? AppColors.terracotta
+                                : AppColors.lightBorder,
+                            width: selected ? 2 : 1,
+                          ),
+                        ),
+                        child: ProductImage(
+                          path: images[i],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     );
                   },
@@ -441,6 +454,105 @@ class _WideDetail extends StatelessWidget {
       ],
     );
   }
+}
+
+class _ProductImagePager extends StatefulWidget {
+  const _ProductImagePager({
+    required this.images,
+    required this.index,
+    required this.onIndex,
+    required this.aspectRatio,
+  });
+
+  final List<String> images;
+  final int index;
+  final ValueChanged<int> onIndex;
+  final double aspectRatio;
+
+  @override
+  State<_ProductImagePager> createState() => _ProductImagePagerState();
+}
+
+class _ProductImagePagerState extends State<_ProductImagePager> {
+  late final PageController _controller;
+  bool _syncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(initialPage: widget.index);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProductImagePager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_controller.hasClients) return;
+    if (widget.index == oldWidget.index) return;
+    final current = _controller.page?.round() ?? _controller.initialPage;
+    if (current == widget.index) return;
+    _syncing = true;
+    _controller.jumpToPage(widget.index);
+    _syncing = false;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final images = widget.images;
+    return AspectRatio(
+      aspectRatio: widget.aspectRatio,
+      child: ScrollConfiguration(
+        behavior: const _PagerScrollBehavior(),
+        child: PageView.builder(
+          controller: _controller,
+          physics: images.length > 1
+              ? const PageScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                )
+              : const NeverScrollableScrollPhysics(),
+          onPageChanged: (i) {
+            if (_syncing) return;
+            widget.onIndex(i);
+          },
+          itemCount: images.length,
+          itemBuilder: (context, i) {
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                IgnorePointer(
+                  child: ProductImage(
+                    key: ValueKey('product-pager-image-$i-${images[i]}'),
+                    path: images[i],
+                    fit: BoxFit.contain,
+                    borderRadius: BorderRadius.circular(AppRadii.lg),
+                  ),
+                ),
+                const ColoredBox(color: Color(0x00000000)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _PagerScrollBehavior extends MaterialScrollBehavior {
+  const _PagerScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => const {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.invertedStylus,
+  };
 }
 
 class _Attr extends StatelessWidget {

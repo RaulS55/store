@@ -46,10 +46,7 @@ void main() {
 
     final price = _fieldWithHint('Ej. 12500');
     final field = tester.widget<TextField>(price);
-    expect(
-      field.inputFormatters,
-      contains(isA<FilteringTextInputFormatter>()),
-    );
+    expect(field.inputFormatters, contains(isA<FilteringTextInputFormatter>()));
 
     await tester.enterText(price, '12a3b');
     await tester.pump();
@@ -91,4 +88,43 @@ void main() {
     expect(find.text('+ Talle'), findsNothing);
     expect(find.text('Talle'), findsOneWidget);
   });
+
+  testWidgets('form header paints an opaque background', (tester) async {
+    _setTallView(tester);
+    await tester.pumpWidget(_formApp(AppStore()));
+
+    final material = tester.widget<Material>(
+      find
+          .ancestor(
+            of: find.text('Nueva prenda'),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    expect(material.color, isNotNull);
+    expect(material.color!.alpha, 255);
+  });
+
+  testWidgets(
+    'add photo tile scrolls with the form and clips under the header',
+    (tester) async {
+      tester.view.physicalSize = const Size(1100, 560);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(_formApp(AppStore()));
+
+      final header = find.text('Nueva prenda');
+      final addPhoto = find.text('Agregar foto (máx. 3)');
+      final startTop = tester.getTopLeft(addPhoto).dy;
+      expect(startTop, greaterThanOrEqualTo(tester.getRect(header).bottom));
+
+      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(addPhoto).dy, lessThan(startTop));
+      expect(addPhoto.hitTestable(), findsNothing);
+    },
+  );
 }

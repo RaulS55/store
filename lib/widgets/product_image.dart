@@ -34,41 +34,69 @@ class ProductImage extends StatelessWidget {
       ),
     );
 
-    final preview = bytes;
-    final cached = preview == null || preview.isEmpty
-        ? _appStoreOf(context)?.cachedProductImage(path)
-        : null;
-    final Widget image;
-    if (preview != null && preview.isNotEmpty) {
-      image = Image.memory(
-        preview,
-        fit: fit,
-        errorBuilder: (_, _, _) => fallback,
-      );
-    } else if (cached != null && cached.isNotEmpty) {
-      image = Image.memory(
-        cached,
-        fit: fit,
-        errorBuilder: (_, _, _) => fallback,
-      );
-    } else if (path.isEmpty) {
-      image = fallback;
-    } else if (_isNetworkPath(path)) {
-      image = Image.network(
-        path,
-        fit: fit,
-        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-        errorBuilder: (_, error, _) {
-          debugPrint('Product image network failed: $path $error');
-          return fallback;
-        },
-      );
-    } else {
-      image = Image.asset(path, fit: fit, errorBuilder: (_, _, _) => fallback);
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.hasBoundedWidth ? constraints.maxWidth : null;
+        final height = constraints.hasBoundedHeight
+            ? constraints.maxHeight
+            : null;
+        final preview = bytes;
+        final cached = preview == null || preview.isEmpty
+            ? _appStoreOf(context)?.cachedProductImage(path)
+            : null;
+        final Widget image;
+        if (preview != null && preview.isNotEmpty) {
+          image = Image.memory(
+            preview,
+            key: ValueKey('memory:$path:${preview.length}'),
+            fit: fit,
+            width: width,
+            height: height,
+            gaplessPlayback: false,
+            errorBuilder: (_, _, _) => fallback,
+          );
+        } else if (cached != null && cached.isNotEmpty) {
+          image = Image.memory(
+            cached,
+            key: ValueKey('cached:$path:${cached.length}'),
+            fit: fit,
+            width: width,
+            height: height,
+            gaplessPlayback: false,
+            errorBuilder: (_, _, _) => fallback,
+          );
+        } else if (path.isEmpty) {
+          image = fallback;
+        } else if (_isNetworkPath(path)) {
+          image = Image.network(
+            path,
+            key: ValueKey('network:$path'),
+            fit: fit,
+            width: width,
+            height: height,
+            gaplessPlayback: false,
+            webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+            errorBuilder: (_, error, _) {
+              debugPrint('Product image network failed: $path $error');
+              return fallback;
+            },
+          );
+        } else {
+          image = Image.asset(
+            path,
+            key: ValueKey('asset:$path'),
+            fit: fit,
+            width: width,
+            height: height,
+            gaplessPlayback: false,
+            errorBuilder: (_, _, _) => fallback,
+          );
+        }
 
-    if (borderRadius == null) return image;
-    return ClipRRect(borderRadius: borderRadius!, child: image);
+        if (borderRadius == null) return image;
+        return ClipRRect(borderRadius: borderRadius!, child: image);
+      },
+    );
   }
 }
 
