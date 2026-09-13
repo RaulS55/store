@@ -117,13 +117,15 @@ GoRouter createRouter(SessionStore session) {
           ),
           GoRoute(
             path: '/producto/:id',
-            builder: (context, state) =>
-                ProductDetailPage(id: state.pathParameters['id']!),
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: ProductDetailPage(id: state.pathParameters['id']!),
+            ),
             routes: [
               GoRoute(
                 path: 'editar',
-                builder: (context, state) =>
-                    ProductFormPage(id: state.pathParameters['id']),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: ProductFormPage(id: state.pathParameters['id']),
+                ),
               ),
             ],
           ),
