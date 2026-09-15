@@ -12,7 +12,7 @@ flutter --version
 flutter config --enable-web
 
 flutter pub get
-flutter build web --release
+flutter build web --release --no-web-resources-cdn
 
 SITE_URL="${URL:-${DEPLOY_PRIME_URL:-}}"
 SITE_URL="${SITE_URL%/}"

@@ -18,6 +18,8 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#F8F9FA">
   <meta name="description" content="Gestioná indumentaria y calzado">
 
   <meta property="og:type" content="website">
@@ -35,7 +37,8 @@
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Moda Stock">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
@@ -46,12 +49,64 @@
   <title>Moda Stock</title>
   <link rel="manifest" href="manifest.json">
   <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #F8F9FA;
+    }
     flt-platform-view img {
       pointer-events: none !important;
+    }
+    #app-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #F8F9FA;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    #app-splash .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: #1E1E1E;
+    }
+    #app-splash .brand span {
+      color: #C45C3E;
+    }
+    #app-splash .spinner {
+      width: 28px;
+      height: 28px;
+      margin-top: 24px;
+      border: 2.4px solid #F3E4DE;
+      border-top-color: #C45C3E;
+      border-radius: 50%;
+      animation: app-spin 0.7s linear infinite;
+    }
+    @keyframes app-spin {
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
+  <div id="app-splash">
+    <div class="brand">Moda <span>Stock</span></div>
+    <div class="spinner" aria-hidden="true"></div>
+  </div>
+  <script>
+    function hideAppSplash() {
+      var el = document.getElementById('app-splash');
+      if (el) el.remove();
+    }
+    window.addEventListener('flutter-first-frame', hideAppSplash);
+    setTimeout(hideAppSplash, 30000);
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

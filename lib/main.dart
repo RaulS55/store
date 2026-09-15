@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -15,21 +17,19 @@ import 'data/firebase_image_access.dart';
 import 'data/firestore_company_access.dart';
 import 'data/firestore_product_access.dart';
 import 'data/session_store.dart';
+import 'features/auth/loading_page.dart';
 import 'firebase_options.dart';
 import 'routing/app_router.dart';
 import 'theme/app_theme.dart';
+import 'widgets/brand_logo.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('es_AR');
-  Intl.defaultLocale = 'es_AR';
   GoogleFonts.config.allowRuntimeFetching = false;
   LicenseRegistry.addLicense(() async* {
     final license = await rootBundle.loadString('google_fonts/OFL.txt');
     yield LicenseEntryWithLineBreaks(['google_fonts'], license);
   });
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  configureFirebaseForPlatform();
   runApp(const ModaStockApp());
 }
 
@@ -41,57 +41,132 @@ class ModaStockApp extends StatefulWidget {
 }
 
 class _ModaStockAppState extends State<ModaStockApp> {
-  late final AppStore _store;
-  late final SessionStore _session;
-  late final GoRouter _router;
+  AppStore? _store;
+  SessionStore? _session;
+  GoRouter? _router;
+  var _bootFailed = false;
 
   @override
   void initState() {
     super.initState();
-    _store = AppStore(
-      products: FirestoreProductAccess(),
-      images: FirebaseImageAccess(),
-    );
-    _session = SessionStore(
-      auth: FirebaseAuthClient(),
-      access: FirestoreCompanyAccess(),
-    );
-    _session.addListener(_bindCatalog);
-    _session.start();
-    _bindCatalog();
-    _router = createRouter(_session);
+    unawaited(_boot());
+  }
+
+  Future<void> _boot() async {
+    try {
+      await initializeDateFormatting('es_AR');
+      Intl.defaultLocale = 'es_AR';
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      await configureFirebaseForPlatform();
+      final store = AppStore(
+        products: FirestoreProductAccess(),
+        images: FirebaseImageAccess(),
+      );
+      final session = SessionStore(
+        auth: FirebaseAuthClient(),
+        access: FirestoreCompanyAccess(),
+      );
+      session.addListener(_bindCatalog);
+      session.start();
+      final router = createRouter(session);
+      if (!mounted) {
+        session.removeListener(_bindCatalog);
+        session.dispose();
+        store.dispose();
+        return;
+      }
+      setState(() {
+        _store = store;
+        _session = session;
+        _router = router;
+        _bootFailed = false;
+      });
+      _bindCatalog();
+    } catch (_) {
+      if (mounted) setState(() => _bootFailed = true);
+    }
   }
 
   void _bindCatalog() {
-    _store.bindCompany(_session.companyId);
+    final store = _store;
+    final session = _session;
+    if (store == null || session == null) return;
+    store.bindCompany(session.companyId);
   }
 
   @override
   void dispose() {
-    _session.removeListener(_bindCatalog);
-    _session.dispose();
-    _store.dispose();
+    _session?.removeListener(_bindCatalog);
+    _session?.dispose();
+    _store?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final store = _store;
+    final session = _session;
+    final router = _router;
+    if (store == null || session == null || router == null) {
+      return MaterialApp(
+        title: 'Moda Stock',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(),
+        home: _bootFailed
+            ? _BootErrorPage(
+                onRetry: () {
+                  setState(() => _bootFailed = false);
+                  unawaited(_boot());
+                },
+              )
+            : const LoadingPage(),
+      );
+    }
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: _store),
-        ChangeNotifierProvider.value(value: _session),
+        ChangeNotifierProvider.value(value: store),
+        ChangeNotifierProvider.value(value: session),
       ],
       child: Consumer<AppStore>(
-        builder: (context, store, _) {
+        builder: (context, appStore, _) {
           return MaterialApp.router(
             title: 'Moda Stock',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
-            themeMode: store.themeMode,
-            routerConfig: _router,
+            themeMode: appStore.themeMode,
+            routerConfig: router,
           );
         },
+      ),
+    );
+  }
+}
+
+class _BootErrorPage extends StatelessWidget {
+  const _BootErrorPage({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const BrandLogo(),
+            const SizedBox(height: 16),
+            const Text('No se pudo iniciar la app.'),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: onRetry,
+              child: const Text('Reintentar'),
+            ),
+          ],
+        ),
       ),
     );
   }
