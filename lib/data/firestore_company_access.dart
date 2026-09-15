@@ -198,18 +198,20 @@ class FirestoreCompanyAccess implements CompanyAccess {
     required String companyId,
   }) async {
     final now = FieldValue.serverTimestamp();
-    await _members(companyId).doc(uid).set({
+    final batch = _db.batch();
+    batch.set(_members(companyId).doc(uid), {
       'role': CompanyRole.owner.name,
       'email': normalizeEmail(email),
       'displayName': displayName.trim(),
       'joinedAt': now,
     });
-    await _users.doc(uid).set({
+    batch.set(_users.doc(uid), {
       'email': normalizeEmail(email),
       'displayName': displayName.trim(),
       'companyId': companyId,
       'createdAt': now,
     });
+    await batch.commit();
   }
 
   @override
@@ -227,35 +229,26 @@ class FirestoreCompanyAccess implements CompanyAccess {
       throw const SessionException('Elegí Administrador o Empleado.');
     }
     final normalized = normalizeEmail(email);
-    final members = await _members(
+    final memberQuery = _members(
       companyId,
     ).where('email', isEqualTo: normalized).limit(1).get();
-    if (members.docs.isNotEmpty) {
-      throw const SessionException('Esa persona ya es miembro.');
-    }
-    final pending = await _invitations(companyId)
+    final pendingQuery = _invitations(companyId)
         .where('email', isEqualTo: normalized)
         .where('status', isEqualTo: InvitationStatus.pending.name)
         .limit(1)
         .get();
+    final members = await memberQuery;
+    final pending = await pendingQuery;
+    if (members.docs.isNotEmpty) {
+      throw const SessionException('Esa persona ya es miembro.');
+    }
     if (pending.docs.isNotEmpty) {
       throw const SessionException(
         'Ya hay una invitación pendiente para ese email.',
       );
     }
 
-    final usedCodes = {
-      for (final doc in (await _invitations(companyId).get()).docs)
-        normalizeInviteCode((doc.data()['code'] as String?) ?? ''),
-    }..remove('');
-    var code = generateInviteCode();
-    for (var attempt = 0; attempt < 8; attempt++) {
-      if (!usedCodes.contains(code)) break;
-      code = generateInviteCode();
-    }
-    if (usedCodes.contains(code)) {
-      throw const SessionException('No se pudo crear la invitación.');
-    }
+    final code = await _uniqueInviteCode(companyId);
 
     final ref = _invitations(companyId).doc();
     await ref.set({
@@ -371,5 +364,16 @@ class FirestoreCompanyAccess implements CompanyAccess {
     final member = await getMembership(user.companyId, uid);
     if (member != null) return;
     await _users.doc(uid).update({'companyId': ''});
+  }
+
+  Future<String> _uniqueInviteCode(String companyId) async {
+    for (var attempt = 0; attempt < 8; attempt++) {
+      final code = generateInviteCode();
+      final snap = await _invitations(
+        companyId,
+      ).where('code', isEqualTo: code).limit(1).get();
+      if (snap.docs.isEmpty) return code;
+    }
+    throw const SessionException('No se pudo crear la invitación.');
   }
 }

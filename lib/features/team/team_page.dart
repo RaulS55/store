@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/clipboard_copy.dart';
 import '../../data/session_exception.dart';
 import '../../data/session_store.dart';
 import '../../models/company_role.dart';
@@ -70,6 +70,7 @@ class _TeamPageState extends State<TeamPage> {
         role: _role,
       );
       _email.clear();
+      if (mounted) setState(() => _inviting = false);
       await _copy(invitation);
     } on SessionException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -78,29 +79,67 @@ class _TeamPageState extends State<TeamPage> {
     }
   }
 
-  Future<void> _copy(Invitation invitation) async {
-    final session = context.read<SessionStore>();
-    await Clipboard.setData(
-      ClipboardData(text: session.inviteShareUrl(invitation)),
+  Future<void> _copy(Invitation invitation) {
+    return _copyOrShow(
+      text: context.read<SessionStore>().inviteShareUrl(invitation),
+      invitationId: invitation.id,
+      kind: _CopiedKind.link,
+      fallbackTitle: 'Enlace de invitación',
     );
-    if (mounted) {
-      setState(() {
-        _copiedId = invitation.id;
-        _copiedKind = _CopiedKind.link;
-      });
-    }
   }
 
   Future<void> _copyCode(Invitation invitation) async {
     final code = invitation.code;
     if (code == null || code.isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: code));
-    if (mounted) {
+    await _copyOrShow(
+      text: code,
+      invitationId: invitation.id,
+      kind: _CopiedKind.code,
+      fallbackTitle: 'Código de invitación',
+    );
+  }
+
+  Future<void> _copyOrShow({
+    required String text,
+    required String invitationId,
+    required _CopiedKind kind,
+    required String fallbackTitle,
+  }) async {
+    final ok = await copyToClipboard(text);
+    if (!mounted) return;
+    if (ok) {
       setState(() {
-        _copiedId = invitation.id;
-        _copiedKind = _CopiedKind.code;
+        _copiedId = invitationId;
+        _copiedKind = kind;
       });
+      return;
     }
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(fallbackTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'No se pudo copiar. Seleccioná el texto y copialo.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              SelectableText(text),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _revoke(Invitation invitation) async {

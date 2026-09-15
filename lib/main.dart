@@ -1,12 +1,16 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'data/app_store.dart';
 import 'data/firebase_auth_client.dart';
+import 'data/firebase_bootstrap.dart';
 import 'data/firebase_image_access.dart';
 import 'data/firestore_company_access.dart';
 import 'data/firestore_product_access.dart';
@@ -19,7 +23,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_AR');
   Intl.defaultLocale = 'es_AR';
+  GoogleFonts.config.allowRuntimeFetching = false;
+  LicenseRegistry.addLicense(() async* {
+    final license = await rootBundle.loadString('google_fonts/OFL.txt');
+    yield LicenseEntryWithLineBreaks(['google_fonts'], license);
+  });
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  configureFirebaseForPlatform();
   runApp(const ModaStockApp());
 }
 

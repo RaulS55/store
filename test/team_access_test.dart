@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -59,6 +60,101 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Equipo'), findsOneWidget);
+  });
+
+  testWidgets('owner team page creates invitation and copies the link', (
+    tester,
+  ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          return null;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    final store = AppStore();
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+    router.go('/equipo');
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'emp@moda.stock');
+    await tester.tap(find.text('Crear invitación'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('emp@moda.stock'), findsOneWidget);
+    expect(find.textContaining('Enlace copiado'), findsOneWidget);
+  });
+
+  testWidgets('owner team page keeps invitation if clipboard copy fails', (
+    tester,
+  ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          throw PlatformException(
+            code: 'copy_fail',
+            message: 'Clipboard.setData failed.',
+          );
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    final store = AppStore();
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+    router.go('/equipo');
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'emp@moda.stock');
+    await tester.tap(find.text('Crear invitación'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Enlace de invitación'), findsOneWidget);
+    expect(
+      find.text('No se pudo copiar. Seleccioná el texto y copialo.'),
+      findsOneWidget,
+    );
+    expect(session.pendingInvitations, isNotEmpty);
+    expect(session.pendingInvitations.first.email, 'emp@moda.stock');
+
+    await tester.tap(find.text('Cerrar'));
+    await tester.pump();
+    expect(find.text('emp@moda.stock'), findsOneWidget);
   });
 
   testWidgets('employee cannot open Equipo', (tester) async {

@@ -246,12 +246,12 @@ class SessionStore extends ChangeNotifier {
       return;
     }
     try {
-      _members = await _access.listMembers(company.id);
-      if (isOwner) {
-        _invitations = await _access.listInvitations(company.id);
-      } else {
-        _invitations = const [];
-      }
+      final membersFuture = _access.listMembers(company.id);
+      final invitationsFuture = isOwner
+          ? _access.listInvitations(company.id)
+          : Future<List<Invitation>>.value(const []);
+      _members = await membersFuture;
+      _invitations = await invitationsFuture;
     } on SessionException {
       rethrow;
     } catch (_) {
@@ -425,7 +425,10 @@ class SessionStore extends ChangeNotifier {
       _invitations = const [];
       return;
     }
-    final membership = await _access.getMembership(user.companyId, user.id);
+    final membershipFuture = _access.getMembership(user.companyId, user.id);
+    final companyFuture = _access.getCompany(user.companyId);
+    final membership = await membershipFuture;
+    final company = await companyFuture;
     if (membership == null) {
       try {
         await _access.clearOrphanCompany(user.id);
@@ -444,7 +447,6 @@ class SessionStore extends ChangeNotifier {
       _invitations = const [];
       return;
     }
-    final company = await _access.getCompany(user.companyId);
     if (company == null) {
       throw const SessionException(
         'No se pudo cargar el contexto de la empresa.',

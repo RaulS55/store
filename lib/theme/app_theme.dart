@@ -39,6 +39,7 @@ class AppTheme {
     final bg = isDark ? AppColors.darkBg : AppColors.lightBg;
     final overlay = AppColors.overlaySurface(isDark: isDark);
     final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    GoogleFonts.config.allowRuntimeFetching = false;
     final textTheme = GoogleFonts.interTextTheme(
       base.textTheme,
     ).apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);

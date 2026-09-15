@@ -16,6 +16,10 @@ class FirestoreProductAccess implements ProductAccess {
     return _db.collection('companies').doc(companyId).collection('products');
   }
 
+  Query<Map<String, dynamic>> _activeProducts(String companyId) {
+    return _products(companyId).where('deletedAt', isNull: true);
+  }
+
   @override
   String nextProductId(String companyId) {
     return _products(companyId).doc().id;
@@ -23,7 +27,7 @@ class FirestoreProductAccess implements ProductAccess {
 
   @override
   Stream<List<Product>> watchProducts(String companyId) {
-    final collection = _products(companyId);
+    final query = _activeProducts(companyId);
     late final StreamController<List<Product>> controller;
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? sub;
     var loadingFallback = false;
@@ -32,7 +36,7 @@ class FirestoreProductAccess implements ProductAccess {
       if (loadingFallback) return;
       loadingFallback = true;
       try {
-        final snap = await collection.get();
+        final snap = await query.get();
         if (!controller.isClosed) {
           controller.add(_mapSnapshot(snap));
         }
@@ -49,7 +53,7 @@ class FirestoreProductAccess implements ProductAccess {
 
     controller = StreamController<List<Product>>(
       onListen: () {
-        sub = collection.snapshots().listen(
+        sub = query.snapshots().listen(
           (snap) => controller.add(_mapSnapshot(snap)),
           onError: (Object error, StackTrace stack) {
             debugPrint('Products snapshots failed: $error');

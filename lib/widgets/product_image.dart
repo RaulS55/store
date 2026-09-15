@@ -40,6 +40,9 @@ class ProductImage extends StatelessWidget {
         final height = constraints.hasBoundedHeight
             ? constraints.maxHeight
             : null;
+        final dpr = MediaQuery.devicePixelRatioOf(context);
+        final cacheWidth = _cachePx(width, dpr);
+        final cacheHeight = _cachePx(height, dpr);
         final preview = bytes;
         final cached = preview == null || preview.isEmpty
             ? _appStoreOf(context)?.cachedProductImage(path)
@@ -52,6 +55,8 @@ class ProductImage extends StatelessWidget {
             fit: fit,
             width: width,
             height: height,
+            cacheWidth: cacheWidth,
+            cacheHeight: cacheHeight,
             gaplessPlayback: false,
             errorBuilder: (_, _, _) => fallback,
           );
@@ -62,6 +67,8 @@ class ProductImage extends StatelessWidget {
             fit: fit,
             width: width,
             height: height,
+            cacheWidth: cacheWidth,
+            cacheHeight: cacheHeight,
             gaplessPlayback: false,
             errorBuilder: (_, _, _) => fallback,
           );
@@ -74,6 +81,8 @@ class ProductImage extends StatelessWidget {
             fit: fit,
             width: width,
             height: height,
+            cacheWidth: cacheWidth,
+            cacheHeight: cacheHeight,
             gaplessPlayback: false,
             webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
             errorBuilder: (_, error, _) {
@@ -88,6 +97,8 @@ class ProductImage extends StatelessWidget {
             fit: fit,
             width: width,
             height: height,
+            cacheWidth: cacheWidth,
+            cacheHeight: cacheHeight,
             gaplessPlayback: false,
             errorBuilder: (_, _, _) => fallback,
           );
@@ -111,4 +122,9 @@ AppStore? _appStoreOf(BuildContext context) {
 bool _isNetworkPath(String path) {
   final uri = Uri.tryParse(path);
   return uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
+}
+
+int? _cachePx(double? size, double dpr) {
+  if (size == null || !size.isFinite || size <= 0) return null;
+  return (size * dpr).round().clamp(1, 4096);
 }

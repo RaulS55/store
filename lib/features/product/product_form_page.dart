@@ -154,19 +154,12 @@ class _ProductFormPageState extends State<ProductFormPage> {
       ]);
       if (!mounted) return;
       if (_error != null) return;
-      final urls = <String>[];
-      for (final image in _images) {
-        final url = image.url;
-        if (url != null) {
-          urls.add(url);
-          continue;
-        }
-        final bytes = image.bytes;
-        if (bytes == null) continue;
-        urls.add(
-          await store.uploadProductImage(productId: _productId, bytes: bytes),
-        );
-      }
+      final urls = [
+        for (final url in await Future.wait([
+          for (final image in _images) _resolveImageUrl(store, image),
+        ]))
+          ?url,
+      ];
       if (!mounted) return;
       final existing = widget.id == null ? null : store.productById(widget.id!);
       final now = DateTime.now().toUtc();
@@ -205,6 +198,17 @@ class _ProductFormPageState extends State<ProductFormPage> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<String?> _resolveImageUrl(
+    AppStore store,
+    _ProductImageDraft image,
+  ) async {
+    final url = image.url;
+    if (url != null) return url;
+    final bytes = image.bytes;
+    if (bytes == null) return null;
+    return store.uploadProductImage(productId: _productId, bytes: bytes);
   }
 
   @override

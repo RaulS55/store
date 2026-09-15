@@ -50,7 +50,7 @@ class _StockPageState extends State<StockPage> {
 
   Widget _buildMobile(BuildContext context) {
     final store = context.watch<AppStore>();
-    final products = store.filteredProducts;
+    final products = store.pagedProducts;
 
     return SafeArea(
       child: CustomScrollView(
@@ -97,9 +97,9 @@ class _StockPageState extends State<StockPage> {
             SliverFillRemaining(
               child: _EmptyStock(hasCatalog: store.products.isNotEmpty),
             )
-          else
+          else ...[
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
@@ -107,19 +107,27 @@ class _StockPageState extends State<StockPage> {
                   crossAxisSpacing: 12,
                   childAspectRatio: 0.62,
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final product = products[index];
-                    return ProductCard(
-                      product: product,
-                      dense: true,
-                      onTap: () => context.go('/producto/${product.id}'),
-                    );
-                  },
-                  childCount: products.length,
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final product = products[index];
+                  return ProductCard(
+                    product: product,
+                    dense: true,
+                    onTap: () => context.go('/producto/${product.id}'),
+                  );
+                }, childCount: products.length),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                child: _Pagination(
+                  page: store.page,
+                  pageCount: store.pageCount,
+                  onChanged: store.setPage,
                 ),
               ),
             ),
+          ],
         ],
       ),
     );
@@ -194,9 +202,9 @@ class _StockPageState extends State<StockPage> {
                 children: [
                   Text(
                     'Mostrando ${products.isEmpty ? 0 : store.page * store.pageSize + 1}–${store.page * store.pageSize + products.length} de ${store.filteredCount} prendas',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.slate,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
                   ),
                   const Spacer(),
                   DropdownButton<StockSort>(
@@ -244,7 +252,9 @@ class _StockPageState extends State<StockPage> {
           else if (store.viewMode == StockViewMode.table)
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(28, 0, 28, 16),
-              sliver: SliverToBoxAdapter(child: ProductTable(products: products)),
+              sliver: SliverToBoxAdapter(
+                child: ProductTable(products: products),
+              ),
             )
           else
             SliverPadding(
@@ -256,16 +266,13 @@ class _StockPageState extends State<StockPage> {
                   crossAxisSpacing: 14,
                   childAspectRatio: 0.68,
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final product = products[index];
-                    return ProductCard(
-                      product: product,
-                      onTap: () => context.go('/producto/${product.id}'),
-                    );
-                  },
-                  childCount: products.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final product = products[index];
+                  return ProductCard(
+                    product: product,
+                    onTap: () => context.go('/producto/${product.id}'),
+                  );
+                }, childCount: products.length),
               ),
             ),
           SliverToBoxAdapter(
@@ -372,9 +379,9 @@ class _EmptyStock extends StatelessWidget {
               Text(
                 'Cargá la primera prenda para armar el catálogo.',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.slate,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.slate),
               ),
               const SizedBox(height: 16),
               FilledButton(
@@ -404,9 +411,9 @@ class _EmptyStock extends StatelessWidget {
             Text(
               'Probá con otro nombre, SKU o limpiá los filtros.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.slate,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.slate),
             ),
             const SizedBox(height: 16),
             OutlinedButton(
