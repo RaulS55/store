@@ -8,6 +8,7 @@ import '../../data/formatters.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/product_image.dart';
+import '../../widgets/product_image_viewer.dart';
 import '../../widgets/qty_stepper.dart';
 import '../../widgets/stock_dot.dart';
 import '../../widgets/variant_picker.dart';
@@ -602,22 +603,30 @@ class _ProductImagePagerState extends State<_ProductImagePager> {
           itemCount: images.length,
           itemBuilder: (context, i) {
             final isDark = Theme.of(context).brightness == Brightness.dark;
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                ColoredBox(
-                  color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
-                ),
-                IgnorePointer(
-                  child: ProductImage(
-                    key: ValueKey('product-pager-image-$i-${images[i]}'),
-                    path: images[i],
-                    fit: BoxFit.contain,
-                    borderRadius: BorderRadius.circular(AppRadii.lg),
+            return GestureDetector(
+              key: ValueKey('product-pager-open-$i-${images[i]}'),
+              onTap: () => showProductImageViewer(
+                context: context,
+                images: productImageEntries(images),
+                initialIndex: i,
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
                   ),
-                ),
-                const ColoredBox(color: Color(0x00000000)),
-              ],
+                  IgnorePointer(
+                    child: ProductImage(
+                      key: ValueKey('product-pager-image-$i-${images[i]}'),
+                      path: images[i],
+                      fit: BoxFit.contain,
+                      borderRadius: BorderRadius.circular(AppRadii.lg),
+                    ),
+                  ),
+                  const ColoredBox(color: Color(0x00000000)),
+                ],
+              ),
             );
           },
         ),

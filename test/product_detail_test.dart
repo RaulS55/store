@@ -132,4 +132,26 @@ void main() {
     );
     expect(thumbImage.fit, BoxFit.contain);
   });
+
+  testWidgets('tap on the main image opens a larger viewer', (tester) async {
+    _setPhoneView(tester);
+    await tester.pumpWidget(_app(await _storeWithGallery()));
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(ValueKey('product-pager-open-0-${_images[0]}')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('product-image-viewer')), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('product-image-viewer-image-0-${_images[0]}')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('product-image-viewer-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('product-image-viewer')), findsNothing);
+  });
 }

@@ -7,6 +7,7 @@ import '../../data/formatters.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/product_image.dart';
+import '../../widgets/product_image_viewer.dart';
 import '../../widgets/stock_dot.dart';
 
 class ProductTable extends StatelessWidget {
@@ -65,13 +66,19 @@ class ProductTable extends StatelessWidget {
                     DataCell(
                       Row(
                         children: [
-                          SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: ProductImage(
-                              path: product.image,
-                              fit: BoxFit.cover,
-                              borderRadius: BorderRadius.circular(8),
+                          GestureDetector(
+                            onTap: () => showProductImageViewer(
+                              context: context,
+                              images: productImageEntries(product.images),
+                            ),
+                            child: SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: ProductImage(
+                                path: product.image,
+                                fit: BoxFit.cover,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),

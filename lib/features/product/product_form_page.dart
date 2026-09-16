@@ -9,6 +9,7 @@ import '../../data/image_compress.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/product_image.dart';
+import '../../widgets/product_image_viewer.dart';
 import 'product_actions.dart';
 import 'variant_editor.dart';
 
@@ -642,10 +643,23 @@ class _ImagesEditor extends StatelessWidget {
                   child: Stack(
                     children: [
                       Positioned.fill(
-                        child: ProductImage(
-                          path: images[i].url ?? '',
-                          bytes: images[i].bytes,
-                          borderRadius: BorderRadius.circular(AppRadii.md),
+                        child: GestureDetector(
+                          onTap: () => showProductImageViewer(
+                            context: context,
+                            images: [
+                              for (final image in images)
+                                ProductImageEntry(
+                                  path: image.url ?? '',
+                                  bytes: image.bytes,
+                                ),
+                            ],
+                            initialIndex: i,
+                          ),
+                          child: ProductImage(
+                            path: images[i].url ?? '',
+                            bytes: images[i].bytes,
+                            borderRadius: BorderRadius.circular(AppRadii.md),
+                          ),
                         ),
                       ),
                       if (images[i].compressing)
