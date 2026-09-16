@@ -5,12 +5,12 @@ import 'package:store_app/data/order_share.dart';
 import 'fakes/catalog_harness.dart';
 
 void main() {
-  test('catalog starts empty and keeps mock customers', () {
+  test('catalog starts empty', () {
     final store = AppStore();
     expect(store.products, isEmpty);
     expect(store.orders, isEmpty);
     expect(store.closedOrders, isEmpty);
-    expect(store.customers, isNotEmpty);
+    expect(store.customers, isEmpty);
   });
 
   test('an order with a product has customer, total and WhatsApp text', () async {
@@ -24,7 +24,7 @@ void main() {
     expect(OrderShare.message(order), contains(order.orderNumber));
     expect(OrderShare.whatsappUri(order), isNotNull);
 
-    final created = store.addCustomer(name: '  Juan Pérez  ');
+    final created = await store.addCustomer(name: '  Juan Pérez  ');
     expect(created.name, 'Juan Pérez');
     expect(created.phone, isNull);
     expect(created.cuit, isNull);

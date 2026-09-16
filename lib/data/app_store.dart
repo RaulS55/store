@@ -8,32 +8,34 @@ import '../models/customer.dart';
 import '../models/filters.dart';
 import '../models/order.dart';
 import '../models/product.dart';
+import 'customer_access.dart';
 import 'image_access.dart';
 import 'image_compress.dart';
-import 'mock_data.dart';
 import 'product_access.dart';
 
 class AppStore extends ChangeNotifier {
   AppStore({
     ProductAccess? products,
+    CustomerAccess? customers,
     ImageAccess? images,
     void Function(String message)? log,
   }) : _productAccess = products,
+       _customerAccess = customers,
        _imageAccess = images,
-       _log = log ?? debugPrint {
-    _customers = List<Customer>.from(MockCatalog.customers());
-  }
+       _log = log ?? debugPrint;
 
   final ProductAccess? _productAccess;
+  final CustomerAccess? _customerAccess;
   final ImageAccess? _imageAccess;
   final void Function(String message) _log;
   StreamSubscription<List<Product>>? _productsSub;
+  StreamSubscription<List<Customer>>? _customersSub;
   String? _companyId;
   final Map<String, Uint8List> _imageBytes = {};
 
   ThemeMode themeMode = ThemeMode.light;
   List<Product> _products = [];
-  late List<Customer> _customers;
+  List<Customer> _customers = [];
   final List<DraftOrder> orders = [];
   final List<DraftOrder> closedOrders = [];
 
@@ -47,7 +49,7 @@ class AppStore extends ChangeNotifier {
 
   int _orderSeq = 0;
   int _draftSeq = 0;
-  int _customerSeq = 4;
+  int _customerSeq = 0;
   String? activeOrderId;
 
   bool ivaEnabled = false;
@@ -77,27 +79,49 @@ class AppStore extends ChangeNotifier {
   void bindCompany(String? companyId) {
     if (_companyId == companyId) return;
     _productsSub?.cancel();
+    _customersSub?.cancel();
     _productsSub = null;
+    _customersSub = null;
     _companyId = companyId;
     _products = [];
+    _customers = [];
     _imageBytes.clear();
     notifyListeners();
-    final access = _productAccess;
-    if (companyId == null || access == null) return;
-    _productsSub = access
-        .watchProducts(companyId)
-        .listen(
-          (list) {
-            _products = [
-              for (final product in list)
-                if (!product.isDeleted) product,
-            ];
-            notifyListeners();
-          },
-          onError: (Object error) {
-            _log('Products watch failed: $error');
-          },
-        );
+    if (companyId == null) return;
+    final productAccess = _productAccess;
+    if (productAccess != null) {
+      _productsSub = productAccess
+          .watchProducts(companyId)
+          .listen(
+            (list) {
+              _products = [
+                for (final product in list)
+                  if (!product.isDeleted) product,
+              ];
+              notifyListeners();
+            },
+            onError: (Object error) {
+              _log('Products watch failed: $error');
+            },
+          );
+    }
+    final customerAccess = _customerAccess;
+    if (customerAccess != null) {
+      _customersSub = customerAccess
+          .watchCustomers(companyId)
+          .listen(
+            (list) {
+              _customers = [
+                for (final customer in list)
+                  if (!customer.isDeleted) customer,
+              ];
+              notifyListeners();
+            },
+            onError: (Object error) {
+              _log('Customers watch failed: $error');
+            },
+          );
+    }
   }
 
   Product _stamp(Product product) {
@@ -115,6 +139,31 @@ class AppStore extends ChangeNotifier {
     final access = _productAccess;
     if (companyId == null || access == null) return;
     await access.saveProduct(companyId, product);
+  }
+
+  Customer _stampCustomer(Customer customer) {
+    final now = DateTime.now().toUtc();
+    final existing = customerById(customer.id);
+    return customer.copyWith(
+      createdAt: existing?.createdAt ?? customer.createdAt,
+      updatedAt: now,
+      deletedAt: existing?.deletedAt ?? customer.deletedAt,
+    );
+  }
+
+  Future<void> _persistCustomer(Customer customer) async {
+    final companyId = _companyId;
+    final access = _customerAccess;
+    if (companyId == null || access == null) return;
+    await access.saveCustomer(companyId, customer);
+  }
+
+  void _syncCustomerInOrders(Customer customer) {
+    for (final order in [...orders, ...closedOrders]) {
+      if (order.customer.id == customer.id) {
+        order.customer = customer;
+      }
+    }
   }
 
   DraftOrder? get activeOrder {
@@ -490,25 +539,50 @@ class AppStore extends ChangeNotifier {
     return order;
   }
 
-  Customer addCustomer({
+  Future<Customer> addCustomer({
     required String name,
     String? phone,
     String? cuit,
     TaxCondition? taxCondition,
     String? address,
-  }) {
-    _customerSeq += 1;
+  }) async {
+    final now = DateTime.now().toUtc();
     final customer = Customer(
-      id: 'c$_customerSeq',
+      id: nextCustomerId(),
       name: name.trim(),
       phone: _blankToNull(phone),
       cuit: _blankToNull(cuit),
       taxCondition: taxCondition,
       address: _blankToNull(address),
+      createdAt: now,
+      updatedAt: now,
     );
-    _customers.insert(0, customer);
+    await upsertCustomer(customer);
+    return customerById(customer.id) ?? customer;
+  }
+
+  Future<void> upsertCustomer(Customer customer) async {
+    final next = _stampCustomer(customer);
+    final index = _customers.indexWhere((item) => item.id == next.id);
+    if (index >= 0) {
+      _customers[index] = next;
+    } else {
+      _customers.insert(0, next);
+    }
+    _syncCustomerInOrders(next);
     notifyListeners();
-    return customer;
+    await _persistCustomer(next);
+  }
+
+  Future<void> deleteCustomer(String customerId) async {
+    final existing = customerById(customerId);
+    if (existing == null) return;
+    final next = _stampCustomer(
+      existing.copyWith(deletedAt: DateTime.now().toUtc()),
+    );
+    await _persistCustomer(next);
+    _customers.removeWhere((customer) => customer.id == customerId);
+    notifyListeners();
   }
 
   String? _blankToNull(String? value) {
@@ -517,18 +591,41 @@ class AppStore extends ChangeNotifier {
     return trimmed;
   }
 
-  void setCustomerPhone(String customerId, String phone) {
-    final next = _blankToNull(phone);
-    final index = _customers.indexWhere((c) => c.id == customerId);
-    if (index >= 0) {
-      _customers[index] = _customers[index].copyWith(phone: next);
-    }
-    for (final order in [...orders, ...closedOrders]) {
-      if (order.customer.id == customerId) {
-        order.customer = order.customer.copyWith(phone: next);
+  Future<void> setCustomerPhone(String customerId, String phone) async {
+    final nextPhone = _blankToNull(phone);
+    final existing = customerById(customerId);
+    if (existing == null) {
+      for (final order in [...orders, ...closedOrders]) {
+        if (order.customer.id == customerId) {
+          order.customer = Customer(
+            id: order.customer.id,
+            name: order.customer.name,
+            cuit: order.customer.cuit,
+            taxCondition: order.customer.taxCondition,
+            phone: nextPhone,
+            address: order.customer.address,
+            createdAt: order.customer.createdAt,
+            updatedAt: DateTime.now().toUtc(),
+            deletedAt: order.customer.deletedAt,
+          );
+        }
       }
+      notifyListeners();
+      return;
     }
-    notifyListeners();
+    await upsertCustomer(
+      Customer(
+        id: existing.id,
+        name: existing.name,
+        cuit: existing.cuit,
+        taxCondition: existing.taxCondition,
+        phone: nextPhone,
+        address: existing.address,
+        createdAt: existing.createdAt,
+        updatedAt: existing.updatedAt,
+        deletedAt: existing.deletedAt,
+      ),
+    );
   }
 
   void selectCustomer(String orderId, Customer customer) {
@@ -642,9 +739,20 @@ class AppStore extends ChangeNotifier {
     return 'p${DateTime.now().millisecondsSinceEpoch}';
   }
 
+  String nextCustomerId() {
+    final companyId = _companyId;
+    final access = _customerAccess;
+    if (companyId != null && access != null) {
+      return access.nextCustomerId(companyId);
+    }
+    _customerSeq += 1;
+    return 'c$_customerSeq';
+  }
+
   @override
   void dispose() {
     _productsSub?.cancel();
+    _customersSub?.cancel();
     super.dispose();
   }
 }

@@ -93,8 +93,9 @@ Future<void> sendOrderWhatsApp(BuildContext context, DraftOrder order) async {
   if (current.customer.whatsappDigits.isEmpty) {
     final phone = await _askWhatsAppPhone(context, current.customer.name);
     if (phone == null || !context.mounted) return;
-    context.read<AppStore>().setCustomerPhone(current.customer.id, phone);
-    current = context.read<AppStore>().orderById(current.id) ?? current;
+    final store = context.read<AppStore>();
+    await store.setCustomerPhone(current.customer.id, phone);
+    current = store.orderById(current.id) ?? current;
     if (current.customer.whatsappDigits.isEmpty) return;
   }
   final ok = await OrderShare.openWhatsApp(current);

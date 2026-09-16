@@ -31,7 +31,7 @@ class CustomersPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Agenda de clientes para armar pedidos. Todavía no hay backend.',
+                      'Agenda de clientes para armar pedidos.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.slate,
                       ),
@@ -50,30 +50,61 @@ class CustomersPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          for (final customer in customers)
-            Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: AppColors.terracottaChip,
-                  child: Text(
-                    customer.initials,
-                    style: const TextStyle(
-                      color: AppColors.terracotta,
-                      fontWeight: FontWeight.w700,
+          if (customers.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.people_outline,
+                    size: 40,
+                    color: AppColors.mutedText,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Todavía no hay clientes',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Cargá el primer cliente para armar pedidos.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: AppColors.slate),
+                  ),
+                ],
+              ),
+            )
+          else
+            for (final customer in customers)
+              Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.terracottaChip,
+                    child: Text(
+                      customer.initials,
+                      style: const TextStyle(
+                        color: AppColors.terracotta,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
+                  title: Text(customer.name),
+                  subtitle: _subtitle(context, customer) == null
+                      ? null
+                      : Text(_subtitle(context, customer)!),
+                  isThreeLine:
+                      customer.detailSubtitle != null &&
+                      context
+                          .read<AppStore>()
+                          .ordersForCustomer(customer.id)
+                          .isNotEmpty,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.go('/clientes/${customer.id}'),
                 ),
-                title: Text(customer.name),
-                subtitle: _subtitle(context, customer) == null
-                    ? null
-                    : Text(_subtitle(context, customer)!),
-                isThreeLine: customer.detailSubtitle != null &&
-                    context.read<AppStore>().ordersForCustomer(customer.id).isNotEmpty,
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.go('/clientes/${customer.id}'),
               ),
-            ),
         ],
       ),
     );

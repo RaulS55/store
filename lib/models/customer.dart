@@ -1,3 +1,5 @@
+import 'sync_record.dart';
+
 enum TaxCondition {
   responsableInscripto('Responsable Inscripto'),
   monotributo('Monotributo'),
@@ -6,6 +8,15 @@ enum TaxCondition {
 
   const TaxCondition(this.label);
   final String label;
+
+  static TaxCondition? fromStorage(String? value) {
+    final raw = value?.trim() ?? '';
+    if (raw.isEmpty) return null;
+    for (final condition in TaxCondition.values) {
+      if (condition.name == raw) return condition;
+    }
+    throw FormatException('Unknown tax condition: $value');
+  }
 }
 
 class Customer {
@@ -16,6 +27,9 @@ class Customer {
     this.taxCondition,
     this.phone,
     this.address,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
   });
 
   final String id;
@@ -24,6 +38,11 @@ class Customer {
   final TaxCondition? taxCondition;
   final String? phone;
   final String? address;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+
+  bool get isDeleted => deletedAt != null;
 
   String get initials {
     final trimmed = name.trim();
@@ -40,6 +59,9 @@ class Customer {
     TaxCondition? taxCondition,
     String? phone,
     String? address,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? deletedAt,
   }) {
     return Customer(
       id: id ?? this.id,
@@ -48,6 +70,9 @@ class Customer {
       taxCondition: taxCondition ?? this.taxCondition,
       phone: phone ?? this.phone,
       address: address ?? this.address,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 
@@ -61,4 +86,41 @@ class Customer {
     if (parts.isEmpty) return null;
     return parts.join(' · ');
   }
+
+  factory Customer.fromMap(String id, Map<String, dynamic> map) {
+    final record = SyncRecord.fromMap(id, map);
+    return Customer(
+      id: record.id,
+      name: (map['name'] as String? ?? '').trim(),
+      cuit: _blankToNull(map['cuit'] as String?),
+      taxCondition: TaxCondition.fromStorage(map['taxCondition'] as String?),
+      phone: _blankToNull(map['phone'] as String?),
+      address: _blankToNull(map['address'] as String?),
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      deletedAt: record.deletedAt,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      ...SyncRecord(
+        id: id,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        deletedAt: deletedAt,
+      ).toMap(),
+      'name': name.trim(),
+      'cuit': cuit?.trim(),
+      'taxCondition': taxCondition?.name,
+      'phone': phone?.trim(),
+      'address': address?.trim(),
+    };
+  }
+}
+
+String? _blankToNull(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return trimmed;
 }

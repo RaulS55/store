@@ -7,6 +7,8 @@ import '../../models/customer.dart';
 import '../../theme/tokens.dart';
 import '../order/order_actions.dart';
 import '../order/order_card.dart';
+import 'customer_actions.dart';
+import 'customer_sheets.dart';
 
 class CustomerDetailPage extends StatelessWidget {
   const CustomerDetailPage({super.key, required this.customerId});
@@ -37,6 +39,7 @@ class CustomerDetailPage extends StatelessWidget {
 
     final history = store.ordersForCustomer(customer.id);
     final wide = AppBreakpoints.isWide(context);
+    final canDelete = canDeleteCustomer(context);
 
     return SafeArea(
       child: ListView(
@@ -57,11 +60,31 @@ class CustomerDetailPage extends StatelessWidget {
               Expanded(
                 child: Text(
                   customer.name,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
+              IconButton(
+                key: const ValueKey('edit-customer'),
+                tooltip: 'Editar',
+                onPressed: () => showCustomerForm(context, customer: customer),
+                icon: const Icon(Icons.edit_outlined),
+              ),
+              if (canDelete)
+                IconButton(
+                  key: const ValueKey('delete-customer'),
+                  tooltip: 'Eliminar',
+                  onPressed: () => deleteCustomerWithConfirm(
+                    context: context,
+                    customer: customer,
+                  ),
+                  style: IconButton.styleFrom(
+                    foregroundColor: AppColors.stockLow,
+                  ),
+                  icon: const Icon(Icons.delete_outline),
+                ),
             ],
           ),
           if (customer.detailSubtitle != null)

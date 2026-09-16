@@ -207,6 +207,20 @@ service cloud.firestore {
           );
         allow delete: if false;
       }
+
+      match /customers/{customerId} {
+        allow read: if isMember(companyId);
+        allow create: if isMember(companyId) && hasSyncFields(customerId);
+        allow update: if isMember(companyId)
+          && hasSyncFields(customerId)
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (
+            request.resource.data.deletedAt == resource.data.deletedAt
+            || isOwnerOrAdmin(companyId)
+          );
+        allow delete: if false;
+      }
     }
 
     match /{path=**}/invitations/{invitationId} {

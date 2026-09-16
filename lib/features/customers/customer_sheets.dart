@@ -36,10 +36,13 @@ Future<Customer?> showCustomerPicker(BuildContext context) {
   );
 }
 
-Future<Customer?> showCustomerForm(BuildContext context) {
+Future<Customer?> showCustomerForm(
+  BuildContext context, {
+  Customer? customer,
+}) {
   return showWhiteSheet<Customer>(
     context: context,
-    builder: (context) => const _CustomerFormSheet(),
+    builder: (context) => _CustomerFormSheet(customer: customer),
   );
 }
 
@@ -52,6 +55,7 @@ class _CustomerPickerSheet extends StatefulWidget {
 
 class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
   final _name = TextEditingController();
+  var _saving = false;
 
   @override
   void dispose() {
@@ -67,7 +71,7 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
       if (query.isEmpty) return true;
       return customer.name.toLowerCase().contains(query);
     }).toList();
-    final canCreate = _name.text.trim().isNotEmpty;
+    final canCreate = _name.text.trim().isNotEmpty && !_saving;
 
     return ColoredBox(
       color: Colors.white,
@@ -141,27 +145,53 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
     );
   }
 
-  void _create(AppStore store) {
+  Future<void> _create(AppStore store) async {
     final name = _name.text.trim();
-    if (name.isEmpty) return;
-    final customer = store.addCustomer(name: name);
-    Navigator.pop(context, customer);
+    if (name.isEmpty || _saving) return;
+    setState(() => _saving = true);
+    try {
+      final customer = await store.addCustomer(name: name);
+      if (!mounted) return;
+      Navigator.pop(context, customer);
+    } catch (error, stack) {
+      debugPrint('Customer create failed: $error');
+      debugPrint('$stack');
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo guardar el cliente.')),
+      );
+    }
   }
 }
 
 class _CustomerFormSheet extends StatefulWidget {
-  const _CustomerFormSheet();
+  const _CustomerFormSheet({this.customer});
+
+  final Customer? customer;
 
   @override
   State<_CustomerFormSheet> createState() => _CustomerFormSheetState();
 }
 
 class _CustomerFormSheetState extends State<_CustomerFormSheet> {
-  final _name = TextEditingController();
-  final _phone = TextEditingController();
-  final _cuit = TextEditingController();
-  final _address = TextEditingController();
+  late final TextEditingController _name;
+  late final TextEditingController _phone;
+  late final TextEditingController _cuit;
+  late final TextEditingController _address;
   TaxCondition? _tax;
+  var _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final customer = widget.customer;
+    _name = TextEditingController(text: customer?.name ?? '');
+    _phone = TextEditingController(text: customer?.phone ?? '');
+    _cuit = TextEditingController(text: customer?.cuit ?? '');
+    _address = TextEditingController(text: customer?.address ?? '');
+    _tax = customer?.taxCondition;
+  }
 
   @override
   void dispose() {
@@ -174,7 +204,8 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final canSave = _name.text.trim().isNotEmpty;
+    final editing = widget.customer != null;
+    final canSave = _name.text.trim().isNotEmpty && !_saving;
     return ColoredBox(
       color: Colors.white,
       child: SingleChildScrollView(
@@ -183,7 +214,7 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Nuevo cliente',
+              editing ? 'Editar cliente' : 'Nuevo cliente',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -197,6 +228,7 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
             ),
             const SizedBox(height: 16),
             TextField(
+              key: const ValueKey('customer-name'),
               controller: _name,
               textCapitalization: TextCapitalization.words,
               onChanged: (_) => setState(() {}),
@@ -230,8 +262,11 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
                 child: DropdownButton<TaxCondition?>(
                   value: _tax,
                   isExpanded: true,
-                  hint: const Text('Sin especificar'),
                   items: [
+                    const DropdownMenuItem<TaxCondition?>(
+                      value: null,
+                      child: Text('Sin especificar'),
+                    ),
                     for (final value in TaxCondition.values)
                       DropdownMenuItem(
                         value: value,
@@ -252,6 +287,7 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
             ),
             const SizedBox(height: 20),
             FilledButton(
+              key: const ValueKey('save-customer'),
               onPressed: canSave ? _save : null,
               child: const Text('Guardar cliente'),
             ),
@@ -261,16 +297,54 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     final name = _name.text.trim();
-    if (name.isEmpty) return;
-    final customer = context.read<AppStore>().addCustomer(
-      name: name,
-      phone: _phone.text,
-      cuit: _cuit.text,
-      taxCondition: _tax,
-      address: _address.text,
-    );
-    Navigator.pop(context, customer);
+    if (name.isEmpty || _saving) return;
+    setState(() => _saving = true);
+    final store = context.read<AppStore>();
+    final existing = widget.customer;
+    try {
+      final Customer customer;
+      if (existing == null) {
+        customer = await store.addCustomer(
+          name: name,
+          phone: _phone.text,
+          cuit: _cuit.text,
+          taxCondition: _tax,
+          address: _address.text,
+        );
+      } else {
+        await store.upsertCustomer(
+          Customer(
+            id: existing.id,
+            name: name,
+            phone: _blankToNull(_phone.text),
+            cuit: _blankToNull(_cuit.text),
+            taxCondition: _tax,
+            address: _blankToNull(_address.text),
+            createdAt: existing.createdAt,
+            updatedAt: existing.updatedAt,
+            deletedAt: existing.deletedAt,
+          ),
+        );
+        customer = store.customerById(existing.id) ?? existing;
+      }
+      if (!mounted) return;
+      Navigator.pop(context, customer);
+    } catch (error, stack) {
+      debugPrint('Customer save failed: $error');
+      debugPrint('$stack');
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo guardar el cliente.')),
+      );
+    }
+  }
+
+  String? _blankToNull(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed;
   }
 }

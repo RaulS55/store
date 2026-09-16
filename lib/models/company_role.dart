@@ -24,6 +24,12 @@ enum CompanyRole {
     CompanyRole.employee => false,
   };
 
+  bool get canDeleteCustomer => switch (this) {
+    CompanyRole.owner => true,
+    CompanyRole.administrator => true,
+    CompanyRole.employee => false,
+  };
+
   bool get canEditCompanySettings => switch (this) {
     CompanyRole.owner => true,
     CompanyRole.administrator => true,

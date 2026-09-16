@@ -45,6 +45,9 @@ void main() {
     expect(CompanyRole.owner.canDeleteProduct, isTrue);
     expect(CompanyRole.administrator.canDeleteProduct, isTrue);
     expect(CompanyRole.employee.canDeleteProduct, isFalse);
+    expect(CompanyRole.owner.canDeleteCustomer, isTrue);
+    expect(CompanyRole.administrator.canDeleteCustomer, isTrue);
+    expect(CompanyRole.employee.canDeleteCustomer, isFalse);
     expect(CompanyRole.owner.canEditCompanySettings, isTrue);
     expect(CompanyRole.administrator.canEditCompanySettings, isTrue);
     expect(CompanyRole.employee.canEditCompanySettings, isFalse);

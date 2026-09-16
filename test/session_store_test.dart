@@ -15,6 +15,7 @@ void main() {
     expect(session.isSignedIn, isTrue);
     expect(session.isOwner, isTrue);
     expect(session.canDeleteProduct, isTrue);
+    expect(session.canDeleteCustomer, isTrue);
     expect(session.user?.email, 'owner@moda.stock');
     expect(session.company?.name, 'Moda Stock');
     expect(session.membership?.role, CompanyRole.owner);
@@ -273,6 +274,7 @@ void main() {
 
     expect(session.canViewTeam, isFalse);
     expect(session.canDeleteProduct, isFalse);
+    expect(session.canDeleteCustomer, isFalse);
     expect(session.members, isEmpty);
     expect(session.invitations, isEmpty);
     expect(access.listInvitationsCalls, 0);
@@ -308,6 +310,7 @@ void main() {
 
     expect(session.canViewTeam, isTrue);
     expect(session.canDeleteProduct, isTrue);
+    expect(session.canDeleteCustomer, isTrue);
     expect(session.isOwner, isFalse);
     expect(session.members, isNotEmpty);
     expect(session.invitations, isEmpty);
