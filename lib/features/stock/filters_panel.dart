@@ -54,13 +54,6 @@ class _FiltersEditorState extends State<FiltersEditor> {
   late TextEditingController _min;
   late TextEditingController _max;
 
-  static const _chipCategories = [
-    ApparelCategory.remeras,
-    ApparelCategory.pantalones,
-    ApparelCategory.calzado,
-    ApparelCategory.abrigos,
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -163,7 +156,7 @@ class _FiltersEditorState extends State<FiltersEditor> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final category in _chipCategories)
+                  for (final category in store.visibleCategories)
                     FilterChip(
                       label: Text(category.label),
                       selected: _draft.categories.contains(category),
@@ -356,7 +349,10 @@ class WebFilterBar extends StatelessWidget {
                     _DropdownWrap(
                       label: 'Categoría',
                       child: DropdownButton<ApparelCategory?>(
-                        value: store.chipCategory,
+                        value:
+                            store.visibleCategories.contains(store.chipCategory)
+                            ? store.chipCategory
+                            : null,
                         hint: const Text('Todas'),
                         underline: const SizedBox.shrink(),
                         items: [
@@ -364,7 +360,7 @@ class WebFilterBar extends StatelessWidget {
                             value: null,
                             child: Text('Todas'),
                           ),
-                          for (final c in ApparelCategory.values)
+                          for (final c in store.visibleCategories)
                             DropdownMenuItem(value: c, child: Text(c.label)),
                         ],
                         onChanged: store.selectChipCategory,

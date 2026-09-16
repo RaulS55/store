@@ -167,6 +167,7 @@ class FirestoreCompanyAccess implements CompanyAccess {
       'name': name,
       'ownerId': uid,
       'createdAt': FieldValue.serverTimestamp(),
+      'rubro': CompanyRubro.ambos.name,
     });
     await _writeOwnerProfile(
       uid: uid,
@@ -364,6 +365,11 @@ class FirestoreCompanyAccess implements CompanyAccess {
     final member = await getMembership(user.companyId, uid);
     if (member != null) return;
     await _users.doc(uid).update({'companyId': ''});
+  }
+
+  @override
+  Future<void> updateCompanyRubro(String companyId, CompanyRubro rubro) async {
+    await _companies.doc(companyId).update({'rubro': rubro.name});
   }
 
   Future<String> _uniqueInviteCode(String companyId) async {

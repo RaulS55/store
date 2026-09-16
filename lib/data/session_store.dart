@@ -41,6 +41,8 @@ class SessionStore extends ChangeNotifier {
   bool get isOwner => _membership?.role == CompanyRole.owner;
   bool get canViewTeam => _membership?.role.canViewTeam ?? false;
   bool get canDeleteProduct => _membership?.role.canDeleteProduct ?? false;
+  bool get canEditCompanySettings =>
+      _membership?.role.canEditCompanySettings ?? false;
   bool get needsCompany => isReady && hasIdentity && !isSignedIn;
 
   AuthIdentity? get identity => _identity;
@@ -234,6 +236,13 @@ class SessionStore extends ChangeNotifier {
       );
       await _loadProfile(identity);
     });
+  }
+
+  Future<void> setCompanyRubro(CompanyRubro rubro) async {
+    final current = _requireOwnerOrAdmin();
+    await _access.updateCompanyRubro(current.company.id, rubro);
+    _company = current.company.copyWith(rubro: rubro);
+    notifyListeners();
   }
 
   Future<void> loadTeam() async {
@@ -505,6 +514,22 @@ class SessionStore extends ChangeNotifier {
     if (membership.role != CompanyRole.owner) {
       throw const SessionException(
         'Solo el propietario puede gestionar el equipo.',
+      );
+    }
+    return (user: user, company: company, membership: membership);
+  }
+
+  ({AppUser user, Company company, Membership membership})
+  _requireOwnerOrAdmin() {
+    final user = _user;
+    final company = _company;
+    final membership = _membership;
+    if (user == null || company == null || membership == null) {
+      throw const SessionException('Ingresá para continuar.');
+    }
+    if (!membership.role.canEditCompanySettings) {
+      throw const SessionException(
+        'Solo el propietario o un administrador puede cambiar el rubro.',
       );
     }
     return (user: user, company: company, membership: membership);

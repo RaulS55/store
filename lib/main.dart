@@ -19,6 +19,7 @@ import 'data/firestore_product_access.dart';
 import 'data/session_store.dart';
 import 'features/auth/loading_page.dart';
 import 'firebase_options.dart';
+import 'models/company.dart';
 import 'routing/app_router.dart';
 import 'theme/app_theme.dart';
 import 'widgets/brand_logo.dart';
@@ -94,6 +95,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
     final session = _session;
     if (store == null || session == null) return;
     store.bindCompany(session.companyId);
+    store.setRubro(session.company?.rubro ?? CompanyRubro.ambos);
   }
 
   @override
@@ -161,10 +163,7 @@ class _BootErrorPage extends StatelessWidget {
             const SizedBox(height: 16),
             const Text('No se pudo iniciar la app.'),
             const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: const Text('Reintentar'),
-            ),
+            FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
           ],
         ),
       ),

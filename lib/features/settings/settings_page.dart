@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
 import '../../data/formatters.dart';
+import '../../data/session_exception.dart';
+import '../../data/session_store.dart';
+import '../../models/company.dart';
 import '../../theme/tokens.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -31,6 +36,8 @@ class SettingsPage extends StatelessWidget {
             activeTrackColor: AppColors.terracotta,
           ),
           const Divider(),
+          const _RubroSettings(),
+          const Divider(),
           const _IvaSettings(),
           const ListTile(
             title: Text('Moneda'),
@@ -42,6 +49,103 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RubroSettings extends StatelessWidget {
+  const _RubroSettings();
+
+  bool _canEdit(BuildContext context) {
+    try {
+      return context.watch<SessionStore>().canEditCompanySettings;
+    } on ProviderNotFoundException {
+      return true;
+    }
+  }
+
+  Future<void> _apply(BuildContext context, CompanyRubro next) async {
+    final store = context.read<AppStore>();
+    SessionStore? session;
+    try {
+      session = context.read<SessionStore>();
+    } on ProviderNotFoundException {
+      session = null;
+    }
+    if (session == null) {
+      store.setRubro(next);
+      return;
+    }
+    try {
+      await session.setCompanyRubro(next);
+      store.setRubro(next);
+    } on SessionException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  void _toggle(BuildContext context, {required bool ropa}) {
+    final store = context.read<AppStore>();
+    var nextRopa = store.rubro.includesRopa;
+    var nextCalzado = store.rubro.includesCalzado;
+    if (ropa) {
+      nextRopa = !nextRopa;
+    } else {
+      nextCalzado = !nextCalzado;
+    }
+    if (!nextRopa && !nextCalzado) return;
+    unawaited(
+      _apply(
+        context,
+        CompanyRubro.fromSelection(ropa: nextRopa, calzado: nextCalzado),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<AppStore>();
+    final canEdit = _canEdit(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          title: const Text('Rubro'),
+          subtitle: Text(
+            store.rubro == CompanyRubro.ambos
+                ? 'Ropa y calzado. Las categorías muestran las dos líneas.'
+                : 'Las categorías corresponden a ${store.rubro.label.toLowerCase()}.',
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilterChip(
+                label: const Text('Ropa'),
+                selected: store.rubro.includesRopa,
+                showCheckmark: true,
+                onSelected: canEdit
+                    ? (_) => _toggle(context, ropa: true)
+                    : null,
+              ),
+              FilterChip(
+                label: const Text('Calzado'),
+                selected: store.rubro.includesCalzado,
+                showCheckmark: true,
+                onSelected: canEdit
+                    ? (_) => _toggle(context, ropa: false)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

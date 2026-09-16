@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../models/company.dart';
 import '../models/customer.dart';
 import '../models/filters.dart';
 import '../models/order.dart';
@@ -51,9 +52,27 @@ class AppStore extends ChangeNotifier {
 
   bool ivaEnabled = false;
   double ivaPercent = 21;
+  CompanyRubro rubro = CompanyRubro.ambos;
 
   List<Product> get products => List.unmodifiable(_products);
   List<Customer> get customers => List.unmodifiable(_customers);
+
+  List<ApparelCategory> get visibleCategories {
+    switch (rubro) {
+      case CompanyRubro.ropa:
+        return ApparelCategory.forLine(ApparelLine.ropa);
+      case CompanyRubro.calzado:
+        return ApparelCategory.forLine(ApparelLine.calzado);
+      case CompanyRubro.ambos:
+        return ApparelCategory.values;
+    }
+  }
+
+  List<ApparelCategory> categoryChoices({ApparelCategory? current}) {
+    final visible = visibleCategories;
+    if (current == null || visible.contains(current)) return visible;
+    return [...visible, current];
+  }
 
   void bindCompany(String? companyId) {
     if (_companyId == companyId) return;
@@ -141,6 +160,7 @@ class AppStore extends ChangeNotifier {
             .toLowerCase();
         if (!hay.contains(q)) return false;
       }
+      if (!visibleCategories.contains(product.category)) return false;
       if (chipCategory != null &&
           product.category != chipCategory &&
           product.category.chipFamily != chipCategory) {
@@ -280,6 +300,22 @@ class AppStore extends ChangeNotifier {
     if (ivaPercent == next) return;
     ivaPercent = next;
     _applyIvaToActiveOrders();
+    notifyListeners();
+  }
+
+  void setRubro(CompanyRubro next) {
+    if (rubro == next) return;
+    rubro = next;
+    final allowed = visibleCategories.toSet();
+    if (chipCategory != null && !allowed.contains(chipCategory)) {
+      chipCategory = null;
+    }
+    if (filters.categories.isNotEmpty) {
+      filters = filters.copyWith(
+        categories: filters.categories.intersection(allowed),
+      );
+    }
+    page = 0;
     notifyListeners();
   }
 

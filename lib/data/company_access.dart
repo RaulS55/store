@@ -61,4 +61,6 @@ abstract class CompanyAccess {
   Future<void> removeMember({required String companyId, required String uid});
 
   Future<void> clearOrphanCompany(String uid);
+
+  Future<void> updateCompanyRubro(String companyId, CompanyRubro rubro);
 }

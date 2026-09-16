@@ -45,6 +45,9 @@ void main() {
     expect(CompanyRole.owner.canDeleteProduct, isTrue);
     expect(CompanyRole.administrator.canDeleteProduct, isTrue);
     expect(CompanyRole.employee.canDeleteProduct, isFalse);
+    expect(CompanyRole.owner.canEditCompanySettings, isTrue);
+    expect(CompanyRole.administrator.canEditCompanySettings, isTrue);
+    expect(CompanyRole.employee.canEditCompanySettings, isFalse);
   });
 
   test('Invitation.fromMap reads pending status and path', () {
@@ -80,7 +83,7 @@ void main() {
     expect(member.toMap()['invitationId'], 'inv1');
   });
 
-  test('Company.fromMap reads owner and name', () {
+  test('Company.fromMap reads owner, name and rubro', () {
     final company = Company.fromMap('co1', {
       'name': ' Moda Stock ',
       'ownerId': 'u1',
@@ -88,6 +91,20 @@ void main() {
     });
     expect(company.name, 'Moda Stock');
     expect(company.ownerId, 'u1');
+    expect(company.rubro, CompanyRubro.ambos);
+    expect(company.toMap()['rubro'], 'ambos');
+
+    final footwear = Company.fromMap('co2', {
+      'name': 'Zapas',
+      'ownerId': 'u1',
+      'createdAt': createdAt,
+      'rubro': 'calzado',
+    });
+    expect(footwear.rubro, CompanyRubro.calzado);
+    expect(
+      footwear.copyWith(rubro: CompanyRubro.ropa).rubro,
+      CompanyRubro.ropa,
+    );
   });
 
   test('generateInviteCode uses six unambiguous characters', () {

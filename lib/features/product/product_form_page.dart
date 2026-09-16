@@ -213,6 +213,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<AppStore>();
     final wide = AppBreakpoints.isWide(context);
     final title = isEditing ? 'Editar prenda' : 'Nueva prenda';
 
@@ -366,7 +367,9 @@ class _ProductFormPageState extends State<ProductFormPage> {
           initialValue: _category,
           hint: const Text('Seleccioná una categoría'),
           items: [
-            for (final category in ApparelCategory.values)
+            for (final category in context.read<AppStore>().categoryChoices(
+              current: _category,
+            ))
               DropdownMenuItem(value: category, child: Text(category.label)),
           ],
           onChanged: (v) => setState(() => _category = v),

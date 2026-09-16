@@ -21,6 +21,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _code = TextEditingController();
+  bool _obscurePassword = true;
   String? _error;
 
   @override
@@ -98,14 +99,29 @@ class _SignUpPageState extends State<SignUpPage> {
           const SizedBox(height: 12),
           TextField(
             controller: _password,
-            obscureText: true,
+            obscureText: _obscurePassword,
             textInputAction: invite == null
                 ? TextInputAction.next
                 : TextInputAction.done,
             onSubmitted: invite == null
                 ? null
                 : (_) => session.isBusy ? null : _submit(),
-            decoration: const InputDecoration(labelText: 'Contraseña'),
+            decoration: InputDecoration(
+              labelText: 'Contraseña',
+              suffixIcon: IconButton(
+                onPressed: () {
+                  setState(() => _obscurePassword = !_obscurePassword);
+                },
+                tooltip: _obscurePassword
+                    ? 'Mostrar contraseña'
+                    : 'Ocultar contraseña',
+                icon: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
+              ),
+            ),
           ),
           if (invite == null) ...[
             const SizedBox(height: 12),

@@ -4,6 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:store_app/data/app_store.dart';
 import 'package:store_app/data/formatters.dart';
 import 'package:store_app/features/settings/settings_page.dart';
+import 'package:store_app/models/company.dart';
+import 'package:store_app/models/product.dart';
+
+import 'fakes/catalog_harness.dart';
 
 void main() {
   testWidgets('settings can enable VAT and edit the percentage', (
@@ -43,5 +47,57 @@ void main() {
     final store = AppStore();
     store.setIvaPercent(150);
     expect(store.ivaPercent, 100);
+  });
+
+  testWidgets('settings can select clothing, footwear or both', (tester) async {
+    final store = AppStore();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: const MaterialApp(home: Scaffold(body: SettingsPage())),
+      ),
+    );
+
+    expect(store.rubro, CompanyRubro.ambos);
+    expect(store.visibleCategories, contains(ApparelCategory.remeras));
+    expect(store.visibleCategories, contains(ApparelCategory.zapatillas));
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Calzado'));
+    await tester.pumpAndSettle();
+
+    expect(store.rubro, CompanyRubro.ropa);
+    expect(store.visibleCategories, contains(ApparelCategory.remeras));
+    expect(
+      store.visibleCategories,
+      isNot(contains(ApparelCategory.zapatillas)),
+    );
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Ropa'));
+    await tester.pumpAndSettle();
+
+    expect(store.rubro, CompanyRubro.ropa);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Calzado'));
+    await tester.pumpAndSettle();
+
+    expect(store.rubro, CompanyRubro.ambos);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Ropa'));
+    await tester.pumpAndSettle();
+
+    expect(store.rubro, CompanyRubro.calzado);
+    expect(store.visibleCategories, contains(ApparelCategory.pantuflas));
+    expect(store.visibleCategories, isNot(contains(ApparelCategory.remeras)));
+  });
+
+  test('store hides clothing products when the line is footwear', () async {
+    final store = AppStore();
+    await store.upsertProduct(testProduct());
+    expect(store.filteredProducts, isNotEmpty);
+
+    store.setRubro(CompanyRubro.calzado);
+    expect(store.filteredProducts, isEmpty);
+    expect(store.visibleCategories.first.line, ApparelLine.calzado);
   });
 }

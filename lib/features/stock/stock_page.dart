@@ -25,15 +25,6 @@ class _StockPageState extends State<StockPage> {
   late final TextEditingController _search;
   late final ScrollController _scroll;
 
-  static const _chips = [
-    ApparelCategory.remeras,
-    ApparelCategory.pantalones,
-    ApparelCategory.calzado,
-    ApparelCategory.abrigos,
-    ApparelCategory.buzos,
-    ApparelCategory.camperas,
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -100,7 +91,9 @@ class _StockPageState extends State<StockPage> {
               ),
             ),
           ),
-          SliverToBoxAdapter(child: _CategoryChips(chips: _chips)),
+          SliverToBoxAdapter(
+            child: _CategoryChips(chips: store.visibleCategories),
+          ),
           if (products.isEmpty)
             SliverFillRemaining(
               child: _EmptyStock(hasCatalog: store.products.isNotEmpty),

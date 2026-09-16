@@ -10,11 +10,7 @@ void main() {
   final stamp = DateTime.utc(2026, 9, 11, 12);
 
   test('SyncRecord map always includes id and clock fields', () {
-    final record = SyncRecord(
-      id: 'p1',
-      createdAt: stamp,
-      updatedAt: stamp,
-    );
+    final record = SyncRecord(id: 'p1', createdAt: stamp, updatedAt: stamp);
     expect(record.toMap(), {
       'id': 'p1',
       'createdAt': '2026-09-11T12:00:00.000Z',
@@ -61,10 +57,36 @@ void main() {
     expect(Swatches.resolve('Negro'), Swatches.negro);
   });
 
+  test('categories split clothing from footwear', () {
+    expect(ApparelCategory.remeras.line, ApparelLine.ropa);
+    expect(ApparelCategory.zapatillas.line, ApparelLine.calzado);
+    expect(ApparelCategory.pantuflas.line, ApparelLine.calzado);
+    expect(ApparelCategory.botas.label, 'Botas');
+    expect(
+      ApparelCategory.forLine(ApparelLine.calzado),
+      containsAll([
+        ApparelCategory.zapatillas,
+        ApparelCategory.botas,
+        ApparelCategory.pantuflas,
+      ]),
+    );
+    expect(
+      ApparelCategory.forLine(ApparelLine.ropa),
+      isNot(contains(ApparelCategory.zapatillas)),
+    );
+    expect(
+      ApparelCategory.forLine(ApparelLine.ropa).length,
+      greaterThanOrEqualTo(20),
+    );
+  });
+
   test('garment sizes are common distinct values', () {
     expect(ApparelSizes.all.length, greaterThanOrEqualTo(12));
     expect(ApparelSizes.all.toSet().length, ApparelSizes.all.length);
-    expect(ApparelSizes.all, containsAll(['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Único']));
+    expect(
+      ApparelSizes.all,
+      containsAll(['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Único']),
+    );
     expect(ApparelSizes.isCustom('M'), isFalse);
     expect(ApparelSizes.isCustom('44'), isTrue);
     expect(ApparelSizes.resolve('M'), 'M');
@@ -79,7 +101,10 @@ void main() {
     final product = testProduct();
     await store.upsertProduct(product);
     final saved = access.products['co1']![product.id]!;
-    expect(saved.toMap().keys, containsAll(['id', 'createdAt', 'updatedAt', 'deletedAt']));
+    expect(
+      saved.toMap().keys,
+      containsAll(['id', 'createdAt', 'updatedAt', 'deletedAt']),
+    );
     expect(saved.id, product.id);
     expect(saved.deletedAt, isNull);
     expect(saved.createdAt, product.createdAt);

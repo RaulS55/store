@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/data/session_exception.dart';
 import 'package:store_app/data/session_store.dart';
+import 'package:store_app/models/company.dart';
 import 'package:store_app/models/company_role.dart';
 
 import 'fakes/fake_auth_client.dart';
@@ -553,6 +554,32 @@ void main() {
           (error) => error.message,
           'message',
           'El código no es válido.',
+        ),
+      ),
+    );
+  });
+
+  test('owner can persist the company product line', () async {
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    expect(session.company?.rubro, CompanyRubro.ambos);
+    expect(session.canEditCompanySettings, isTrue);
+
+    await session.setCompanyRubro(CompanyRubro.calzado);
+    expect(session.company?.rubro, CompanyRubro.calzado);
+  });
+
+  test('employee cannot change the company product line', () async {
+    final session = await signedInMemberSession(role: CompanyRole.employee);
+    addTearDown(session.dispose);
+    expect(session.canEditCompanySettings, isFalse);
+    await expectLater(
+      session.setCompanyRubro(CompanyRubro.ropa),
+      throwsA(
+        isA<SessionException>().having(
+          (error) => error.message,
+          'message',
+          'Solo el propietario o un administrador puede cambiar el rubro.',
         ),
       ),
     );

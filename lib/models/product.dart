@@ -2,23 +2,56 @@ import 'package:flutter/material.dart';
 
 import 'sync_record.dart';
 
-enum ApparelCategory {
-  remeras('Remeras'),
-  pantalones('Pantalones'),
-  calzado('Calzado'),
-  abrigos('Abrigos'),
-  buzos('Buzos'),
-  camperas('Camperas'),
-  vestidos('Vestidos'),
-  shorts('Shorts'),
-  musculosas('Musculosas'),
-  poleras('Poleras'),
-  camisas('Camisas'),
-  tops('Tops'),
-  accesorios('Accesorios');
+enum ApparelLine { ropa, calzado }
 
-  const ApparelCategory(this.label);
+enum ApparelCategory {
+  remeras('Remeras', ApparelLine.ropa),
+  musculosas('Musculosas', ApparelLine.ropa),
+  poleras('Poleras', ApparelLine.ropa),
+  camisas('Camisas', ApparelLine.ropa),
+  chombas('Chombas', ApparelLine.ropa),
+  tops('Tops', ApparelLine.ropa),
+  bodies('Bodies', ApparelLine.ropa),
+  buzos('Buzos', ApparelLine.ropa),
+  sweaters('Sweaters', ApparelLine.ropa),
+  cardigans('Cardigans', ApparelLine.ropa),
+  camperas('Camperas', ApparelLine.ropa),
+  abrigos('Abrigos', ApparelLine.ropa),
+  blazers('Blazers', ApparelLine.ropa),
+  chalecos('Chalecos', ApparelLine.ropa),
+  pantalones('Pantalones', ApparelLine.ropa),
+  jeans('Jeans', ApparelLine.ropa),
+  shorts('Shorts', ApparelLine.ropa),
+  faldas('Faldas', ApparelLine.ropa),
+  vestidos('Vestidos', ApparelLine.ropa),
+  enteritos('Enteritos', ApparelLine.ropa),
+  conjuntos('Conjuntos', ApparelLine.ropa),
+  pijamas('Pijamas', ApparelLine.ropa),
+  ropaInterior('Ropa interior', ApparelLine.ropa),
+  trajesDeBano('Trajes de baño', ApparelLine.ropa),
+  medias('Medias', ApparelLine.ropa),
+  gorras('Gorras', ApparelLine.ropa),
+  bufandas('Bufandas', ApparelLine.ropa),
+  accesorios('Accesorios', ApparelLine.ropa),
+  zapatillas('Zapatillas', ApparelLine.calzado),
+  zapatos('Zapatos', ApparelLine.calzado),
+  botas('Botas', ApparelLine.calzado),
+  botinetas('Botinetas', ApparelLine.calzado),
+  borcegos('Borcegos', ApparelLine.calzado),
+  sandalias('Sandalias', ApparelLine.calzado),
+  chatitas('Chatitas', ApparelLine.calzado),
+  mocasines('Mocasines', ApparelLine.calzado),
+  zuecos('Zuecos', ApparelLine.calzado),
+  alpargatas('Alpargatas', ApparelLine.calzado),
+  ojotas('Ojotas', ApparelLine.calzado),
+  pantuflas('Pantuflas', ApparelLine.calzado),
+  tacos('Tacos', ApparelLine.calzado),
+  botasDeLluvia('Botas de lluvia', ApparelLine.calzado),
+  calzado('Calzado', ApparelLine.calzado);
+
+  const ApparelCategory(this.label, this.line);
   final String label;
+  final ApparelLine line;
 
   static ApparelCategory fromStorage(String value) {
     for (final category in ApparelCategory.values) {
@@ -27,29 +60,14 @@ enum ApparelCategory {
     throw FormatException('Unknown category: $value');
   }
 
-  ApparelCategory get chipFamily {
-    switch (this) {
-      case ApparelCategory.camperas:
-      case ApparelCategory.abrigos:
-        return ApparelCategory.abrigos;
-      case ApparelCategory.buzos:
-        return ApparelCategory.buzos;
-      case ApparelCategory.remeras:
-      case ApparelCategory.musculosas:
-      case ApparelCategory.poleras:
-      case ApparelCategory.camisas:
-      case ApparelCategory.tops:
-        return ApparelCategory.remeras;
-      case ApparelCategory.pantalones:
-      case ApparelCategory.shorts:
-        return ApparelCategory.pantalones;
-      case ApparelCategory.calzado:
-        return ApparelCategory.calzado;
-      case ApparelCategory.vestidos:
-      case ApparelCategory.accesorios:
-        return this;
-    }
+  static List<ApparelCategory> forLine(ApparelLine line) {
+    return [
+      for (final category in values)
+        if (category.line == line) category,
+    ];
   }
+
+  ApparelCategory get chipFamily => this;
 }
 
 enum ProductStatus {
@@ -290,8 +308,9 @@ class Product {
 
   String get colorLabel => colors.map((c) => c.name).join(' / ');
 
-  SwatchColor get color =>
-      colors.isEmpty ? const SwatchColor(name: '—', hex: 0xFFCCCCCC) : colors.first;
+  SwatchColor get color => colors.isEmpty
+      ? const SwatchColor(name: '—', hex: 0xFFCCCCCC)
+      : colors.first;
 
   String get size => sizes.isEmpty ? '—' : sizes.first;
 
@@ -310,8 +329,7 @@ class Product {
   int stockForSize(String size, {String? colorName}) {
     return variants
         .where(
-          (v) =>
-              v.size == size && (colorName == null || v.color == colorName),
+          (v) => v.size == size && (colorName == null || v.color == colorName),
         )
         .fold(0, (sum, v) => sum + v.stock);
   }
