@@ -16,6 +16,7 @@ enum StockSort {
 class ProductFilters {
   const ProductFilters({
     this.categories = const {},
+    this.audiences = const {},
     this.sizes = const {},
     this.colorNames = const {},
     this.brands = const {},
@@ -25,6 +26,7 @@ class ProductFilters {
   });
 
   final Set<ApparelCategory> categories;
+  final Set<ApparelAudience> audiences;
   final Set<String> sizes;
   final Set<String> colorNames;
   final Set<String> brands;
@@ -34,6 +36,7 @@ class ProductFilters {
 
   bool get isEmpty =>
       categories.isEmpty &&
+      audiences.isEmpty &&
       sizes.isEmpty &&
       colorNames.isEmpty &&
       brands.isEmpty &&
@@ -44,6 +47,7 @@ class ProductFilters {
   int get activeCount {
     var n = 0;
     if (categories.isNotEmpty) n++;
+    if (audiences.isNotEmpty) n++;
     if (sizes.isNotEmpty) n++;
     if (colorNames.isNotEmpty) n++;
     if (brands.isNotEmpty) n++;
@@ -54,6 +58,7 @@ class ProductFilters {
 
   ProductFilters copyWith({
     Set<ApparelCategory>? categories,
+    Set<ApparelAudience>? audiences,
     Set<String>? sizes,
     Set<String>? colorNames,
     Set<String>? brands,
@@ -64,6 +69,7 @@ class ProductFilters {
   }) {
     return ProductFilters(
       categories: categories ?? this.categories,
+      audiences: audiences ?? this.audiences,
       sizes: sizes ?? this.sizes,
       colorNames: colorNames ?? this.colorNames,
       brands: brands ?? this.brands,

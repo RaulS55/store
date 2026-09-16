@@ -46,6 +46,11 @@ void main() {
   testWidgets('filter sizes stay in place and skip the checkmark', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final store = AppStore();
     await store.upsertProduct(_sizedProduct());
     await tester.pumpWidget(_app(store));

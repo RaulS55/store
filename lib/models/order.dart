@@ -98,6 +98,7 @@ class DraftOrder {
     final counts = <ApparelCategory, int>{};
     for (final line in lines) {
       final category = line.product.category;
+      if (category == null) continue;
       counts[category] = (counts[category] ?? 0) + line.quantity;
     }
     final entries = counts.entries.toList()

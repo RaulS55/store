@@ -47,6 +47,7 @@ class ProductTable extends StatelessWidget {
             columns: const [
               DataColumn(label: Text('PRODUCTO')),
               DataColumn(label: Text('CATEGORÍA')),
+              DataColumn(label: Text('PÚBLICO')),
               DataColumn(label: Text('TALLE')),
               DataColumn(label: Text('COLOR')),
               DataColumn(label: Text('MARCA')),
@@ -93,7 +94,20 @@ class ProductTable extends StatelessWidget {
                         ],
                       ),
                     ),
-                    DataCell(Text(product.category.label)),
+                    DataCell(
+                      Text(
+                        product.categoryLabel.isEmpty
+                            ? '—'
+                            : product.categoryLabel,
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        product.audienceLabel.isEmpty
+                            ? '—'
+                            : product.audienceLabel,
+                      ),
+                    ),
                     DataCell(Text(product.sizeLabel)),
                     DataCell(
                       Row(
@@ -117,7 +131,9 @@ class ProductTable extends StatelessWidget {
                         ],
                       ),
                     ),
-                    DataCell(Text(product.brand)),
+                    DataCell(
+                      Text(product.brand.trim().isEmpty ? '—' : product.brand),
+                    ),
                     DataCell(
                       Text(
                         'Stock: ${product.stock}',

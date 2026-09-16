@@ -182,7 +182,15 @@ class InvoicePage extends StatelessWidget {
                                             ),
                                       ),
                                       Text(
-                                        '${line.product.category.label} · Talle ${line.variant.size} · ${line.variant.color}',
+                                        [
+                                          if (line
+                                              .product
+                                              .categoryLabel
+                                              .isNotEmpty)
+                                            line.product.categoryLabel,
+                                          'Talle ${line.variant.size}',
+                                          line.variant.color,
+                                        ].join(' · '),
                                         style: Theme.of(context)
                                             .textTheme
                                             .labelSmall

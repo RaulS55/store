@@ -200,12 +200,20 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _Attr(
-                    'Categoría',
-                    product.category.label,
-                    Icons.category_outlined,
-                  ),
-                  _Attr('Marca', product.brand, Icons.storefront_outlined),
+                  if (product.categoryLabel.isNotEmpty)
+                    _Attr(
+                      'Categoría',
+                      product.categoryLabel,
+                      Icons.category_outlined,
+                    ),
+                  if (product.audienceLabel.isNotEmpty)
+                    _Attr(
+                      'Público',
+                      product.audienceLabel,
+                      Icons.person_outline,
+                    ),
+                  if (product.brand.trim().isNotEmpty)
+                    _Attr('Marca', product.brand, Icons.storefront_outlined),
                   const SizedBox(height: 12),
                   VariantPicker(
                     product: product,

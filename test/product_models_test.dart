@@ -43,6 +43,83 @@ void main() {
     expect(product.deletedAt, isNull);
     expect(product.toMap()['id'], 'p1');
     expect(product.toMap().containsKey('deletedAt'), isTrue);
+    expect(product.category, ApparelCategory.remeras);
+    expect(product.audience, isNull);
+  });
+
+  test('Product.fromMap treats an empty audience as optional', () {
+    final product = Product.fromMap('p1', {
+      'id': 'p1',
+      'name': 'Remera',
+      'sku': 'RM-1',
+      'category': 'remeras',
+      'audience': '',
+      'brand': 'Test',
+      'price': 10000,
+      'images': <String>[],
+      'variants': [
+        {'size': 'M', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 4},
+      ],
+      'status': 'activo',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+    });
+    expect(product.audience, isNull);
+    expect(product.audienceLabel, '');
+    expect(product.toMap()['audience'], '');
+  });
+
+  test('Product.fromMap reads a stored audience', () {
+    final product = Product.fromMap('p1', {
+      'id': 'p1',
+      'name': 'Remera',
+      'sku': 'RM-1',
+      'category': 'remeras',
+      'audience': 'mujer',
+      'brand': 'Test',
+      'price': 10000,
+      'images': <String>[],
+      'variants': [
+        {'size': 'M', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 4},
+      ],
+      'status': 'activo',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+    });
+    expect(product.audience, ApparelAudience.mujer);
+    expect(product.audienceLabel, 'Mujer');
+    expect(product.toMap()['audience'], 'mujer');
+  });
+
+  test('Product.fromMap treats an empty category as optional', () {
+    final product = Product.fromMap('p1', {
+      'id': 'p1',
+      'name': 'Remera',
+      'sku': 'RM-1',
+      'category': '',
+      'brand': 'Test',
+      'price': 10000,
+      'images': <String>[],
+      'variants': [
+        {'size': 'M', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 4},
+      ],
+      'status': 'activo',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+    });
+    expect(product.category, isNull);
+    expect(product.categoryLabel, '');
+    expect(product.toMap()['category'], '');
+  });
+
+  test('ApparelCategory.match finds a label ignoring case', () {
+    expect(ApparelCategory.match('remeras'), ApparelCategory.remeras);
+    expect(ApparelCategory.match('Remeras'), ApparelCategory.remeras);
+    expect(ApparelCategory.match(''), isNull);
+    expect(ApparelCategory.tryFromStorage(''), isNull);
   });
 
   test('garment swatches are common distinct colors', () {

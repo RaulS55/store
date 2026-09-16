@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:store_app/data/app_store.dart';
 import 'package:store_app/data/picked_image_file.dart';
 import 'package:store_app/features/product/product_form_page.dart';
+import 'package:store_app/models/company.dart';
+import 'package:store_app/models/product.dart';
 
 import 'fakes/catalog_harness.dart';
 import 'fakes/fake_image_access.dart';
@@ -98,6 +100,115 @@ void main() {
     expect(find.text('Talle'), findsOneWidget);
     expect(find.text('+ Color'), findsNothing);
     expect(find.text('Color'), findsOneWidget);
+  });
+
+  test('used categories come from saved products', () async {
+    final store = AppStore();
+    expect(store.usedCategories, isEmpty);
+
+    await store.upsertProduct(testProduct());
+    expect(store.usedCategories, [ApparelCategory.remeras]);
+    expect(
+      store.categorySuggestions(query: 're'),
+      contains(ApparelCategory.remeras),
+    );
+    expect(store.categorySuggestions(query: ''), [ApparelCategory.remeras]);
+  });
+
+  test('uncategorized products stay in the catalog', () async {
+    final store = AppStore();
+    await store.upsertProduct(testProduct(id: 'p-none', category: null));
+    store.setRubro(CompanyRubro.calzado);
+    expect(store.filteredProducts, isNotEmpty);
+  });
+
+  testWidgets('category field is optional and suggests used values', (
+    tester,
+  ) async {
+    _setTallView(tester);
+    final store = AppStore();
+    await store.upsertProduct(testProduct());
+    await tester.pumpWidget(_formApp(store));
+
+    expect(find.text('Elegí una categoría'), findsNothing);
+    expect(find.text('Seleccioná una categoría'), findsNothing);
+
+    final category = _fieldWithHint('Ej. Remeras');
+    await tester.tap(category);
+    await tester.pumpAndSettle();
+    expect(find.text('Remeras'), findsOneWidget);
+
+    await tester.enterText(category, 'Rem');
+    await tester.pumpAndSettle();
+    expect(find.text('Remeras'), findsWidgets);
+  });
+
+  test('used brands come from saved products', () async {
+    final store = AppStore();
+    expect(store.brandSuggestions(''), isEmpty);
+
+    await store.upsertProduct(testProduct(brand: 'Urban Threads'));
+    await store.upsertProduct(testProduct(id: 'p2', sku: 'TST-0002', brand: ''));
+    expect(store.allBrands, ['Urban Threads']);
+    expect(store.brandSuggestions('urb'), ['Urban Threads']);
+    expect(store.brandSuggestions(''), ['Urban Threads']);
+    expect(store.resolveBrand('urban threads'), 'Urban Threads');
+  });
+
+  testWidgets('brand field is optional and suggests used values', (
+    tester,
+  ) async {
+    _setTallView(tester);
+    final store = AppStore();
+    await store.upsertProduct(testProduct(brand: 'Urban Threads'));
+    await tester.pumpWidget(_formApp(store));
+
+    final brand = _fieldWithHint('Ej. Urban Threads');
+    await tester.tap(brand);
+    await tester.pumpAndSettle();
+    expect(find.text('Urban Threads'), findsOneWidget);
+
+    await tester.enterText(brand, 'Urb');
+    await tester.pumpAndSettle();
+    expect(find.text('Urban Threads'), findsWidgets);
+  });
+
+  test('audience chip filters the catalog', () async {
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct(id: 'p-m', audience: ApparelAudience.mujer),
+    );
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-h',
+        sku: 'TST-0002',
+        audience: ApparelAudience.hombre,
+      ),
+    );
+
+    store.selectChipAudience(ApparelAudience.mujer);
+    expect(store.filteredProducts, hasLength(1));
+    expect(store.filteredProducts.first.id, 'p-m');
+  });
+
+  testWidgets('audience chips are optional and can be cleared', (tester) async {
+    _setTallView(tester);
+    await tester.pumpWidget(_formApp(AppStore()));
+
+    expect(find.text('Público'), findsOneWidget);
+    final mujer = find.widgetWithText(ChoiceChip, 'Mujer');
+    expect(mujer, findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Hombre'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Infantil'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Unisex'), findsOneWidget);
+
+    await tester.tap(mujer);
+    await tester.pump();
+    expect(tester.widget<ChoiceChip>(mujer).selected, isTrue);
+
+    await tester.tap(mujer);
+    await tester.pump();
+    expect(tester.widget<ChoiceChip>(mujer).selected, isFalse);
   });
 
   testWidgets('form header paints an opaque background', (tester) async {

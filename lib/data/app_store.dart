@@ -41,6 +41,7 @@ class AppStore extends ChangeNotifier {
 
   String searchQuery = '';
   ApparelCategory? chipCategory;
+  ApparelAudience? chipAudience;
   ProductFilters filters = const ProductFilters();
   StockViewMode viewMode = StockViewMode.cards;
   StockSort sort = StockSort.recent;
@@ -74,6 +75,41 @@ class AppStore extends ChangeNotifier {
     final visible = visibleCategories;
     if (current == null || visible.contains(current)) return visible;
     return [...visible, current];
+  }
+
+  List<ApparelCategory> get usedCategories {
+    final seen = <ApparelCategory>{};
+    final list = <ApparelCategory>[];
+    for (final product in _products) {
+      final category = product.category;
+      if (category == null || !seen.add(category)) continue;
+      list.add(category);
+    }
+    list.sort((a, b) => a.label.compareTo(b.label));
+    return list;
+  }
+
+  List<ApparelCategory> categorySuggestions({
+    required String query,
+    ApparelCategory? current,
+  }) {
+    final q = query.trim().toLowerCase();
+    final pool = categoryChoices(current: current);
+    final used = [
+      for (final category in usedCategories)
+        if (pool.contains(category)) category,
+    ];
+    if (q.isEmpty) return used;
+
+    final result = <ApparelCategory>[];
+    final seen = <ApparelCategory>{};
+    for (final category in [...used, ...pool]) {
+      final matches =
+          category.label.toLowerCase().contains(q) ||
+          category.name.toLowerCase().contains(q);
+      if (matches && seen.add(category)) result.add(category);
+    }
+    return result;
   }
 
   void bindCompany(String? companyId) {
@@ -177,8 +213,35 @@ class AppStore extends ChangeNotifier {
   int get cartCount => orders.fold(0, (sum, order) => sum + order.itemCount);
 
   List<String> get allBrands {
-    final set = _products.map((p) => p.brand).toSet().toList()..sort();
-    return set;
+    final seen = <String>{};
+    final list = <String>[];
+    for (final product in _products) {
+      final brand = product.brand.trim();
+      if (brand.isEmpty) continue;
+      if (!seen.add(brand.toLowerCase())) continue;
+      list.add(brand);
+    }
+    list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
+  }
+
+  List<String> brandSuggestions(String query) {
+    final q = query.trim().toLowerCase();
+    final used = allBrands;
+    if (q.isEmpty) return used;
+    return [
+      for (final brand in used)
+        if (brand.toLowerCase().contains(q)) brand,
+    ];
+  }
+
+  String resolveBrand(String raw) {
+    final query = raw.trim();
+    if (query.isEmpty) return '';
+    for (final brand in allBrands) {
+      if (brand.toLowerCase() == query.toLowerCase()) return brand;
+    }
+    return query;
   }
 
   List<String> get allSizes {
@@ -205,18 +268,30 @@ class AppStore extends ChangeNotifier {
     final q = searchQuery.trim().toLowerCase();
     var list = _products.where((product) {
       if (q.isNotEmpty) {
-        final hay = '${product.name} ${product.sku} ${product.brand}'
-            .toLowerCase();
+        final hay =
+            '${product.name} ${product.sku} ${product.brand} ${product.audienceLabel}'
+                .toLowerCase();
         if (!hay.contains(q)) return false;
       }
-      if (!visibleCategories.contains(product.category)) return false;
+      final category = product.category;
+      if (category != null && !visibleCategories.contains(category)) {
+        return false;
+      }
       if (chipCategory != null &&
-          product.category != chipCategory &&
-          product.category.chipFamily != chipCategory) {
+          category != chipCategory &&
+          category?.chipFamily != chipCategory) {
         return false;
       }
       if (filters.categories.isNotEmpty &&
-          !filters.categories.contains(product.category)) {
+          (category == null || !filters.categories.contains(category))) {
+        return false;
+      }
+      if (chipAudience != null && product.audience != chipAudience) {
+        return false;
+      }
+      if (filters.audiences.isNotEmpty &&
+          (product.audience == null ||
+              !filters.audiences.contains(product.audience))) {
         return false;
       }
       if (filters.sizes.isNotEmpty &&
@@ -232,7 +307,8 @@ class AppStore extends ChangeNotifier {
         return false;
       }
       if (filters.brands.isNotEmpty &&
-          !filters.brands.contains(product.brand)) {
+          (product.brand.trim().isEmpty ||
+              !filters.brands.contains(product.brand))) {
         return false;
       }
       if (filters.onlyLowStock && !product.isLowStock) return false;
@@ -393,6 +469,12 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selectChipAudience(ApparelAudience? audience) {
+    chipAudience = audience;
+    page = 0;
+    notifyListeners();
+  }
+
   void applyFilters(ProductFilters next) {
     filters = next;
     page = 0;
@@ -402,6 +484,7 @@ class AppStore extends ChangeNotifier {
   void clearFilters() {
     filters = const ProductFilters();
     chipCategory = null;
+    chipAudience = null;
     searchQuery = '';
     page = 0;
     notifyListeners();

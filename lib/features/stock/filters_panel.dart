@@ -80,6 +80,12 @@ class _FiltersEditorState extends State<FiltersEditor> {
     setState(() => _draft = _draft.copyWith(categories: next));
   }
 
+  void _toggleAudience(ApparelAudience audience) {
+    final next = {..._draft.audiences};
+    if (!next.add(audience)) next.remove(audience);
+    setState(() => _draft = _draft.copyWith(audiences: next));
+  }
+
   void _toggleSize(String size) {
     final next = {..._draft.sizes};
     if (!next.add(size)) next.remove(size);
@@ -161,6 +167,21 @@ class _FiltersEditorState extends State<FiltersEditor> {
                       label: Text(category.label),
                       selected: _draft.categories.contains(category),
                       onSelected: (_) => _toggleCategory(category),
+                      showCheckmark: true,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _Label('Público'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final audience in ApparelAudience.values)
+                    FilterChip(
+                      label: Text(audience.label),
+                      selected: _draft.audiences.contains(audience),
+                      onSelected: (_) => _toggleAudience(audience),
                       showCheckmark: true,
                     ),
                 ],
@@ -364,6 +385,26 @@ class WebFilterBar extends StatelessWidget {
                             DropdownMenuItem(value: c, child: Text(c.label)),
                         ],
                         onChanged: store.selectChipCategory,
+                      ),
+                    ),
+                    _DropdownWrap(
+                      label: 'Público',
+                      child: DropdownButton<ApparelAudience?>(
+                        value: store.chipAudience,
+                        hint: const Text('Todos'),
+                        underline: const SizedBox.shrink(),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('Todos'),
+                          ),
+                          for (final audience in ApparelAudience.values)
+                            DropdownMenuItem(
+                              value: audience,
+                              child: Text(audience.label),
+                            ),
+                        ],
+                        onChanged: store.selectChipAudience,
                       ),
                     ),
                     _FilterChipRow(store: store),

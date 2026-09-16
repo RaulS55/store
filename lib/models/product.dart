@@ -54,10 +54,30 @@ enum ApparelCategory {
   final ApparelLine line;
 
   static ApparelCategory fromStorage(String value) {
-    for (final category in ApparelCategory.values) {
-      if (category.name == value) return category;
+    final category = tryFromStorage(value);
+    if (category == null) {
+      throw FormatException('Unknown category: $value');
     }
-    throw FormatException('Unknown category: $value');
+    return category;
+  }
+
+  static ApparelCategory? tryFromStorage(String value) {
+    final raw = value.trim();
+    if (raw.isEmpty) return null;
+    for (final category in values) {
+      if (category.name == raw) return category;
+    }
+    return null;
+  }
+
+  static ApparelCategory? match(String value) {
+    final query = value.trim().toLowerCase();
+    if (query.isEmpty) return null;
+    for (final category in values) {
+      if (category.label.toLowerCase() == query) return category;
+      if (category.name.toLowerCase() == query) return category;
+    }
+    return null;
   }
 
   static List<ApparelCategory> forLine(ApparelLine line) {
@@ -68,6 +88,33 @@ enum ApparelCategory {
   }
 
   ApparelCategory get chipFamily => this;
+}
+
+enum ApparelAudience {
+  hombre('Hombre'),
+  mujer('Mujer'),
+  infantil('Infantil'),
+  unisex('Unisex');
+
+  const ApparelAudience(this.label);
+  final String label;
+
+  static ApparelAudience fromStorage(String value) {
+    final audience = tryFromStorage(value);
+    if (audience == null) {
+      throw FormatException('Unknown audience: $value');
+    }
+    return audience;
+  }
+
+  static ApparelAudience? tryFromStorage(String value) {
+    final raw = value.trim();
+    if (raw.isEmpty) return null;
+    for (final audience in values) {
+      if (audience.name == raw) return audience;
+    }
+    return null;
+  }
 }
 
 enum ProductStatus {
@@ -253,7 +300,8 @@ class Product {
     required this.id,
     required this.name,
     required this.sku,
-    required this.category,
+    this.category,
+    this.audience,
     required this.brand,
     required this.price,
     required this.images,
@@ -267,7 +315,8 @@ class Product {
   final String id;
   final String name;
   final String sku;
-  final ApparelCategory category;
+  final ApparelCategory? category;
+  final ApparelAudience? audience;
   final String brand;
   final double price;
   final List<String> images;
@@ -287,6 +336,10 @@ class Product {
       stock <= lowStockThreshold || variants.any((v) => v.isLow);
 
   String get image => images.isEmpty ? '' : images.first;
+
+  String get categoryLabel => category?.label ?? '';
+
+  String get audienceLabel => audience?.label ?? '';
 
   List<String> get sizes {
     final seen = <String>{};
@@ -347,11 +400,18 @@ class Product {
     final record = SyncRecord.fromMap(id, map);
     final rawVariants = map['variants'] as List<dynamic>? ?? const [];
     final rawImages = map['images'] as List<dynamic>? ?? const [];
+    final rawCategory = (map['category'] as String? ?? '').trim();
+    final rawAudience = (map['audience'] as String? ?? '').trim();
     return Product(
       id: record.id,
       name: (map['name'] as String? ?? '').trim(),
       sku: (map['sku'] as String? ?? '').trim(),
-      category: ApparelCategory.fromStorage(map['category'] as String? ?? ''),
+      category: rawCategory.isEmpty
+          ? null
+          : ApparelCategory.fromStorage(rawCategory),
+      audience: rawAudience.isEmpty
+          ? null
+          : ApparelAudience.fromStorage(rawAudience),
       brand: (map['brand'] as String? ?? '').trim(),
       price: (map['price'] as num?)?.toDouble() ?? 0,
       images: [for (final image in rawImages) '$image'],
@@ -379,7 +439,8 @@ class Product {
       ).toMap(),
       'name': name.trim(),
       'sku': sku.trim(),
-      'category': category.name,
+      'category': category?.name ?? '',
+      'audience': audience?.name ?? '',
       'brand': brand.trim(),
       'price': price,
       'images': images,
@@ -393,6 +454,7 @@ class Product {
     String? name,
     String? sku,
     ApparelCategory? category,
+    ApparelAudience? audience,
     String? brand,
     double? price,
     List<String>? images,
@@ -407,6 +469,7 @@ class Product {
       name: name ?? this.name,
       sku: sku ?? this.sku,
       category: category ?? this.category,
+      audience: audience ?? this.audience,
       brand: brand ?? this.brand,
       price: price ?? this.price,
       images: images ?? this.images,

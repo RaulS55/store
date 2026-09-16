@@ -377,7 +377,8 @@ class _SearchHits extends StatelessWidget {
               p.name.toLowerCase().contains(q) ||
               p.sku.toLowerCase().contains(q) ||
               p.brand.toLowerCase().contains(q) ||
-              p.category.label.toLowerCase().contains(q),
+              p.categoryLabel.toLowerCase().contains(q) ||
+              p.audienceLabel.toLowerCase().contains(q),
         )
         .take(6)
         .toList();
@@ -535,7 +536,11 @@ class _LineTile extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  '${line.product.category.label} · SKU: ${line.variantSku}',
+                  [
+                    if (line.product.categoryLabel.isNotEmpty)
+                      line.product.categoryLabel,
+                    'SKU: ${line.variantSku}',
+                  ].join(' · '),
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),

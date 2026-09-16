@@ -30,10 +30,12 @@ class _ProductFormPageState extends State<ProductFormPage> {
   final _form = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _sku;
-  late final TextEditingController _brand;
   late final TextEditingController _price;
   late final VariantDraft _draft;
   ApparelCategory? _category;
+  String _categoryQuery = '';
+  String _brandQuery = '';
+  ApparelAudience? _audience;
   final List<_ProductImageDraft> _images = [];
   String? _error;
   late final String _productId;
@@ -48,11 +50,13 @@ class _ProductFormPageState extends State<ProductFormPage> {
     final existing = widget.id == null ? null : store.productById(widget.id!);
     _name = TextEditingController(text: existing?.name ?? '');
     _sku = TextEditingController(text: existing?.sku ?? store.nextSku());
-    _brand = TextEditingController(text: existing?.brand ?? '');
     _price = TextEditingController(
       text: existing == null ? '' : existing.price.toStringAsFixed(0),
     );
     _category = existing?.category;
+    _categoryQuery = existing?.categoryLabel ?? '';
+    _brandQuery = existing?.brand ?? '';
+    _audience = existing?.audience;
     _draft = VariantDraft(
       sizes: existing?.sizes,
       colors: existing?.colors,
@@ -70,7 +74,6 @@ class _ProductFormPageState extends State<ProductFormPage> {
   void dispose() {
     _name.dispose();
     _sku.dispose();
-    _brand.dispose();
     _price.dispose();
     super.dispose();
   }
@@ -137,7 +140,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
 
   Future<void> _save() async {
     setState(() => _error = null);
-    if (!_form.currentState!.validate() || _category == null) {
+    if (!_form.currentState!.validate()) {
       setState(() => _error = 'Revisá los campos del formulario.');
       return;
     }
@@ -167,8 +170,9 @@ class _ProductFormPageState extends State<ProductFormPage> {
         id: _productId,
         name: _name.text.trim(),
         sku: _sku.text.trim(),
-        category: _category!,
-        brand: _brand.text.trim(),
+        category: _category ?? ApparelCategory.match(_categoryQuery),
+        audience: _audience,
+        brand: store.resolveBrand(_brandQuery),
         price: double.parse(_price.text.trim().replaceAll('.', '')),
         images: urls,
         variants: List.of(_draft.variants),
@@ -362,28 +366,73 @@ class _ProductFormPageState extends State<ProductFormPage> {
       ),
       _LabeledField(
         label: 'Categoría',
-        required: true,
-        child: DropdownButtonFormField<ApparelCategory>(
-          initialValue: _category,
-          hint: const Text('Seleccioná una categoría'),
-          items: [
-            for (final category in context.read<AppStore>().categoryChoices(
+        child: Autocomplete<ApparelCategory>(
+          initialValue: TextEditingValue(text: _categoryQuery),
+          displayStringForOption: (category) => category.label,
+          optionsBuilder: (value) {
+            return context.read<AppStore>().categorySuggestions(
+              query: value.text,
               current: _category,
-            ))
-              DropdownMenuItem(value: category, child: Text(category.label)),
+            );
+          },
+          onSelected: (category) {
+            setState(() {
+              _category = category;
+              _categoryQuery = category.label;
+            });
+          },
+          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+            return TextFormField(
+              controller: controller,
+              focusNode: focusNode,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(hintText: 'Ej. Remeras'),
+              onChanged: (value) {
+                _categoryQuery = value;
+                _category = ApparelCategory.match(value);
+              },
+              onFieldSubmitted: (_) => onFieldSubmitted(),
+            );
+          },
+        ),
+      ),
+      _LabeledField(
+        label: 'Público',
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final audience in ApparelAudience.values)
+              ChoiceChip(
+                label: Text(audience.label),
+                selected: _audience == audience,
+                onSelected: (selected) {
+                  setState(() => _audience = selected ? audience : null);
+                },
+              ),
           ],
-          onChanged: (v) => setState(() => _category = v),
-          validator: (v) => v == null ? 'Elegí una categoría' : null,
         ),
       ),
       _LabeledField(
         label: 'Marca',
-        required: true,
-        icon: Icons.storefront_outlined,
-        child: TextFormField(
-          controller: _brand,
-          decoration: const InputDecoration(hintText: 'Ej. Urban Threads'),
-          validator: _required,
+        child: Autocomplete<String>(
+          initialValue: TextEditingValue(text: _brandQuery),
+          optionsBuilder: (value) {
+            return context.read<AppStore>().brandSuggestions(value.text);
+          },
+          onSelected: (brand) {
+            _brandQuery = brand;
+          },
+          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+            return TextFormField(
+              controller: controller,
+              focusNode: focusNode,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(hintText: 'Ej. Urban Threads'),
+              onChanged: (value) => _brandQuery = value,
+              onFieldSubmitted: (_) => onFieldSubmitted(),
+            );
+          },
         ),
       ),
       _LabeledField(

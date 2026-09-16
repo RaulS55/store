@@ -111,10 +111,17 @@ class ProductCard extends StatelessWidget {
                         color: AppColors.mutedText,
                       ),
                     ),
-                    if (!dense) ...[
+                    if (!dense &&
+                        (product.categoryLabel.isNotEmpty ||
+                            product.audienceLabel.isNotEmpty)) ...[
                       const SizedBox(height: 2),
                       Text(
-                        product.category.label,
+                        [
+                          if (product.categoryLabel.isNotEmpty)
+                            product.categoryLabel,
+                          if (product.audienceLabel.isNotEmpty)
+                            product.audienceLabel,
+                        ].join(' · '),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: AppColors.slate,
                         ),
