@@ -54,271 +54,277 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final wide = AppBreakpoints.isWide(context);
     final canDelete = canDeleteProduct(context);
 
-    return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () {
-                    if (context.canPop()) {
-                      context.pop();
-                    } else {
-                      context.go('/');
-                    }
-                  },
-                  icon: const Icon(Icons.arrow_back),
-                ),
-                Expanded(
-                  child: Text(
-                    wide ? 'Moda Stock' : 'Detalle de producto',
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: wide ? AppColors.terracotta : null,
-                    ),
-                  ),
-                ),
-                if (!wide) ...[
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+              child: Row(
+                children: [
                   IconButton(
-                    tooltip: 'Editar',
-                    onPressed: () =>
-                        context.go('/producto/${product.id}/editar'),
-                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/');
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_back),
                   ),
-                  if (canDelete)
-                    DeleteProductButton(product: product, iconOnly: true),
-                ],
-                IconButton(
-                  onPressed: () => context.go('/pedido'),
-                  icon: Badge(
-                    isLabelVisible: store.cartCount > 0,
-                    label: Text('${store.cartCount}'),
-                    backgroundColor: AppColors.terracotta,
-                    child: const Icon(Icons.assignment_outlined),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-              children: [
-                if (wide)
-                  _WideDetail(
-                    product: product,
-                    images: images,
-                    index: _index,
-                    onIndex: (i) => setState(() => _index = i),
-                    selection: selection,
-                    onSelection: (s) => setState(() {
-                      _selection = s;
-                      _qty = 1;
-                    }),
-                    qty: _qty,
-                    onQty: (q) => setState(() => _qty = q),
-                    canAdd: canAdd,
-                    variant: variant,
-                    onAdd: () => _add(store, product, variant),
-                    onEdit: () => context.go('/producto/${product.id}/editar'),
-                    onDelete: canDelete
-                        ? () => deleteProductWithConfirm(
-                            context: context,
-                            product: product,
-                          )
-                        : null,
-                  )
-                else ...[
-                  _ProductImagePager(
-                    images: images,
-                    index: _index,
-                    onIndex: (i) => setState(() => _index = i),
-                    aspectRatio: 1.15,
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      for (var i = 0; i < images.length; i++)
-                        Container(
-                          width: 7,
-                          height: 7,
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: i == _index
-                                ? AppColors.terracotta
-                                : AppColors.mutedText.withValues(alpha: 0.4),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          product.name,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          StockDot(low: product.isLowStock),
-                          const SizedBox(width: 6),
-                          Text(
-                            product.status.label,
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(
-                                  color: product.isLowStock
-                                      ? AppColors.stockLow
-                                      : AppColors.stockOk,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  Text(
-                    'SKU: ${product.sku}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.mutedText,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    MoneyFormat.compact(product.price),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.terracotta,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (product.categoryLabel.isNotEmpty)
-                    _Attr(
-                      'Categoría',
-                      product.categoryLabel,
-                      Icons.category_outlined,
-                    ),
-                  if (product.audienceLabel.isNotEmpty)
-                    _Attr(
-                      'Público',
-                      product.audienceLabel,
-                      Icons.person_outline,
-                    ),
-                  if (product.brand.trim().isNotEmpty)
-                    _Attr('Marca', product.brand, Icons.storefront_outlined),
-                  const SizedBox(height: 12),
-                  VariantPicker(
-                    product: product,
-                    selection: selection,
-                    onChanged: (s) => setState(() {
-                      _selection = s;
-                      _qty = 1;
-                    }),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Text(
-                        'Cantidad',
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                      const Spacer(),
-                      QtyStepper(
-                        value: _qty,
-                        min: 1,
-                        max: variant?.stock ?? 1,
-                        onChanged: (q) => setState(() => _qty = q),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Text(
-                        'Galería',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 72,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: images.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (context, i) {
-                        final selected = i == _index;
-                        return InkWell(
-                          key: ValueKey('product-gallery-thumb-$i'),
-                          onTap: () => setState(() => _index = i),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 160),
-                            width: 72,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: selected
-                                    ? AppColors.terracotta
-                                    : AppColors.lightBorder,
-                                width: selected ? 2 : 1,
-                              ),
-                            ),
-                            child: ProductImage(
-                              path: images[i],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (!wide)
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: canAdd
-                            ? () => _add(store, product, variant)
-                            : null,
-                        icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-                        label: const Text('Agregar al pedido'),
+                  Expanded(
+                    child: Text(
+                      wide ? 'Moda Stock' : 'Detalle de producto',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: wide ? AppColors.terracotta : null,
                       ),
                     ),
-                    if (!canAdd)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          'Si no hay selección, el botón se desactiva.',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.mutedText),
-                        ),
-                      ),
+                  ),
+                  if (!wide) ...[
+                    IconButton(
+                      tooltip: 'Editar',
+                      onPressed: () =>
+                          context.go('/producto/${product.id}/editar'),
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                    if (canDelete)
+                      DeleteProductButton(product: product, iconOnly: true),
                   ],
-                ),
+                  IconButton(
+                    onPressed: () => context.go('/pedido'),
+                    icon: Badge(
+                      isLabelVisible: store.cartCount > 0,
+                      label: Text('${store.cartCount}'),
+                      backgroundColor: AppColors.terracotta,
+                      child: const Icon(Icons.assignment_outlined),
+                    ),
+                  ),
+                ],
               ),
             ),
-        ],
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                children: [
+                  if (wide)
+                    _WideDetail(
+                      product: product,
+                      images: images,
+                      index: _index,
+                      onIndex: (i) => setState(() => _index = i),
+                      selection: selection,
+                      onSelection: (s) => setState(() {
+                        _selection = s;
+                        _qty = 1;
+                      }),
+                      qty: _qty,
+                      onQty: (q) => setState(() => _qty = q),
+                      canAdd: canAdd,
+                      variant: variant,
+                      onAdd: () => _add(store, product, variant),
+                      onEdit: () =>
+                          context.go('/producto/${product.id}/editar'),
+                      onDelete: canDelete
+                          ? () => deleteProductWithConfirm(
+                              context: context,
+                              product: product,
+                            )
+                          : null,
+                    )
+                  else ...[
+                    _ProductImagePager(
+                      images: images,
+                      index: _index,
+                      onIndex: (i) => setState(() => _index = i),
+                      aspectRatio: 1.15,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (var i = 0; i < images.length; i++)
+                          Container(
+                            width: 7,
+                            height: 7,
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: i == _index
+                                  ? AppColors.terracotta
+                                  : AppColors.mutedText.withValues(alpha: 0.4),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            product.name,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            StockDot(low: product.isLowStock),
+                            const SizedBox(width: 6),
+                            Text(
+                              product.status.label,
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
+                                    color: product.isLowStock
+                                        ? AppColors.stockLow
+                                        : AppColors.stockOk,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'SKU: ${product.sku}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.mutedText,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      MoneyFormat.compact(product.price),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppColors.terracotta,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (product.categoryLabel.isNotEmpty)
+                      _Attr(
+                        'Categoría',
+                        product.categoryLabel,
+                        Icons.category_outlined,
+                      ),
+                    if (product.audienceLabel.isNotEmpty)
+                      _Attr(
+                        'Público',
+                        product.audienceLabel,
+                        Icons.person_outline,
+                      ),
+                    if (product.brand.trim().isNotEmpty)
+                      _Attr('Marca', product.brand, Icons.storefront_outlined),
+                    const SizedBox(height: 12),
+                    VariantPicker(
+                      product: product,
+                      selection: selection,
+                      onChanged: (s) => setState(() {
+                        _selection = s;
+                        _qty = 1;
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Text(
+                          'Cantidad',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        const Spacer(),
+                        QtyStepper(
+                          value: _qty,
+                          min: 1,
+                          max: variant?.stock ?? 1,
+                          onChanged: (q) => setState(() => _qty = q),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Text(
+                          'Galería',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 72,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: images.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (context, i) {
+                          final selected = i == _index;
+                          return InkWell(
+                            key: ValueKey('product-gallery-thumb-$i'),
+                            onTap: () => setState(() => _index = i),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              width: 72,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: selected
+                                      ? AppColors.terracotta
+                                      : AppColors.lightBorder,
+                                  width: selected ? 2 : 1,
+                                ),
+                              ),
+                              child: ProductImage(
+                                path: images[i],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (!wide)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: canAdd
+                              ? () => _add(store, product, variant)
+                              : null,
+                          icon: const Icon(
+                            Icons.shopping_bag_outlined,
+                            size: 18,
+                          ),
+                          label: const Text('Agregar al pedido'),
+                        ),
+                      ),
+                      if (!canAdd)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            'Si no hay selección, el botón se desactiva.',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: AppColors.mutedText),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

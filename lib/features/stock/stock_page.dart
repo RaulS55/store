@@ -49,87 +49,91 @@ class _StockPageState extends State<StockPage> {
     final store = context.watch<AppStore>();
     final products = store.pagedProducts;
 
-    return SafeArea(
-      child: CustomScrollView(
-        key: StockPage.mobileScrollKey,
-        controller: _scroll,
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
-              child: Row(
-                children: [
-                  Text(
-                    'Stock',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.6,
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: CustomScrollView(
+          key: StockPage.mobileScrollKey,
+          controller: _scroll,
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      'Stock',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.6,
+                          ),
                     ),
-                  ),
-                  const Spacer(),
-                  _CartButton(count: store.cartCount),
-                ],
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-              child: SearchField(
-                controller: _search,
-                hint: 'Buscar prenda, SKU o marca...',
-                onChanged: store.setSearch,
-                trailing: IconButton(
-                  tooltip: 'Filtros',
-                  onPressed: () => showFiltersSheet(context),
-                  icon: Badge(
-                    isLabelVisible: store.filters.activeCount > 0,
-                    label: Text('${store.filters.activeCount}'),
-                    child: const Icon(Icons.tune, size: 20),
-                  ),
+                    const Spacer(),
+                    _CartButton(count: store.cartCount),
+                  ],
                 ),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: _CategoryChips(chips: store.visibleCategories),
-          ),
-          if (products.isEmpty)
-            SliverFillRemaining(
-              child: _EmptyStock(hasCatalog: store.products.isNotEmpty),
-            )
-          else ...[
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.62,
-                ),
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final product = products[index];
-                  return ProductCard(
-                    product: product,
-                    dense: true,
-                    onTap: () => context.push('/producto/${product.id}'),
-                  );
-                }, childCount: products.length),
               ),
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                child: _Pagination(
-                  page: store.page,
-                  pageCount: store.pageCount,
-                  onChanged: store.setPage,
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: SearchField(
+                  controller: _search,
+                  hint: 'Buscar prenda, SKU o marca...',
+                  onChanged: store.setSearch,
+                  trailing: IconButton(
+                    tooltip: 'Filtros',
+                    onPressed: () => showFiltersSheet(context),
+                    icon: Badge(
+                      isLabelVisible: store.filters.activeCount > 0,
+                      label: Text('${store.filters.activeCount}'),
+                      child: const Icon(Icons.tune, size: 20),
+                    ),
+                  ),
                 ),
               ),
             ),
+            SliverToBoxAdapter(
+              child: _CategoryChips(chips: store.visibleCategories),
+            ),
+            if (products.isEmpty)
+              SliverFillRemaining(
+                child: _EmptyStock(hasCatalog: store.products.isNotEmpty),
+              )
+            else ...[
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.62,
+                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final product = products[index];
+                    return ProductCard(
+                      product: product,
+                      dense: true,
+                      onTap: () => context.push('/producto/${product.id}'),
+                    );
+                  }, childCount: products.length),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  child: _Pagination(
+                    page: store.page,
+                    pageCount: store.pageCount,
+                    onChanged: store.setPage,
+                  ),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -496,25 +500,26 @@ class _PagePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
+      key: selected ? const ValueKey('stock-page-indicator') : null,
       padding: const EdgeInsets.symmetric(horizontal: 3),
-      child: InkWell(
-        onTap: onTap,
+      child: Material(
+        color: selected ? AppColors.terracotta : Colors.transparent,
         borderRadius: BorderRadius.circular(AppRadii.pill),
-        child: Ink(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: selected ? AppColors.terracotta : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppRadii.pill),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: selected
-                    ? Colors.white
-                    : Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.pill),
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),

@@ -16,6 +16,7 @@ import 'data/firebase_bootstrap.dart';
 import 'data/firebase_image_access.dart';
 import 'data/firestore_company_access.dart';
 import 'data/firestore_customer_access.dart';
+import 'data/firestore_order_access.dart';
 import 'data/firestore_product_access.dart';
 import 'data/session_store.dart';
 import 'features/auth/loading_page.dart';
@@ -65,6 +66,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
       final store = AppStore(
         products: FirestoreProductAccess(),
         customers: FirestoreCustomerAccess(),
+        orderAccess: FirestoreOrderAccess(),
         images: FirebaseImageAccess(),
       );
       final session = SessionStore(

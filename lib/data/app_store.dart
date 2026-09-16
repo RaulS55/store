@@ -11,25 +11,30 @@ import '../models/product.dart';
 import 'customer_access.dart';
 import 'image_access.dart';
 import 'image_compress.dart';
+import 'order_access.dart';
 import 'product_access.dart';
 
 class AppStore extends ChangeNotifier {
   AppStore({
     ProductAccess? products,
     CustomerAccess? customers,
+    OrderAccess? orderAccess,
     ImageAccess? images,
     void Function(String message)? log,
   }) : _productAccess = products,
        _customerAccess = customers,
+       _orderAccess = orderAccess,
        _imageAccess = images,
        _log = log ?? debugPrint;
 
   final ProductAccess? _productAccess;
   final CustomerAccess? _customerAccess;
+  final OrderAccess? _orderAccess;
   final ImageAccess? _imageAccess;
   final void Function(String message) _log;
   StreamSubscription<List<Product>>? _productsSub;
   StreamSubscription<List<Customer>>? _customersSub;
+  StreamSubscription<List<DraftOrder>>? _ordersSub;
   String? _companyId;
   final Map<String, Uint8List> _imageBytes = {};
 
@@ -116,11 +121,18 @@ class AppStore extends ChangeNotifier {
     if (_companyId == companyId) return;
     _productsSub?.cancel();
     _customersSub?.cancel();
+    _ordersSub?.cancel();
     _productsSub = null;
     _customersSub = null;
+    _ordersSub = null;
     _companyId = companyId;
     _products = [];
     _customers = [];
+    orders.clear();
+    closedOrders.clear();
+    activeOrderId = null;
+    _orderSeq = 0;
+    _draftSeq = 0;
     _imageBytes.clear();
     notifyListeners();
     if (companyId == null) return;
@@ -158,6 +170,75 @@ class AppStore extends ChangeNotifier {
             },
           );
     }
+    final orderAccess = _orderAccess;
+    if (orderAccess != null) {
+      _ordersSub = orderAccess
+          .watchOrders(companyId)
+          .listen(
+            _setOrders,
+            onError: (Object error) {
+              _log('Orders watch failed: $error');
+            },
+          );
+    }
+  }
+
+  void _setOrders(List<DraftOrder> list) {
+    final open = [
+      for (final order in list)
+        if (!order.isDeleted && order.isActive) order,
+    ];
+    final closed = [
+      for (final order in list)
+        if (!order.isDeleted && order.isClosed) order,
+    ];
+    open.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    closed.sort((a, b) {
+      final aDate = a.closedAt ?? a.createdAt;
+      final bDate = b.closedAt ?? b.createdAt;
+      return bDate.compareTo(aDate);
+    });
+    orders
+      ..clear()
+      ..addAll(open);
+    closedOrders
+      ..clear()
+      ..addAll(closed);
+    _syncOrderSeq();
+    if (activeOrderId != null &&
+        !orders.any((order) => order.id == activeOrderId)) {
+      activeOrderId = orders.isEmpty ? null : orders.first.id;
+    }
+    notifyListeners();
+  }
+
+  void _syncOrderSeq() {
+    var maxN = _orderSeq;
+    for (final order in [...orders, ...closedOrders]) {
+      final n = _orderNumberValue(order.orderNumber);
+      if (n > maxN) maxN = n;
+    }
+    _orderSeq = maxN;
+  }
+
+  int _orderNumberValue(String orderNumber) {
+    final match = RegExp(r'(\d+)$').firstMatch(orderNumber.trim());
+    if (match == null) return 0;
+    return int.tryParse(match.group(1)!) ?? 0;
+  }
+
+  int _nextOrderSeq() {
+    _syncOrderSeq();
+    _orderSeq += 1;
+    return _orderSeq;
+  }
+
+  Future<void> _persistOrder(DraftOrder order) async {
+    order.updatedAt = DateTime.now().toUtc();
+    final companyId = _companyId;
+    final access = _orderAccess;
+    if (companyId == null || access == null) return;
+    await access.saveOrder(companyId, order);
   }
 
   Product _stamp(Product product) {
@@ -198,6 +279,7 @@ class AppStore extends ChangeNotifier {
     for (final order in [...orders, ...closedOrders]) {
       if (order.customer.id == customer.id) {
         order.customer = customer;
+        unawaited(_persistOrder(order));
       }
     }
   }
@@ -445,9 +527,10 @@ class AppStore extends ChangeNotifier {
   }
 
   void _applyIvaToActiveOrders() {
-    for (final order in orders) {
+    for (final order in [...orders]) {
       order.ivaEnabled = ivaEnabled;
       order.ivaPercent = ivaPercent;
+      unawaited(_persistOrder(order));
     }
   }
 
@@ -607,18 +690,20 @@ class AppStore extends ChangeNotifier {
   }
 
   DraftOrder createOrder(Customer customer) {
-    _orderSeq += 1;
-    _draftSeq += 1;
+    final now = DateTime.now().toUtc();
     final order = DraftOrder(
-      id: 'o$_draftSeq',
-      orderNumber: 'PED-$_orderSeq',
+      id: nextOrderId(),
+      orderNumber: 'PED-${_nextOrderSeq()}',
       customer: customer,
+      createdAt: now,
+      updatedAt: now,
       ivaEnabled: ivaEnabled,
       ivaPercent: ivaPercent,
     );
     orders.insert(0, order);
     activeOrderId = order.id;
     notifyListeners();
+    unawaited(_persistOrder(order));
     return order;
   }
 
@@ -691,6 +776,7 @@ class AppStore extends ChangeNotifier {
             updatedAt: DateTime.now().toUtc(),
             deletedAt: order.customer.deletedAt,
           );
+          unawaited(_persistOrder(order));
         }
       }
       notifyListeners();
@@ -716,6 +802,7 @@ class AppStore extends ChangeNotifier {
     if (order == null || order.isClosed) return;
     order.customer = customer;
     notifyListeners();
+    unawaited(_persistOrder(order));
   }
 
   bool addToOrder(
@@ -752,6 +839,7 @@ class AppStore extends ChangeNotifier {
     order.status = OrderStatus.borrador;
     activeOrderId = order.id;
     notifyListeners();
+    unawaited(_persistOrder(order));
     return true;
   }
 
@@ -771,6 +859,7 @@ class AppStore extends ChangeNotifier {
       order.lines[index] = line.copyWith(quantity: quantity.clamp(1, max));
     }
     notifyListeners();
+    unawaited(_persistOrder(order));
   }
 
   void removeLine(String orderId, String lineKey) {
@@ -778,6 +867,7 @@ class AppStore extends ChangeNotifier {
     if (order == null || order.isClosed) return;
     order.lines.removeWhere((l) => l.lineKey == lineKey);
     notifyListeners();
+    unawaited(_persistOrder(order));
   }
 
   bool closeOrder(String orderId) {
@@ -798,13 +888,14 @@ class AppStore extends ChangeNotifier {
       );
     }
     order.status = OrderStatus.cerrado;
-    order.closedAt = DateTime.now();
+    order.closedAt = DateTime.now().toUtc();
     orders.removeWhere((item) => item.id == orderId);
     closedOrders.insert(0, order);
     if (activeOrderId == orderId) {
       activeOrderId = orders.isEmpty ? null : orders.first.id;
     }
     notifyListeners();
+    unawaited(_persistOrder(order));
     return true;
   }
 
@@ -832,10 +923,21 @@ class AppStore extends ChangeNotifier {
     return 'c$_customerSeq';
   }
 
+  String nextOrderId() {
+    final companyId = _companyId;
+    final access = _orderAccess;
+    if (companyId != null && access != null) {
+      return access.nextOrderId(companyId);
+    }
+    _draftSeq += 1;
+    return 'o$_draftSeq';
+  }
+
   @override
   void dispose() {
     _productsSub?.cancel();
     _customersSub?.cancel();
+    _ordersSub?.cancel();
     super.dispose();
   }
 }

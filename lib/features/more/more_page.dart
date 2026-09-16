@@ -59,8 +59,8 @@ class MorePage extends StatelessWidget {
             title: const Text('Pedidos cerrados'),
             subtitle: Text(
               store.closedOrders.isEmpty
-                  ? 'Todavía no hay pedidos cerrados en esta sesión'
-                  : '${store.closedOrders.length} en esta sesión',
+                  ? 'Todavía no hay pedidos cerrados'
+                  : '${store.closedOrders.length} pedidos cerrados',
             ),
           ),
           if (store.closedOrders.isNotEmpty)
