@@ -112,6 +112,10 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const ValueKey('delete-product')), findsOneWidget);
+    expect(find.byTooltip('Editar'), findsOneWidget);
+    expect(find.byTooltip('Eliminar'), findsOneWidget);
+    expect(find.text('Editar'), findsNothing);
+    expect(find.text('Eliminar prenda'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('delete-product')));
     await tester.pumpAndSettle();
 

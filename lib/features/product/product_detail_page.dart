@@ -62,19 +62,37 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             child: Row(
               children: [
                 IconButton(
-                  onPressed: () => context.go('/'),
+                  onPressed: () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/');
+                    }
+                  },
                   icon: const Icon(Icons.arrow_back),
                 ),
                 Expanded(
                   child: Text(
                     wide ? 'Moda Stock' : 'Detalle de producto',
                     textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: wide ? AppColors.terracotta : null,
                     ),
                   ),
                 ),
+                if (!wide) ...[
+                  IconButton(
+                    tooltip: 'Editar',
+                    onPressed: () =>
+                        context.go('/producto/${product.id}/editar'),
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                  if (canDelete)
+                    DeleteProductButton(product: product, iconOnly: true),
+                ],
                 IconButton(
                   onPressed: () => context.go('/pedido'),
                   icon: Badge(
@@ -267,13 +285,17 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    FilledButton.icon(
-                      onPressed: canAdd
-                          ? () => _add(store, product, variant)
-                          : null,
-                      icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-                      label: const Text('Agregar al pedido'),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: canAdd
+                            ? () => _add(store, product, variant)
+                            : null,
+                        icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+                        label: const Text('Agregar al pedido'),
+                      ),
                     ),
                     if (!canAdd)
                       Padding(
@@ -284,13 +306,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               ?.copyWith(color: AppColors.mutedText),
                         ),
                       ),
-                    TextButton.icon(
-                      onPressed: () =>
-                          context.go('/producto/${product.id}/editar'),
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Editar'),
-                    ),
-                    if (canDelete) DeleteProductButton(product: product),
                   ],
                 ),
               ),

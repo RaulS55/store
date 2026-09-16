@@ -14,12 +14,16 @@ import 'product_table.dart';
 class StockPage extends StatefulWidget {
   const StockPage({super.key});
 
+  static const mobileScrollKey = PageStorageKey<String>('stock-list-mobile');
+  static const webScrollKey = PageStorageKey<String>('stock-list-web');
+
   @override
   State<StockPage> createState() => _StockPageState();
 }
 
 class _StockPageState extends State<StockPage> {
   late final TextEditingController _search;
+  late final ScrollController _scroll;
 
   static const _chips = [
     ApparelCategory.remeras,
@@ -34,11 +38,13 @@ class _StockPageState extends State<StockPage> {
   void initState() {
     super.initState();
     _search = TextEditingController(text: context.read<AppStore>().searchQuery);
+    _scroll = ScrollController();
   }
 
   @override
   void dispose() {
     _search.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -54,6 +60,8 @@ class _StockPageState extends State<StockPage> {
 
     return SafeArea(
       child: CustomScrollView(
+        key: StockPage.mobileScrollKey,
+        controller: _scroll,
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
@@ -112,7 +120,7 @@ class _StockPageState extends State<StockPage> {
                   return ProductCard(
                     product: product,
                     dense: true,
-                    onTap: () => context.go('/producto/${product.id}'),
+                    onTap: () => context.push('/producto/${product.id}'),
                   );
                 }, childCount: products.length),
               ),
@@ -140,6 +148,8 @@ class _StockPageState extends State<StockPage> {
     return ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: CustomScrollView(
+        key: StockPage.webScrollKey,
+        controller: _scroll,
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
@@ -270,7 +280,7 @@ class _StockPageState extends State<StockPage> {
                   final product = products[index];
                   return ProductCard(
                     product: product,
-                    onTap: () => context.go('/producto/${product.id}'),
+                    onTap: () => context.push('/producto/${product.id}'),
                   );
                 }, childCount: products.length),
               ),

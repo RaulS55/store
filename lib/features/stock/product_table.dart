@@ -57,7 +57,8 @@ class ProductTable extends StatelessWidget {
             rows: [
               for (final product in products)
                 DataRow(
-                  onSelectChanged: (_) => context.go('/producto/${product.id}'),
+                  onSelectChanged: (_) =>
+                      context.push('/producto/${product.id}'),
                   cells: [
                     DataCell(
                       Row(

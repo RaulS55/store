@@ -47,18 +47,30 @@ class DeleteProductButton extends StatelessWidget {
     super.key,
     required this.product,
     this.enabled = true,
+    this.iconOnly = false,
   });
 
   final Product product;
   final bool enabled;
+  final bool iconOnly;
 
   @override
   Widget build(BuildContext context) {
+    final onPressed = enabled
+        ? () => deleteProductWithConfirm(context: context, product: product)
+        : null;
+    if (iconOnly) {
+      return IconButton(
+        key: const ValueKey('delete-product'),
+        tooltip: 'Eliminar',
+        onPressed: onPressed,
+        style: IconButton.styleFrom(foregroundColor: AppColors.stockLow),
+        icon: const Icon(Icons.delete_outline),
+      );
+    }
     return TextButton.icon(
       key: const ValueKey('delete-product'),
-      onPressed: enabled
-          ? () => deleteProductWithConfirm(context: context, product: product)
-          : null,
+      onPressed: onPressed,
       style: TextButton.styleFrom(foregroundColor: AppColors.stockLow),
       icon: const Icon(Icons.delete_outline, size: 18),
       label: const Text('Eliminar prenda'),
