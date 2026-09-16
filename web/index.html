@@ -50,8 +50,12 @@
   <link rel="manifest" href="manifest.json">
   <style>
     html, body {
+      width: 100%;
       height: 100%;
+      height: 100dvh;
       margin: 0;
+      padding: 0;
+      overflow: hidden;
       background: #F8F9FA;
     }
     flt-platform-view img {
@@ -100,12 +104,42 @@
     <div class="spinner" aria-hidden="true"></div>
   </div>
   <script>
-    function hideAppSplash() {
-      var el = document.getElementById('app-splash');
-      if (el) el.remove();
-    }
-    window.addEventListener('flutter-first-frame', hideAppSplash);
-    setTimeout(hideAppSplash, 30000);
+    (function () {
+      function viewportHeight() {
+        var viewport = window.visualViewport;
+        if (viewport && viewport.height) return viewport.height;
+        return window.innerHeight;
+      }
+      function syncViewportHeight() {
+        document.documentElement.style.height = viewportHeight() + 'px';
+      }
+      function notifyFlutterViewport() {
+        syncViewportHeight();
+        if (window.visualViewport) {
+          window.visualViewport.dispatchEvent(new Event('resize'));
+        } else {
+          window.dispatchEvent(new Event('resize'));
+        }
+      }
+      function hideAppSplash() {
+        var el = document.getElementById('app-splash');
+        if (el) el.remove();
+      }
+      syncViewportHeight();
+      window.addEventListener('load', notifyFlutterViewport);
+      window.addEventListener('pageshow', notifyFlutterViewport);
+      window.addEventListener('orientationchange', function () {
+        setTimeout(notifyFlutterViewport, 250);
+      });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', syncViewportHeight);
+      }
+      window.addEventListener('flutter-first-frame', function () {
+        hideAppSplash();
+        notifyFlutterViewport();
+      });
+      setTimeout(hideAppSplash, 30000);
+    })();
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
