@@ -43,6 +43,29 @@ List<String> _colorOrder(WidgetTester tester) {
 }
 
 void main() {
+  test('equivalent size is optional and falls back to the garment size', () {
+    final draft = VariantDraft();
+    draft.addSize('M');
+    expect(draft.equivalentSizeFor('M'), 'M');
+    expect(draft.storedEquivalentSizes, isEmpty);
+
+    draft.setEquivalentSize('M', '38');
+    expect(draft.equivalentSizeFor('M'), '38');
+    expect(draft.storedEquivalentSizes, {'M': '38'});
+
+    draft.setEquivalentSize('M', '  ');
+    expect(draft.equivalentSizeFor('M'), 'M');
+    expect(draft.storedEquivalentSizes, isEmpty);
+  });
+
+  test('removing a garment size drops its equivalent', () {
+    final draft = VariantDraft();
+    draft.addSize('M');
+    draft.setEquivalentSize('M', '38');
+    draft.removeSize('M');
+    expect(draft.equivalentSizes.containsKey('M'), isFalse);
+  });
+
   test('custom sizes keep the typed name', () {
     final draft = VariantDraft();
     draft.addSize('44');
@@ -136,11 +159,34 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Agregar'));
     await tester.pumpAndSettle();
 
-    final chip = tester.widget<FilterChip>(find.widgetWithText(FilterChip, '44'));
+    final chip = tester.widget<FilterChip>(
+      find.widgetWithText(FilterChip, '44'),
+    );
     expect(chip.selected, isTrue);
     expect(chip.showCheckmark, isFalse);
     expect(chip.avatar, isNull);
     expect(_sizeChipOrder(tester), ApparelSizes.all);
+  });
+
+  testWidgets('equivalent size section stays optional', (tester) async {
+    await tester.pumpWidget(_app(VariantDraft()));
+
+    expect(find.text('Talle en prenda'), findsOneWidget);
+    expect(find.text('Talle equivalente'), findsOneWidget);
+    expect(
+      find.text('Opcional. Si no lo cargás, usa el talle en prenda.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('equivalent-size-M')), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'M'));
+    await tester.pump();
+
+    final field = find.byKey(const ValueKey('equivalent-size-M'));
+    expect(field, findsOneWidget);
+    await tester.enterText(field, '38');
+    await tester.pump();
+    expect(tester.widget<TextField>(field).controller!.text, '38');
   });
 
   testWidgets('add size dialog keeps Cancelar beside Agregar', (tester) async {

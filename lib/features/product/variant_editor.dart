@@ -10,13 +10,42 @@ class VariantDraft {
     List<String>? sizes,
     List<SwatchColor>? colors,
     List<ProductVariant>? variants,
-  })  : sizes = List.of(sizes ?? const []),
-        colors = List.of(colors ?? const []),
-        variants = List.of(variants ?? const []);
+    Map<String, String>? equivalentSizes,
+  }) : sizes = List.of(sizes ?? const []),
+       colors = List.of(colors ?? const []),
+       variants = List.of(variants ?? const []),
+       equivalentSizes = {
+         for (final entry
+             in (equivalentSizes ?? const <String, String>{}).entries)
+           if (entry.value.trim().isNotEmpty) entry.key: entry.value.trim(),
+       };
 
   final List<String> sizes;
   final List<SwatchColor> colors;
   List<ProductVariant> variants;
+  final Map<String, String> equivalentSizes;
+
+  String equivalentSizeFor(String size) {
+    final raw = equivalentSizes[size]?.trim() ?? '';
+    return raw.isEmpty ? size : raw;
+  }
+
+  Map<String, String> get storedEquivalentSizes {
+    return {
+      for (final size in sizes)
+        if ((equivalentSizes[size]?.trim().isNotEmpty ?? false))
+          size: equivalentSizes[size]!.trim(),
+    };
+  }
+
+  void setEquivalentSize(String size, String equivalent) {
+    final value = equivalent.trim();
+    if (value.isEmpty) {
+      equivalentSizes.remove(size);
+      return;
+    }
+    equivalentSizes[size] = value;
+  }
 
   ProductVariant? find(String size, String color) {
     for (final variant in variants) {
@@ -48,6 +77,7 @@ class VariantDraft {
 
   void removeSize(String size) {
     sizes.remove(size);
+    equivalentSizes.remove(size);
     variants.removeWhere((v) => v.size == size);
   }
 
@@ -142,24 +172,26 @@ class VariantEditor extends StatelessWidget {
           wide
               ? 'Stock por variante (talle × color)'
               : 'Variantes (talle × color)',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
         Text(
           wide
               ? 'Cada celda es una variante vendible; el pedido guarda talle + color + stock.'
               : 'Agregá talles y colores para generar las combinaciones.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppColors.mutedText,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
         ),
         const SizedBox(height: 14),
         _ChipRow(
-          label: wide ? 'Talles activos' : 'Talles',
+          label: 'Talle en prenda',
           child: _SizeChips(draft: draft, onChanged: onChanged),
         ),
+        const SizedBox(height: 12),
+        _EquivalentSizeSection(draft: draft, onChanged: onChanged),
         const SizedBox(height: 12),
         _ChipRow(
           label: wide ? 'Colores activos' : 'Colores',
@@ -168,18 +200,127 @@ class VariantEditor extends StatelessWidget {
         const SizedBox(height: 16),
         if (draft.sizes.isEmpty || draft.colors.isEmpty)
           Text(
-            'Agregá al menos un talle y un color.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.stockLow,
-            ),
+            'Agregá al menos un talle en prenda y un color.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.stockLow),
           )
         else if (wide)
           _VariantMatrix(draft: draft, onChanged: onChanged)
         else
-          _VariantList(
-            draft: draft,
-            onChanged: onChanged,
-            baseSku: baseSku,
+          _VariantList(draft: draft, onChanged: onChanged, baseSku: baseSku),
+      ],
+    );
+  }
+}
+
+class _EquivalentSizeSection extends StatefulWidget {
+  const _EquivalentSizeSection({required this.draft, required this.onChanged});
+
+  final VariantDraft draft;
+  final VoidCallback onChanged;
+
+  @override
+  State<_EquivalentSizeSection> createState() => _EquivalentSizeSectionState();
+}
+
+class _EquivalentSizeSectionState extends State<_EquivalentSizeSection> {
+  final Map<String, TextEditingController> _controllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _syncControllers();
+  }
+
+  @override
+  void didUpdateWidget(covariant _EquivalentSizeSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncControllers();
+  }
+
+  void _syncControllers() {
+    final sizes = widget.draft.sizes.toSet();
+    for (final size in sizes) {
+      _controllers.putIfAbsent(
+        size,
+        () => TextEditingController(
+          text: widget.draft.equivalentSizes[size] ?? '',
+        ),
+      );
+    }
+    final stale = [
+      for (final size in _controllers.keys)
+        if (!sizes.contains(size)) size,
+    ];
+    for (final size in stale) {
+      _controllers.remove(size)?.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sizes = widget.draft.sizes;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Talle equivalente',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Opcional. Si no lo cargás, usa el talle en prenda.',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
+        ),
+        const SizedBox(height: 8),
+        if (sizes.isEmpty)
+          Text(
+            'Elegí un talle en prenda para cargar su equivalente.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
+          )
+        else
+          Column(
+            children: [
+              for (final size in sizes)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 72,
+                        child: Text(
+                          size,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          key: ValueKey('equivalent-size-$size'),
+                          controller: _controllers[size],
+                          decoration: InputDecoration(hintText: size),
+                          onChanged: (value) {
+                            widget.draft.setEquivalentSize(size, value);
+                            widget.onChanged();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
       ],
     );
@@ -262,7 +403,9 @@ class _SizeChips extends StatelessWidget {
           content: TextField(
             controller: controller,
             autofocus: true,
-            decoration: const InputDecoration(hintText: 'Ej. 44 / Oversize / 3'),
+            decoration: const InputDecoration(
+              hintText: 'Ej. 44 / Oversize / 3',
+            ),
           ),
           actions: [
             TextButton(
@@ -468,7 +611,10 @@ class _VariantList extends StatelessWidget {
                 if (variant.stock == 0)
                   Container(
                     margin: const EdgeInsets.only(right: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.stockLow.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppRadii.pill),
@@ -530,7 +676,9 @@ class _VariantList extends StatelessWidget {
                         DropdownMenuItem(value: s, child: Text(s)),
                     ],
                     onChanged: (v) => setState(() => size = v),
-                    decoration: const InputDecoration(labelText: 'Talle'),
+                    decoration: const InputDecoration(
+                      labelText: 'Talle en prenda',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -540,7 +688,9 @@ class _VariantList extends StatelessWidget {
                         DropdownMenuItem(value: c.name, child: Text(c.name)),
                     ],
                     onChanged: (v) {
-                      setState(() => color = v == null ? null : draft.colorByName(v));
+                      setState(
+                        () => color = v == null ? null : draft.colorByName(v),
+                      );
                     },
                     decoration: const InputDecoration(labelText: 'Color'),
                   ),
@@ -587,7 +737,7 @@ class _VariantMatrix extends StatelessWidget {
         dataRowMinHeight: 56,
         dataRowMaxHeight: 56,
         columns: [
-          const DataColumn(label: Text('Talle')),
+          const DataColumn(label: Text('Talle en prenda')),
           for (final color in draft.colors)
             DataColumn(
               label: Row(
@@ -612,7 +762,12 @@ class _VariantMatrix extends StatelessWidget {
           for (final size in draft.sizes)
             DataRow(
               cells: [
-                DataCell(Text(size, style: const TextStyle(fontWeight: FontWeight.w600))),
+                DataCell(
+                  Text(
+                    size,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
                 for (final color in draft.colors)
                   DataCell(
                     _MatrixCell(

@@ -157,6 +157,56 @@ void main() {
     );
   });
 
+  test('equivalent size falls back to the garment size', () {
+    final product = Product.fromMap('p1', {
+      'id': 'p1',
+      'name': 'Remera',
+      'sku': 'RM-1',
+      'category': 'remeras',
+      'brand': 'Test',
+      'price': 10000,
+      'images': <String>[],
+      'variants': [
+        {'size': 'M', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 4},
+        {'size': 'L', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 2},
+      ],
+      'status': 'activo',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+    });
+    expect(product.equivalentSizes, isEmpty);
+    expect(product.equivalentSizeFor('M'), 'M');
+    expect(product.equivalentSizeFor('L'), 'L');
+    expect(product.equivalentSizeLabel, 'M / L');
+    expect(product.toMap()['equivalentSizes'], isEmpty);
+  });
+
+  test('Product.fromMap reads stored equivalent sizes', () {
+    final product = Product.fromMap('p1', {
+      'id': 'p1',
+      'name': 'Remera',
+      'sku': 'RM-1',
+      'category': 'remeras',
+      'brand': 'Test',
+      'price': 10000,
+      'images': <String>[],
+      'equivalentSizes': {'M': '38', 'L': '  '},
+      'variants': [
+        {'size': 'M', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 4},
+        {'size': 'L', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 2},
+      ],
+      'status': 'activo',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+    });
+    expect(product.equivalentSizeFor('M'), '38');
+    expect(product.equivalentSizeFor('L'), 'L');
+    expect(product.equivalentSizeLabel, '38 / L');
+    expect(product.toMap()['equivalentSizes'], {'M': '38'});
+  });
+
   test('garment sizes are common distinct values', () {
     expect(ApparelSizes.all.length, greaterThanOrEqualTo(12));
     expect(ApparelSizes.all.toSet().length, ApparelSizes.all.length);

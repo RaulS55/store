@@ -61,6 +61,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
       sizes: existing?.sizes,
       colors: existing?.colors,
       variants: existing?.variants,
+      equivalentSizes: existing?.equivalentSizes,
     );
     if (existing != null) {
       _images.addAll([
@@ -176,6 +177,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
         price: double.parse(_price.text.trim().replaceAll('.', '')),
         images: urls,
         variants: List.of(_draft.variants),
+        equivalentSizes: _draft.storedEquivalentSizes,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
         deletedAt: existing?.deletedAt,

@@ -217,6 +217,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                     if (product.brand.trim().isNotEmpty)
                       _Attr('Marca', product.brand, Icons.storefront_outlined),
+                    if (product.sizes.isNotEmpty) ...[
+                      _Attr(
+                        'Talle en prenda',
+                        product.sizeLabel,
+                        Icons.straighten,
+                      ),
+                      _Attr(
+                        'Talle equivalente',
+                        product.equivalentSizeLabel,
+                        Icons.swap_horiz,
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     VariantPicker(
                       product: product,
@@ -278,6 +290,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               ),
                               child: ProductImage(
                                 path: images[i],
+                                fit: BoxFit.contain,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
@@ -429,6 +442,7 @@ class _WideDetail extends StatelessWidget {
                         ),
                         child: ProductImage(
                           path: images[i],
+                          fit: BoxFit.contain,
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
@@ -472,6 +486,15 @@ class _WideDetail extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              if (product.sizes.isNotEmpty) ...[
+                _Attr('Talle en prenda', product.sizeLabel, Icons.straighten),
+                _Attr(
+                  'Talle equivalente',
+                  product.equivalentSizeLabel,
+                  Icons.swap_horiz,
+                ),
+                const SizedBox(height: 12),
+              ],
               VariantPicker(
                 product: product,
                 selection: selection,
@@ -578,9 +601,13 @@ class _ProductImagePagerState extends State<_ProductImagePager> {
           },
           itemCount: images.length,
           itemBuilder: (context, i) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
             return Stack(
               fit: StackFit.expand,
               children: [
+                ColoredBox(
+                  color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                ),
                 IgnorePointer(
                   child: ProductImage(
                     key: ValueKey('product-pager-image-$i-${images[i]}'),
@@ -628,9 +655,11 @@ class _Attr extends StatelessWidget {
           Icon(icon, size: 18, color: AppColors.mutedText),
           const SizedBox(width: 10),
           SizedBox(
-            width: 92,
+            width: 128,
             child: Text(
               label.toUpperCase(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: AppColors.mutedText,
                 letterSpacing: 0.4,

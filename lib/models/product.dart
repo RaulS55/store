@@ -306,6 +306,7 @@ class Product {
     required this.price,
     required this.images,
     required this.variants,
+    this.equivalentSizes = const {},
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -321,6 +322,7 @@ class Product {
   final double price;
   final List<String> images;
   final List<ProductVariant> variants;
+  final Map<String, String> equivalentSizes;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -358,6 +360,17 @@ class Product {
   }
 
   String get sizeLabel => sizes.join(' / ');
+
+  String equivalentSizeFor(String size) {
+    final raw = equivalentSizes[size]?.trim() ?? '';
+    return raw.isEmpty ? size : raw;
+  }
+
+  List<String> get displayedEquivalentSizes {
+    return [for (final size in sizes) equivalentSizeFor(size)];
+  }
+
+  String get equivalentSizeLabel => displayedEquivalentSizes.join(' / ');
 
   String get colorLabel => colors.map((c) => c.name).join(' / ');
 
@@ -420,6 +433,7 @@ class Product {
           if (variant is Map)
             ProductVariant.fromMap(Map<String, dynamic>.from(variant)),
       ],
+      equivalentSizes: readEquivalentSizes(map['equivalentSizes']),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       deletedAt: record.deletedAt,
@@ -445,7 +459,26 @@ class Product {
       'price': price,
       'images': images,
       'variants': [for (final variant in variants) variant.toMap()],
+      'equivalentSizes': storedEquivalentSizes,
       'status': status.name,
+    };
+  }
+
+  Map<String, String> get storedEquivalentSizes {
+    return {
+      for (final size in sizes)
+        if ((equivalentSizes[size]?.trim().isNotEmpty ?? false))
+          size: equivalentSizes[size]!.trim(),
+    };
+  }
+
+  static Map<String, String> readEquivalentSizes(dynamic raw) {
+    if (raw is! Map) return const {};
+    return {
+      for (final entry in raw.entries)
+        if ('${entry.key}'.trim().isNotEmpty &&
+            '${entry.value}'.trim().isNotEmpty)
+          '${entry.key}': '${entry.value}'.trim(),
     };
   }
 
@@ -459,6 +492,7 @@ class Product {
     double? price,
     List<String>? images,
     List<ProductVariant>? variants,
+    Map<String, String>? equivalentSizes,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
@@ -474,6 +508,7 @@ class Product {
       price: price ?? this.price,
       images: images ?? this.images,
       variants: variants ?? this.variants,
+      equivalentSizes: equivalentSizes ?? this.equivalentSizes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,

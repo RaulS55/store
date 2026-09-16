@@ -98,8 +98,23 @@ void main() {
 
     expect(find.text('+ Talle'), findsNothing);
     expect(find.text('Talle'), findsOneWidget);
+    expect(find.text('Talle en prenda'), findsOneWidget);
+    expect(find.text('Talle equivalente'), findsOneWidget);
     expect(find.text('+ Color'), findsNothing);
     expect(find.text('Color'), findsOneWidget);
+  });
+
+  testWidgets('editing a product loads the equivalent size', (tester) async {
+    _setTallView(tester);
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct(id: 'p-eq').copyWith(equivalentSizes: const {'M': '38'}),
+    );
+    await tester.pumpWidget(_formApp(store, productId: 'p-eq'));
+
+    final field = find.byKey(const ValueKey('equivalent-size-M'));
+    expect(field, findsOneWidget);
+    expect(tester.widget<TextField>(field).controller!.text, '38');
   });
 
   test('used categories come from saved products', () async {
@@ -148,7 +163,9 @@ void main() {
     expect(store.brandSuggestions(''), isEmpty);
 
     await store.upsertProduct(testProduct(brand: 'Urban Threads'));
-    await store.upsertProduct(testProduct(id: 'p2', sku: 'TST-0002', brand: ''));
+    await store.upsertProduct(
+      testProduct(id: 'p2', sku: 'TST-0002', brand: ''),
+    );
     expect(store.allBrands, ['Urban Threads']);
     expect(store.brandSuggestions('urb'), ['Urban Threads']);
     expect(store.brandSuggestions(''), ['Urban Threads']);
@@ -179,11 +196,7 @@ void main() {
       testProduct(id: 'p-m', audience: ApparelAudience.mujer),
     );
     await store.upsertProduct(
-      testProduct(
-        id: 'p-h',
-        sku: 'TST-0002',
-        audience: ApparelAudience.hombre,
-      ),
+      testProduct(id: 'p-h', sku: 'TST-0002', audience: ApparelAudience.hombre),
     );
 
     store.selectChipAudience(ApparelAudience.mujer);
@@ -250,44 +263,43 @@ void main() {
     },
   );
 
-  testWidgets(
-    'picking a photo compresses it at once and does not upload yet',
-    (tester) async {
-      _setTallView(tester);
-      final original = _png();
-      final images = FakeImageAccess();
-      final logs = <String>[];
-      final store = AppStore(
-        products: FakeProductAccess(),
-        images: images,
-        log: logs.add,
-      );
-      addTearDown(store.dispose);
-      store.bindCompany('co1');
+  testWidgets('picking a photo compresses it at once and does not upload yet', (
+    tester,
+  ) async {
+    _setTallView(tester);
+    final original = _png();
+    final images = FakeImageAccess();
+    final logs = <String>[];
+    final store = AppStore(
+      products: FakeProductAccess(),
+      images: images,
+      log: logs.add,
+    );
+    addTearDown(store.dispose);
+    store.bindCompany('co1');
 
-      await tester.pumpWidget(
-        _formApp(
-          store,
-          pickImages: ({required int limit}) async {
-            return [PickedImageFile(name: 'foto.png', bytes: original)];
-          },
-        ),
-      );
+    await tester.pumpWidget(
+      _formApp(
+        store,
+        pickImages: ({required int limit}) async {
+          return [PickedImageFile(name: 'foto.png', bytes: original)];
+        },
+      ),
+    );
 
-      await tester.tap(find.text('Agregar'));
-      await tester.pump();
-      await tester.runAsync(() async {
-        await Future<void>.delayed(const Duration(milliseconds: 400));
-      });
-      await tester.pump();
+    await tester.tap(find.text('Agregar'));
+    await tester.pump();
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    });
+    await tester.pump();
 
-      expect(images.uploads, isEmpty);
-      expect(logs.where((line) => line.startsWith('Image compress start')), [
-        'Image compress start originalBytes=${original.lengthInBytes}',
-      ]);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-    },
-  );
+    expect(images.uploads, isEmpty);
+    expect(logs.where((line) => line.startsWith('Image compress start')), [
+      'Image compress start originalBytes=${original.lengthInBytes}',
+    ]);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
 }
 
 Uint8List _png({int width = 240, int height = 240}) {

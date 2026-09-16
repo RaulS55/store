@@ -4,15 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:store_app/data/app_store.dart';
 import 'package:store_app/features/product/product_detail_page.dart';
+import 'package:store_app/models/product.dart';
 import 'package:store_app/widgets/product_image.dart';
 
 import 'fakes/catalog_harness.dart';
 
-const _images = [
-  'gallery-one',
-  'gallery-two',
-  'gallery-three',
-];
+const _images = ['gallery-one', 'gallery-two', 'gallery-three'];
 
 void _setPhoneView(WidgetTester tester) {
   tester.view.physicalSize = const Size(400, 1200);
@@ -41,6 +38,38 @@ PageController _pagerController(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('detail shows garment size and equivalent size', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct().copyWith(
+        variants: const [
+          ProductVariant(
+            size: 'M',
+            color: 'Negro',
+            colorHex: '#1E1E1E',
+            stock: 10,
+          ),
+          ProductVariant(
+            size: 'L',
+            color: 'Negro',
+            colorHex: '#1E1E1E',
+            stock: 4,
+          ),
+        ],
+        equivalentSizes: const {'M': '38'},
+      ),
+    );
+    await tester.pumpWidget(_app(store));
+    await tester.pump();
+
+    expect(find.text('Talle en prenda'), findsOneWidget);
+    expect(find.text('TALLE EN PRENDA'), findsOneWidget);
+    expect(find.text('TALLE EQUIVALENTE'), findsOneWidget);
+    expect(find.text('M / L'), findsOneWidget);
+    expect(find.text('38 / L'), findsOneWidget);
+  });
+
   testWidgets('swipe shows the next product image', (tester) async {
     _setPhoneView(tester);
     await tester.pumpWidget(_app(await _storeWithGallery()));
@@ -64,6 +93,7 @@ void main() {
       find.byKey(ValueKey('product-pager-image-1-${_images[1]}')),
     );
     expect(visible.path, _images[1]);
+    expect(visible.fit, BoxFit.contain);
   });
 
   testWidgets('mouse drag shows the next product image', (tester) async {
@@ -96,5 +126,10 @@ void main() {
       find.byKey(ValueKey('product-pager-image-2-${_images[2]}')),
     );
     expect(visible.path, _images[2]);
+    expect(visible.fit, BoxFit.contain);
+    final thumbImage = tester.widget<ProductImage>(
+      find.descendant(of: thumb, matching: find.byType(ProductImage)),
+    );
+    expect(thumbImage.fit, BoxFit.contain);
   });
 }

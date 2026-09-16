@@ -187,7 +187,7 @@ class _FiltersEditorState extends State<FiltersEditor> {
                 ],
               ),
               const SizedBox(height: 18),
-              _Label('Talle'),
+              _Label('Talle en prenda'),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,

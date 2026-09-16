@@ -48,7 +48,8 @@ class ProductTable extends StatelessWidget {
               DataColumn(label: Text('PRODUCTO')),
               DataColumn(label: Text('CATEGORÍA')),
               DataColumn(label: Text('PÚBLICO')),
-              DataColumn(label: Text('TALLE')),
+              DataColumn(label: Text('TALLE EN PRENDA')),
+              DataColumn(label: Text('TALLE EQUIV.')),
               DataColumn(label: Text('COLOR')),
               DataColumn(label: Text('MARCA')),
               DataColumn(label: Text('STOCK')),
@@ -109,6 +110,7 @@ class ProductTable extends StatelessWidget {
                       ),
                     ),
                     DataCell(Text(product.sizeLabel)),
+                    DataCell(Text(product.equivalentSizeLabel)),
                     DataCell(
                       Row(
                         children: [

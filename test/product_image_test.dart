@@ -24,6 +24,26 @@ void main() {
     expect(find.byIcon(Icons.checkroom_outlined), findsOneWidget);
   });
 
+  testWidgets('a bounded box decodes only one cache side', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 120,
+            height: 80,
+            child: ProductImage(bytes: _jpeg()),
+          ),
+        ),
+      ),
+    );
+
+    final provider = tester.widget<Image>(find.byType(Image)).image;
+    expect(provider, isA<ResizeImage>());
+    final resize = provider as ResizeImage;
+    expect(resize.width == null || resize.height == null, isTrue);
+    expect(resize.width != null || resize.height != null, isTrue);
+  });
+
   testWidgets('bytes render with Image.memory', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -52,7 +72,10 @@ void main() {
     }
 
     await tester.pumpWidget(image('first', first));
-    expect(find.byKey(ValueKey('memory:first:${first.length}')), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('memory:first:${first.length}')),
+      findsOneWidget,
+    );
 
     await tester.pumpWidget(image('second', second));
     expect(find.byKey(ValueKey('memory:first:${first.length}')), findsNothing);

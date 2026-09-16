@@ -41,8 +41,9 @@ class ProductImage extends StatelessWidget {
             ? constraints.maxHeight
             : null;
         final dpr = MediaQuery.devicePixelRatioOf(context);
-        final cacheWidth = _cachePx(width, dpr);
-        final cacheHeight = _cachePx(height, dpr);
+        final decode = _decodeSize(width, height, dpr);
+        final cacheWidth = decode.width;
+        final cacheHeight = decode.height;
         final preview = bytes;
         final cached = preview == null || preview.isEmpty
             ? _appStoreOf(context)?.cachedProductImage(path)
@@ -84,7 +85,7 @@ class ProductImage extends StatelessWidget {
             cacheWidth: cacheWidth,
             cacheHeight: cacheHeight,
             gaplessPlayback: false,
-            webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+            webHtmlElementStrategy: WebHtmlElementStrategy.never,
             errorBuilder: (_, error, _) {
               debugPrint('Product image network failed: $path $error');
               return fallback;
@@ -127,4 +128,20 @@ bool _isNetworkPath(String path) {
 int? _cachePx(double? size, double dpr) {
   if (size == null || !size.isFinite || size <= 0) return null;
   return (size * dpr).round().clamp(1, 4096);
+}
+
+({int? width, int? height}) _decodeSize(
+  double? width,
+  double? height,
+  double dpr,
+) {
+  final cacheWidth = _cachePx(width, dpr);
+  final cacheHeight = _cachePx(height, dpr);
+  if (cacheWidth != null && cacheHeight != null) {
+    if (cacheWidth >= cacheHeight) {
+      return (width: cacheWidth, height: null);
+    }
+    return (width: null, height: cacheHeight);
+  }
+  return (width: cacheWidth, height: cacheHeight);
 }

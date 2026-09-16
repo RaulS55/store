@@ -32,6 +32,12 @@ class VariantPicker extends StatelessWidget {
   ProductVariant? get selected =>
       product.variantFor(selection.size, selection.color);
 
+  String _sizeChipLabel(Product product, String size) {
+    final equivalent = product.equivalentSizeFor(size);
+    if (equivalent == size) return size;
+    return '$size · $equivalent';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -40,10 +46,12 @@ class VariantPicker extends StatelessWidget {
       children: [
         Text(
           'Elegí variante',
-          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 10),
-        Text('Talle', style: theme.textTheme.labelLarge),
+        Text('Talle en prenda', style: theme.textTheme.labelLarge),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -51,7 +59,7 @@ class VariantPicker extends StatelessWidget {
           children: [
             for (final size in product.sizes)
               _SizeChip(
-                label: size,
+                label: _sizeChipLabel(product, size),
                 stock: product.stockForSize(size, colorName: selection.color),
                 selected: selection.size == size,
                 onTap: () => onChanged(selection.copyWith(size: size)),
@@ -171,7 +179,9 @@ class _ColorChoice extends StatelessWidget {
                     color: color.color,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: selected ? AppColors.terracotta : const Color(0x33000000),
+                      color: selected
+                          ? AppColors.terracotta
+                          : const Color(0x33000000),
                       width: selected ? 2 : 1,
                     ),
                   ),
@@ -191,11 +201,16 @@ class _ColorChoice extends StatelessWidget {
                     right: 0,
                     top: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Theme.of(context).dividerColor),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
                       ),
                       child: Text(
                         '$stock',
@@ -247,15 +262,17 @@ class _StockLine extends StatelessWidget {
           color: available ? AppColors.stockOk : AppColors.mutedText,
         ),
         const SizedBox(width: 8),
-        Text(
-          !hasSelection
-              ? 'Elegí talle y color para ver el stock'
-              : available
-                  ? 'Stock disponible: ${variant!.stock} u.'
-                  : 'Sin stock en esta combinación',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: available ? null : AppColors.slate,
+        Expanded(
+          child: Text(
+            !hasSelection
+                ? 'Elegí talle y color para ver el stock'
+                : available
+                ? 'Stock disponible: ${variant!.stock} u.'
+                : 'Sin stock en esta combinación',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: available ? null : AppColors.slate,
+            ),
           ),
         ),
       ],
@@ -299,7 +316,9 @@ Future<ProductVariant?> showVariantPickerSheet(
                 ),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: canAdd ? () => Navigator.pop(context, variant) : null,
+                  onPressed: canAdd
+                      ? () => Navigator.pop(context, variant)
+                      : null,
                   child: const Text('Agregar al pedido'),
                 ),
                 if (!canAdd)
