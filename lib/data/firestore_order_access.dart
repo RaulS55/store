@@ -31,6 +31,7 @@ class FirestoreOrderAccess implements OrderAccess {
     late final StreamController<List<DraftOrder>> controller;
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? sub;
     var loadingFallback = false;
+    var retries = 0;
 
     Future<void> emitFromGet() async {
       if (loadingFallback) return;
@@ -51,17 +52,32 @@ class FirestoreOrderAccess implements OrderAccess {
       }
     }
 
+    void listen() {
+      sub?.cancel();
+      sub = query.snapshots().listen(
+        (snap) {
+          retries = 0;
+          controller.add(_mapSnapshot(snap));
+        },
+        onError: (Object error, StackTrace stack) {
+          debugPrint('Orders snapshots failed: $error');
+          debugPrint('$stack');
+          if (_isPermissionDenied(error) &&
+              retries < 3 &&
+              !controller.isClosed) {
+            retries += 1;
+            Future<void>.delayed(Duration(milliseconds: 400 * retries), () {
+              if (!controller.isClosed) listen();
+            });
+            return;
+          }
+          unawaited(emitFromGet());
+        },
+      );
+    }
+
     controller = StreamController<List<DraftOrder>>(
-      onListen: () {
-        sub = query.snapshots().listen(
-          (snap) => controller.add(_mapSnapshot(snap)),
-          onError: (Object error, StackTrace stack) {
-            debugPrint('Orders snapshots failed: $error');
-            debugPrint('$stack');
-            unawaited(emitFromGet());
-          },
-        );
-      },
+      onListen: listen,
       onCancel: () => sub?.cancel(),
     );
     return controller.stream;
@@ -70,6 +86,10 @@ class FirestoreOrderAccess implements OrderAccess {
   @override
   Future<void> saveOrder(String companyId, DraftOrder order) {
     return _orders(companyId).doc(order.id).set(order.toMap());
+  }
+
+  bool _isPermissionDenied(Object error) {
+    return error is FirebaseException && error.code == 'permission-denied';
   }
 
   List<DraftOrder> _mapSnapshot(QuerySnapshot<Map<String, dynamic>> snap) {

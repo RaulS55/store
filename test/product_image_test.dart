@@ -16,6 +16,27 @@ Uint8List _jpeg({int green = 40}) {
 }
 
 void main() {
+  testWidgets('network images fall back to an HTML element on web', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ProductImage(path: 'https://example.com/product.jpg'),
+        ),
+      ),
+    );
+
+    final provider = tester.widget<Image>(find.byType(Image)).image;
+    expect(provider, isA<ResizeImage>());
+    final network = (provider as ResizeImage).imageProvider;
+    expect(network, isA<NetworkImage>());
+    expect(
+      (network as NetworkImage).webHtmlElementStrategy,
+      WebHtmlElementStrategy.fallback,
+    );
+  });
+
   testWidgets('empty path shows the default product icon', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: ProductImage())),

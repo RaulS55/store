@@ -98,7 +98,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
     final store = _store;
     final session = _session;
     if (store == null || session == null) return;
-    store.bindCompany(session.companyId);
+    store.bindCompany(session.isSignedIn ? session.companyId : null);
     store.setRubro(session.company?.rubro ?? CompanyRubro.ambos);
   }
 

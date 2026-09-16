@@ -85,7 +85,7 @@ class ProductImage extends StatelessWidget {
             cacheWidth: cacheWidth,
             cacheHeight: cacheHeight,
             gaplessPlayback: false,
-            webHtmlElementStrategy: WebHtmlElementStrategy.never,
+            webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
             errorBuilder: (_, error, _) {
               debugPrint('Product image network failed: $path $error');
               return fallback;
