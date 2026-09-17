@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_store.dart';
+import '../data/image_compress.dart';
 import '../theme/tokens.dart';
 
 class ProductImage extends StatelessWidget {
@@ -41,13 +42,13 @@ class ProductImage extends StatelessWidget {
             ? constraints.maxHeight
             : null;
         final dpr = MediaQuery.devicePixelRatioOf(context);
-        final decode = _decodeSize(width, height, dpr);
-        final cacheWidth = decode.width;
-        final cacheHeight = decode.height;
         final preview = bytes;
         final cached = preview == null || preview.isEmpty
             ? _appStoreOf(context)?.cachedProductImage(path)
             : null;
+        // Keep one decode size for remote/cached JPEGs so the viewer reuses cache.
+        final layoutDecode = _decodeSize(width, height, dpr);
+        const sharedDecode = (width: maxProductImageEdge, height: null);
         final Widget image;
         if (preview != null && preview.isNotEmpty) {
           image = Image.memory(
@@ -56,9 +57,9 @@ class ProductImage extends StatelessWidget {
             fit: fit,
             width: width,
             height: height,
-            cacheWidth: cacheWidth,
-            cacheHeight: cacheHeight,
-            gaplessPlayback: false,
+            cacheWidth: layoutDecode.width,
+            cacheHeight: layoutDecode.height,
+            gaplessPlayback: true,
             errorBuilder: (_, _, _) => fallback,
           );
         } else if (cached != null && cached.isNotEmpty) {
@@ -68,9 +69,9 @@ class ProductImage extends StatelessWidget {
             fit: fit,
             width: width,
             height: height,
-            cacheWidth: cacheWidth,
-            cacheHeight: cacheHeight,
-            gaplessPlayback: false,
+            cacheWidth: sharedDecode.width,
+            cacheHeight: sharedDecode.height,
+            gaplessPlayback: true,
             errorBuilder: (_, _, _) => fallback,
           );
         } else if (path.isEmpty) {
@@ -82,9 +83,9 @@ class ProductImage extends StatelessWidget {
             fit: fit,
             width: width,
             height: height,
-            cacheWidth: cacheWidth,
-            cacheHeight: cacheHeight,
-            gaplessPlayback: false,
+            cacheWidth: sharedDecode.width,
+            cacheHeight: sharedDecode.height,
+            gaplessPlayback: true,
             webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
             errorBuilder: (_, error, _) {
               debugPrint('Product image network failed: $path $error');
@@ -98,9 +99,9 @@ class ProductImage extends StatelessWidget {
             fit: fit,
             width: width,
             height: height,
-            cacheWidth: cacheWidth,
-            cacheHeight: cacheHeight,
-            gaplessPlayback: false,
+            cacheWidth: sharedDecode.width,
+            cacheHeight: sharedDecode.height,
+            gaplessPlayback: true,
             errorBuilder: (_, _, _) => fallback,
           );
         }

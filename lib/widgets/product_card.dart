@@ -4,7 +4,6 @@ import '../data/formatters.dart';
 import '../models/product.dart';
 import '../theme/tokens.dart';
 import 'product_image.dart';
-import 'product_image_viewer.dart';
 import 'stock_dot.dart';
 
 class ProductCard extends StatelessWidget {
@@ -52,27 +51,6 @@ class ProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (product.images.any((path) => path.isNotEmpty))
-                      Positioned(
-                        left: 4,
-                        bottom: 4,
-                        child: Material(
-                          color: isDark
-                              ? Colors.black.withValues(alpha: 0.55)
-                              : Colors.white.withValues(alpha: 0.92),
-                          shape: const CircleBorder(),
-                          child: IconButton(
-                            key: const ValueKey('product-card-zoom'),
-                            tooltip: 'Ver imagen',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => showProductImageViewer(
-                              context: context,
-                              images: productImageEntries(product.images),
-                            ),
-                            icon: const Icon(Icons.zoom_in, size: 18),
-                          ),
-                        ),
-                      ),
                     Positioned(
                       top: 8,
                       right: 8,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -243,38 +244,84 @@ class _MobileShell extends StatelessWidget {
     final location = GoRouterState.of(context).uri.path;
     final selected = _indexFor(location, destinations);
     final hideNav = _hideMobileNav(location);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final media = MediaQuery.of(context);
+    final keyboardInset = kIsWeb ? 0.0 : media.viewInsets.bottom;
+    final content = hideNav
+        ? child
+        : MediaQuery.removePadding(
+            context: context,
+            removeBottom: true,
+            child: child,
+          );
 
     return Scaffold(
-      body: child,
-      bottomNavigationBar: hideNav
-          ? null
-          : Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                border: Border(
-                  top: BorderSide(
-                    color: isDark
-                        ? AppColors.darkBorder
-                        : AppColors.lightBorder,
-                  ),
-                ),
-              ),
-              child: NavigationBar(
-                selectedIndex: selected.clamp(0, destinations.length - 1),
-                onDestinationSelected: (index) {
-                  context.go(destinations[index].path);
-                },
-                destinations: [
-                  for (final dest in destinations)
-                    NavigationDestination(
-                      icon: Icon(dest.unselected),
-                      selectedIcon: Icon(dest.selected),
-                      label: dest.label,
-                    ),
-                ],
-              ),
+      resizeToAvoidBottomInset: false,
+      body: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: keyboardInset),
+              child: content,
             ),
+          ),
+          if (!hideNav)
+            _MobileNavBar(
+              destinations: destinations,
+              selectedIndex: selected.clamp(0, destinations.length - 1),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileNavBar extends StatelessWidget {
+  const _MobileNavBar({
+    required this.destinations,
+    required this.selectedIndex,
+  });
+
+  final List<_Dest> destinations;
+  final int selectedIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final media = MediaQuery.of(context);
+    final navMedia = kIsWeb
+        ? media.copyWith(
+            padding: media.padding.copyWith(bottom: 0),
+            viewPadding: media.viewPadding.copyWith(bottom: 0),
+            viewInsets: EdgeInsets.zero,
+          )
+        : media;
+
+    return MediaQuery(
+      data: navMedia,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            ),
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: selectedIndex,
+          onDestinationSelected: (index) {
+            context.go(destinations[index].path);
+          },
+          destinations: [
+            for (final dest in destinations)
+              NavigationDestination(
+                icon: Icon(dest.unselected),
+                selectedIcon: Icon(dest.selected),
+                label: dest.label,
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -51,7 +51,6 @@
     html, body {
       width: 100%;
       height: 100%;
-      height: 100dvh;
       margin: 0;
       padding: 0;
       overflow: hidden;
@@ -104,20 +103,25 @@
   </div>
   <script>
     (function () {
+      var lastHeight = 0;
       function viewportHeight() {
-        var viewport = window.visualViewport;
-        if (viewport && viewport.height) return viewport.height;
-        return window.innerHeight;
+        var visual = window.visualViewport && window.visualViewport.height;
+        var inner = window.innerHeight || 0;
+        var client = document.documentElement.clientHeight || 0;
+        return Math.max(visual || 0, inner, client);
       }
       function syncViewportHeight() {
-        document.documentElement.style.height = viewportHeight() + 'px';
+        var next = viewportHeight();
+        if (next > lastHeight + 0.5) {
+          lastHeight = next;
+          document.documentElement.style.height = next + 'px';
+        }
       }
       function notifyFlutterViewport() {
         syncViewportHeight();
+        window.dispatchEvent(new Event('resize'));
         if (window.visualViewport) {
           window.visualViewport.dispatchEvent(new Event('resize'));
-        } else {
-          window.dispatchEvent(new Event('resize'));
         }
       }
       function hideAppSplash() {
@@ -128,14 +132,18 @@
       window.addEventListener('load', notifyFlutterViewport);
       window.addEventListener('pageshow', notifyFlutterViewport);
       window.addEventListener('orientationchange', function () {
+        lastHeight = 0;
         setTimeout(notifyFlutterViewport, 250);
       });
       if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', syncViewportHeight);
+        window.visualViewport.addEventListener('resize', notifyFlutterViewport);
       }
       window.addEventListener('flutter-first-frame', function () {
         hideAppSplash();
         notifyFlutterViewport();
+        [50, 150, 400, 800].forEach(function (ms) {
+          setTimeout(notifyFlutterViewport, ms);
+        });
       });
       setTimeout(hideAppSplash, 30000);
     })();

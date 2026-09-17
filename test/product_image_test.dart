@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:store_app/data/image_compress.dart';
 import 'package:store_app/widgets/product_image.dart';
 
 Uint8List _jpeg({int green = 40}) {
@@ -29,11 +30,51 @@ void main() {
 
     final provider = tester.widget<Image>(find.byType(Image)).image;
     expect(provider, isA<ResizeImage>());
-    final network = (provider as ResizeImage).imageProvider;
+    final resize = provider as ResizeImage;
+    expect(resize.width, maxProductImageEdge);
+    expect(resize.height, isNull);
+    final network = resize.imageProvider;
     expect(network, isA<NetworkImage>());
     expect(
       (network as NetworkImage).webHtmlElementStrategy,
       WebHtmlElementStrategy.fallback,
+    );
+  });
+
+  testWidgets('network images reuse one decode size across layouts', (
+    tester,
+  ) async {
+    const url = 'https://example.com/shared.jpg';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Column(
+          children: [
+            SizedBox(
+              width: 80,
+              height: 80,
+              child: ProductImage(path: url),
+            ),
+            SizedBox(
+              width: 400,
+              height: 240,
+              child: ProductImage(path: url),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final providers = tester
+        .widgetList<Image>(find.byType(Image))
+        .map((image) => image.image)
+        .toList();
+    expect(providers, hasLength(2));
+    expect(providers[0], isA<ResizeImage>());
+    expect(providers[1], isA<ResizeImage>());
+    const config = ImageConfiguration.empty;
+    expect(
+      await providers[0].obtainKey(config),
+      await providers[1].obtainKey(config),
     );
   });
 
