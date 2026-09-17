@@ -22,6 +22,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final _password = TextEditingController();
   final _code = TextEditingController();
   bool _obscurePassword = true;
+  bool _submitting = false;
   String? _error;
 
   @override
@@ -41,7 +42,12 @@ class _SignUpPageState extends State<SignUpPage> {
   bool get _hasCode => _code.text.trim().isNotEmpty;
 
   Future<void> _submit() async {
-    setState(() => _error = null);
+    if (_submitting) return;
+    setState(() {
+      _error = null;
+      _submitting = true;
+    });
+    FocusManager.instance.primaryFocus?.unfocus();
     final invite = _invite;
     final skipCompany = invite != null || _hasCode;
     try {
@@ -54,8 +60,15 @@ class _SignUpPageState extends State<SignUpPage> {
         inviteId: invite?.invitationId,
         inviteCode: _code.text,
       );
+      if (mounted) context.go('/');
     } on SessionException catch (error) {
       if (mounted) setState(() => _error = error.message);
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      } else {
+        _submitting = false;
+      }
     }
   }
 
@@ -105,7 +118,7 @@ class _SignUpPageState extends State<SignUpPage> {
                 : TextInputAction.done,
             onSubmitted: invite == null
                 ? null
-                : (_) => session.isBusy ? null : _submit(),
+                : (_) => session.isBusy || _submitting ? null : _submit(),
             decoration: InputDecoration(
               labelText: 'Contraseña',
               suffixIcon: IconButton(
@@ -131,7 +144,8 @@ class _SignUpPageState extends State<SignUpPage> {
               autocorrect: false,
               textInputAction: TextInputAction.done,
               onChanged: (_) => setState(() {}),
-              onSubmitted: (_) => session.isBusy ? null : _submit(),
+              onSubmitted: (_) =>
+                  session.isBusy || _submitting ? null : _submit(),
               decoration: const InputDecoration(
                 labelText: 'Código de invitación',
               ),
@@ -148,8 +162,10 @@ class _SignUpPageState extends State<SignUpPage> {
           ],
           const SizedBox(height: 20),
           FilledButton(
-            onPressed: session.isBusy ? null : _submit,
-            child: Text(session.isBusy ? 'Creando…' : 'Crear cuenta'),
+            onPressed: session.isBusy || _submitting ? null : _submit,
+            child: Text(
+              session.isBusy || _submitting ? 'Creando…' : 'Crear cuenta',
+            ),
           ),
           const SizedBox(height: 12),
           TextButton(

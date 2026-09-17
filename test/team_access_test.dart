@@ -296,6 +296,29 @@ void main() {
     expect(session.hasIdentity, isFalse);
   });
 
+  testWidgets('sign in opens stock', (tester) async {
+    final store = AppStore();
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    await session.signOut();
+
+    final router = createRouter(session);
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField), 'owner@moda.stock');
+    await tester.enterText(find.byType(TextField).at(1), 'secret12');
+    await tester.tap(find.widgetWithText(FilledButton, 'Ingresar'));
+    await tester.pumpAndSettle();
+
+    expect(session.isSignedIn, isTrue);
+    expect(router.routeInformationProvider.value.uri.path, '/');
+    expect(find.text('Stock'), findsWidgets);
+  });
+
   testWidgets('removed member lands on join page', (tester) async {
     final store = AppStore();
     final auth = FakeAuthClient();

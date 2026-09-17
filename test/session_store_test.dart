@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/data/session_exception.dart';
 import 'package:store_app/data/session_store.dart';
+import 'package:store_app/models/app_user.dart';
 import 'package:store_app/models/company.dart';
 import 'package:store_app/models/company_role.dart';
 
@@ -572,6 +573,58 @@ void main() {
     expect(session.company?.rubro, CompanyRubro.calzado);
   });
 
+  test('a second sign in is ignored while the first is busy', () async {
+    final auth = FakeAuthClient();
+    final access = FakeCompanyAccess();
+    final session = SessionStore(auth: auth, access: access)..start();
+    addTearDown(session.dispose);
+
+    await session.signUp(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+      displayName: 'Valeria Soto',
+      companyName: 'Moda Stock',
+    );
+    await session.signOut();
+
+    final first = session.signIn(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+    );
+    final second = session.signIn(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+    );
+    await Future.wait([first, second]);
+
+    expect(auth.signInCalls, 1);
+    expect(session.isSignedIn, isTrue);
+    expect(session.isBusy, isFalse);
+  });
+
+  test('a late auth update does not clear a loaded session', () async {
+    final auth = FakeAuthClient();
+    final access = _FailingGetUserAccess();
+    final session = SessionStore(auth: auth, access: access)..start();
+    addTearDown(session.dispose);
+
+    await session.signUp(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+      displayName: 'Valeria Soto',
+      companyName: 'Moda Stock',
+    );
+    expect(session.isSignedIn, isTrue);
+
+    access.failNext = true;
+    auth.replayAuthState();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(session.isSignedIn, isTrue);
+    expect(session.company?.name, 'Moda Stock');
+  });
+
   test('employee cannot change the company product line', () async {
     final session = await signedInMemberSession(role: CompanyRole.employee);
     addTearDown(session.dispose);
@@ -587,4 +640,14 @@ void main() {
       ),
     );
   });
+}
+
+class _FailingGetUserAccess extends FakeCompanyAccess {
+  var failNext = false;
+
+  @override
+  Future<AppUser?> getUser(String uid) async {
+    if (failNext) throw Exception('fail');
+    return super.getUser(uid);
+  }
 }

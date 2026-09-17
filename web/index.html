@@ -120,9 +120,6 @@
       function notifyFlutterViewport() {
         syncViewportHeight();
         window.dispatchEvent(new Event('resize'));
-        if (window.visualViewport) {
-          window.visualViewport.dispatchEvent(new Event('resize'));
-        }
       }
       function hideAppSplash() {
         var el = document.getElementById('app-splash');

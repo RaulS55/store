@@ -9,6 +9,7 @@ class FakeAuthClient implements AuthClient {
   final _controller = StreamController<AuthIdentity?>.broadcast();
   AuthIdentity? _current;
   var _seq = 0;
+  var signInCalls = 0;
 
   @override
   Stream<AuthIdentity?> get authStateChanges async* {
@@ -24,6 +25,7 @@ class FakeAuthClient implements AuthClient {
     required String email,
     required String password,
   }) async {
+    signInCalls++;
     final normalized = normalizeEmail(email);
     final account = _accounts[normalized];
     if (account == null || account.password != password) {
@@ -56,5 +58,9 @@ class FakeAuthClient implements AuthClient {
     _current = identity;
     _controller.add(identity);
     return identity;
+  }
+
+  void replayAuthState() {
+    _controller.add(_current);
   }
 }

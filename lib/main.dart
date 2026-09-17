@@ -135,14 +135,15 @@ class _ModaStockAppState extends State<ModaStockApp> {
         ChangeNotifierProvider.value(value: store),
         ChangeNotifierProvider.value(value: session),
       ],
-      child: Consumer<AppStore>(
-        builder: (context, appStore, _) {
+      child: Selector<AppStore, ThemeMode>(
+        selector: (_, store) => store.themeMode,
+        builder: (context, themeMode, _) {
           return MaterialApp.router(
             title: 'Moda Stock',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
-            themeMode: appStore.themeMode,
+            themeMode: themeMode,
             routerConfig: router,
           );
         },

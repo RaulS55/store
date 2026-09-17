@@ -290,6 +290,11 @@ class SessionStore extends ChangeNotifier {
       if (identity == null) _clearSession();
       return;
     }
+    if (_hasLoadedProfile(identity)) {
+      _markReady();
+      notifyListeners();
+      return;
+    }
     final gen = ++_loadGen;
     if (identity == null) {
       _clearSession();
@@ -300,9 +305,11 @@ class SessionStore extends ChangeNotifier {
     try {
       await _loadProfile(identity);
     } catch (_) {
-      _user = null;
-      _company = null;
-      _membership = null;
+      if (!_hasLoadedProfile(identity)) {
+        _user = null;
+        _company = null;
+        _membership = null;
+      }
     }
     if (gen != _loadGen) return;
     _markReady();
@@ -468,6 +475,7 @@ class SessionStore extends ChangeNotifier {
   }
 
   Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
     _busy = true;
     notifyListeners();
     try {
@@ -480,6 +488,13 @@ class SessionStore extends ChangeNotifier {
       _busy = false;
       notifyListeners();
     }
+  }
+
+  bool _hasLoadedProfile(AuthIdentity? identity) {
+    return identity != null &&
+        _user?.id == identity.uid &&
+        _company != null &&
+        _membership != null;
   }
 
   void _clearSession() {

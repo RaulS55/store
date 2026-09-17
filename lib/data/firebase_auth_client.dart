@@ -28,7 +28,7 @@ class FirebaseAuthClient implements AuthClient {
         email: normalizeEmail(email),
         password: password,
       );
-      return _require(credential.user);
+      return _complete(credential.user);
     } on FirebaseAuthException catch (error) {
       throw mapAuthException(error);
     }
@@ -44,7 +44,7 @@ class FirebaseAuthClient implements AuthClient {
         email: normalizeEmail(email),
         password: password,
       );
-      return _require(credential.user);
+      return _complete(credential.user);
     } on FirebaseAuthException catch (error) {
       throw mapAuthException(error);
     }
@@ -64,6 +64,14 @@ class FirebaseAuthClient implements AuthClient {
     if (identity == null) {
       throw const SessionException('No se pudo completar el acceso.');
     }
+    return identity;
+  }
+
+  Future<AuthIdentity> _complete(User? user) async {
+    final identity = _require(user);
+    try {
+      await user?.getIdToken();
+    } catch (_) {}
     return identity;
   }
 }
