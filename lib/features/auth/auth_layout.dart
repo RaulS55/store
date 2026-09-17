@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/tokens.dart';
@@ -21,8 +22,9 @@ class AuthLayout extends StatelessWidget {
     final wide = AppBreakpoints.isWide(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final formColor = isDark ? AppColors.darkBg : Colors.white;
-    return Scaffold(
+    final page = Scaffold(
       backgroundColor: formColor,
+      resizeToAvoidBottomInset: !kIsWeb,
       body: wide
           ? Row(
               children: [
@@ -37,12 +39,19 @@ class AuthLayout extends StatelessWidget {
               ],
             )
           : SafeArea(
+              maintainBottomViewPadding: true,
               child: _AuthFormPane(
                 title: title,
                 subtitle: subtitle,
                 child: child,
               ),
             ),
+    );
+    if (!kIsWeb) return page;
+    final media = MediaQuery.of(context);
+    return MediaQuery(
+      data: media.copyWith(viewInsets: EdgeInsets.zero),
+      child: page,
     );
   }
 }
@@ -68,6 +77,9 @@ class _AuthFormPane extends StatelessWidget {
     );
     return Theme(
       data: theme.copyWith(
+        textTheme: theme.textTheme.copyWith(
+          bodyLarge: theme.textTheme.bodyLarge?.copyWith(fontSize: 16),
+        ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.terracotta,

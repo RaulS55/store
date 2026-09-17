@@ -276,6 +276,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('login form stays up with a keyboard inset', (tester) async {
+    tester.view.physicalSize = const Size(400, 720);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    final store = AppStore();
+    final session = createSessionStore()..start();
+    addTearDown(session.dispose);
+    await session.initialized;
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.byType(TextFormField), findsOneWidget);
+    final safeArea = tester.widget<SafeArea>(find.byType(SafeArea).first);
+    expect(safeArea.maintainBottomViewPadding, isTrue);
+    await tester.enterText(find.byType(TextFormField), 'owner@moda.stock');
+    await tester.pump();
+    expect(find.text('owner@moda.stock'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('sign in validates email format', (tester) async {
     final store = AppStore();
     final session = createSessionStore()..start();

@@ -18,6 +18,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#F8F9FA">
   <meta name="description" content="Gestioná indumentaria y calzado">
 
@@ -115,31 +116,45 @@
         if (next > lastHeight + 0.5) {
           lastHeight = next;
           document.documentElement.style.height = next + 'px';
+          return true;
         }
+        return false;
       }
-      function notifyFlutterViewport() {
-        syncViewportHeight();
-        window.dispatchEvent(new Event('resize'));
+      function notifyFlutterViewport(force) {
+        var changed = syncViewportHeight();
+        if (changed || force) {
+          window.dispatchEvent(new Event('resize'));
+        }
       }
       function hideAppSplash() {
         var el = document.getElementById('app-splash');
         if (el) el.remove();
       }
       syncViewportHeight();
-      window.addEventListener('load', notifyFlutterViewport);
-      window.addEventListener('pageshow', notifyFlutterViewport);
+      window.addEventListener('load', function () {
+        notifyFlutterViewport(true);
+      });
+      window.addEventListener('pageshow', function () {
+        notifyFlutterViewport(true);
+      });
       window.addEventListener('orientationchange', function () {
         lastHeight = 0;
-        setTimeout(notifyFlutterViewport, 250);
+        setTimeout(function () {
+          notifyFlutterViewport(true);
+        }, 250);
       });
       if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', notifyFlutterViewport);
+        window.visualViewport.addEventListener('resize', function () {
+          notifyFlutterViewport(false);
+        });
       }
       window.addEventListener('flutter-first-frame', function () {
         hideAppSplash();
-        notifyFlutterViewport();
+        notifyFlutterViewport(true);
         [50, 150, 400, 800].forEach(function (ms) {
-          setTimeout(notifyFlutterViewport, ms);
+          setTimeout(function () {
+            notifyFlutterViewport(true);
+          }, ms);
         });
       });
       setTimeout(hideAppSplash, 30000);
