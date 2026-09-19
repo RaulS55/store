@@ -8,6 +8,7 @@ import 'package:store_app/models/company.dart';
 import 'package:store_app/models/product.dart';
 
 import 'fakes/catalog_harness.dart';
+import 'fakes/session_harness.dart';
 
 void main() {
   testWidgets('settings can enable VAT and edit the percentage', (
@@ -31,7 +32,7 @@ void main() {
     expect(store.ivaEnabled, isTrue);
     expect(find.text('Porcentaje de IVA'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), '10,5');
+    await tester.enterText(find.byKey(const ValueKey('iva-percent')), '10,5');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
@@ -89,6 +90,40 @@ void main() {
     expect(store.rubro, CompanyRubro.calzado);
     expect(store.visibleCategories, contains(ApparelCategory.pantuflas));
     expect(store.visibleCategories, isNot(contains(ApparelCategory.remeras)));
+  });
+
+  testWidgets('settings can save a company phone number', (tester) async {
+    final store = AppStore();
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: store),
+          ChangeNotifierProvider.value(value: session),
+        ],
+        child: const MaterialApp(home: Scaffold(body: SettingsPage())),
+      ),
+    );
+
+    expect(find.text('Número de teléfono'), findsOneWidget);
+    expect(session.company?.phone, isNull);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('company-phone')),
+      ' +54 9 11 5555-0101 ',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(session.company?.phone, '+54 9 11 5555-0101');
+
+    await tester.enterText(find.byKey(const ValueKey('company-phone')), '  ');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(session.company?.phone, isNull);
   });
 
   test('store hides clothing products when the line is footwear', () async {

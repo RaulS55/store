@@ -95,7 +95,18 @@ void main() {
     expect(company.name, 'Moda Stock');
     expect(company.ownerId, 'u1');
     expect(company.rubro, CompanyRubro.ambos);
+    expect(company.phone, isNull);
     expect(company.toMap()['rubro'], 'ambos');
+    expect(company.toMap()['phone'], isNull);
+
+    final withPhone = Company.fromMap('co1', {
+      'name': 'Moda Stock',
+      'ownerId': 'u1',
+      'createdAt': createdAt,
+      'phone': ' +54 9 11 4555-0101 ',
+    });
+    expect(withPhone.phone, '+54 9 11 4555-0101');
+    expect(withPhone.copyWith(phone: null).phone, isNull);
 
     final footwear = Company.fromMap('co2', {
       'name': 'Zapas',

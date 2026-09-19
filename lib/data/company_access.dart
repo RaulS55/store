@@ -63,4 +63,6 @@ abstract class CompanyAccess {
   Future<void> clearOrphanCompany(String uid);
 
   Future<void> updateCompanyRubro(String companyId, CompanyRubro rubro);
+
+  Future<void> updateCompanyPhone(String companyId, String? phone);
 }

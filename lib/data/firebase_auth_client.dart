@@ -53,6 +53,13 @@ class FirebaseAuthClient implements AuthClient {
   @override
   Future<void> signOut() => _auth.signOut();
 
+  @override
+  Future<void> waitForToken() async {
+    try {
+      await _auth.currentUser?.getIdToken();
+    } catch (_) {}
+  }
+
   AuthIdentity? _mapUser(User? user) {
     final email = user?.email;
     if (user == null || email == null || email.isEmpty) return null;

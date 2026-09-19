@@ -1,9 +1,7 @@
-import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 
 import '../models/product.dart';
+import 'firestore_watch.dart';
 import 'product_access.dart';
 
 class FirestoreProductAccess implements ProductAccess {
@@ -27,44 +25,11 @@ class FirestoreProductAccess implements ProductAccess {
 
   @override
   Stream<List<Product>> watchProducts(String companyId) {
-    final query = _activeProducts(companyId);
-    late final StreamController<List<Product>> controller;
-    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? sub;
-    var loadingFallback = false;
-
-    Future<void> emitFromGet() async {
-      if (loadingFallback) return;
-      loadingFallback = true;
-      try {
-        final snap = await query.get();
-        if (!controller.isClosed) {
-          controller.add(_mapSnapshot(snap));
-        }
-      } catch (error, stack) {
-        debugPrint('Products get failed: $error');
-        debugPrint('$stack');
-        if (!controller.isClosed) {
-          controller.addError(error, stack);
-        }
-      } finally {
-        loadingFallback = false;
-      }
-    }
-
-    controller = StreamController<List<Product>>(
-      onListen: () {
-        sub = query.snapshots().listen(
-          (snap) => controller.add(_mapSnapshot(snap)),
-          onError: (Object error, StackTrace stack) {
-            debugPrint('Products snapshots failed: $error');
-            debugPrint('$stack');
-            unawaited(emitFromGet());
-          },
-        );
-      },
-      onCancel: () => sub?.cancel(),
+    return watchFirestoreQuery(
+      query: _activeProducts(companyId),
+      map: _mapSnapshot,
+      label: 'Products',
     );
-    return controller.stream;
   }
 
   @override

@@ -38,6 +38,8 @@ class SettingsPage extends StatelessWidget {
           const Divider(),
           const _RubroSettings(),
           const Divider(),
+          const _PhoneSettings(),
+          const Divider(),
           const _IvaSettings(),
           const ListTile(
             title: Text('Moneda'),
@@ -150,6 +152,118 @@ class _RubroSettings extends StatelessWidget {
   }
 }
 
+class _PhoneSettings extends StatefulWidget {
+  const _PhoneSettings();
+
+  @override
+  State<_PhoneSettings> createState() => _PhoneSettingsState();
+}
+
+class _PhoneSettingsState extends State<_PhoneSettings> {
+  late final TextEditingController _phone;
+  late final FocusNode _focus;
+  String? _saved;
+
+  @override
+  void initState() {
+    super.initState();
+    _saved = _sessionPhone();
+    _phone = TextEditingController(text: _saved ?? '');
+    _focus = FocusNode()..addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focus.removeListener(_onFocusChange);
+    _focus.dispose();
+    _phone.dispose();
+    super.dispose();
+  }
+
+  bool _canEdit(BuildContext context) {
+    try {
+      return context.watch<SessionStore>().canEditCompanySettings;
+    } on ProviderNotFoundException {
+      return true;
+    }
+  }
+
+  String? _sessionPhone() {
+    try {
+      return context.read<SessionStore>().company?.phone;
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  void _onFocusChange() {
+    if (!_focus.hasFocus) {
+      unawaited(_commit());
+    }
+  }
+
+  Future<void> _commit() async {
+    final next = blankToNull(_phone.text);
+    if (next == _saved) {
+      _phone.text = _saved ?? '';
+      return;
+    }
+    SessionStore? session;
+    try {
+      session = context.read<SessionStore>();
+    } on ProviderNotFoundException {
+      session = null;
+    }
+    if (session == null) {
+      _saved = next;
+      _phone.text = next ?? '';
+      return;
+    }
+    try {
+      await session.setCompanyPhone(next);
+      if (!mounted) return;
+      _saved = session.company?.phone;
+      _phone.text = _saved ?? '';
+    } on SessionException catch (error) {
+      if (!mounted) return;
+      _phone.text = _saved ?? '';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canEdit = _canEdit(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ListTile(
+          title: Text('Teléfono'),
+          subtitle: Text('Opcional. Contacto de la empresa.'),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: TextField(
+            key: const ValueKey('company-phone'),
+            controller: _phone,
+            focusNode: _focus,
+            enabled: canEdit,
+            keyboardType: TextInputType.phone,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(
+              labelText: 'Número de teléfono',
+              hintText: '+54 9 11 0000-0000',
+            ),
+            onSubmitted: (_) => unawaited(_commit()),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _IvaSettings extends StatefulWidget {
   const _IvaSettings();
 
@@ -214,6 +328,7 @@ class _IvaSettingsState extends State<_IvaSettings> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: TextField(
+              key: const ValueKey('iva-percent'),
               controller: _percent,
               focusNode: _focus,
               keyboardType: const TextInputType.numberWithOptions(

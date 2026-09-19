@@ -54,6 +54,9 @@ class FakeAuthClient implements AuthClient {
     _controller.add(null);
   }
 
+  @override
+  Future<void> waitForToken() async {}
+
   AuthIdentity _emit(AuthIdentity identity) {
     _current = identity;
     _controller.add(identity);

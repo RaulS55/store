@@ -299,6 +299,17 @@ class FakeCompanyAccess implements CompanyAccess {
     companies[companyId] = company.copyWith(rubro: rubro);
   }
 
+  @override
+  Future<void> updateCompanyPhone(String companyId, String? phone) async {
+    final company = companies[companyId];
+    if (company == null) {
+      throw const SessionException(
+        'No se pudo cargar el contexto de la empresa.',
+      );
+    }
+    companies[companyId] = company.copyWith(phone: blankToNull(phone));
+  }
+
   String _nextCode() {
     var n = ++_codeSeq;
     final chars = List.filled(inviteCodeLength, inviteCodeAlphabet[0]);

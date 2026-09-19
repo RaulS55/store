@@ -21,4 +21,6 @@ abstract class AuthClient {
   });
 
   Future<void> signOut();
+
+  Future<void> waitForToken();
 }

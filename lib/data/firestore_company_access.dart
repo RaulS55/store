@@ -372,6 +372,11 @@ class FirestoreCompanyAccess implements CompanyAccess {
     await _companies.doc(companyId).update({'rubro': rubro.name});
   }
 
+  @override
+  Future<void> updateCompanyPhone(String companyId, String? phone) async {
+    await _companies.doc(companyId).update({'phone': blankToNull(phone)});
+  }
+
   Future<String> _uniqueInviteCode(String companyId) async {
     for (var attempt = 0; attempt < 8; attempt++) {
       final code = generateInviteCode();

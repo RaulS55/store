@@ -246,6 +246,14 @@ class SessionStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setCompanyPhone(String? phone) async {
+    final current = _requireOwnerOrAdmin();
+    final next = blankToNull(phone);
+    await _access.updateCompanyPhone(current.company.id, next);
+    _company = current.company.copyWith(phone: next);
+    notifyListeners();
+  }
+
   Future<void> loadTeam() async {
     final company = _company;
     if (company == null) return;
@@ -303,6 +311,7 @@ class SessionStore extends ChangeNotifier {
       return;
     }
     try {
+      await _auth.waitForToken();
       await _loadProfile(identity);
     } catch (_) {
       if (!_hasLoadedProfile(identity)) {
@@ -545,7 +554,7 @@ class SessionStore extends ChangeNotifier {
     }
     if (!membership.role.canEditCompanySettings) {
       throw const SessionException(
-        'Solo el propietario o un administrador puede cambiar el rubro.',
+        'Solo el propietario o un administrador puede cambiar la configuración.',
       );
     }
     return (user: user, company: company, membership: membership);

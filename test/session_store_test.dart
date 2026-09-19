@@ -571,6 +571,11 @@ void main() {
 
     await session.setCompanyRubro(CompanyRubro.calzado);
     expect(session.company?.rubro, CompanyRubro.calzado);
+
+    await session.setCompanyPhone(' +54 9 11 5555-0101 ');
+    expect(session.company?.phone, '+54 9 11 5555-0101');
+    await session.setCompanyPhone('  ');
+    expect(session.company?.phone, isNull);
   });
 
   test('a second sign in is ignored while the first is busy', () async {
@@ -635,7 +640,17 @@ void main() {
         isA<SessionException>().having(
           (error) => error.message,
           'message',
-          'Solo el propietario o un administrador puede cambiar el rubro.',
+          'Solo el propietario o un administrador puede cambiar la configuración.',
+        ),
+      ),
+    );
+    await expectLater(
+      session.setCompanyPhone('+54 9 11 5555-0101'),
+      throwsA(
+        isA<SessionException>().having(
+          (error) => error.message,
+          'message',
+          'Solo el propietario o un administrador puede cambiar la configuración.',
         ),
       ),
     );

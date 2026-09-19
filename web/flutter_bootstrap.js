@@ -4,5 +4,8 @@ _flutter.loader.load({
   serviceWorkerSettings: {
     serviceWorkerVersion: {{flutter_service_worker_version}},
     timeoutMillis: 2000
+  },
+  config: {
+    hostElement: document.querySelector('#flutter-app'),
   }
 });

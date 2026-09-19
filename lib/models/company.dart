@@ -36,6 +36,7 @@ class Company {
     required this.ownerId,
     required this.createdAt,
     this.rubro = CompanyRubro.ambos,
+    this.phone,
   });
 
   final String id;
@@ -43,6 +44,7 @@ class Company {
   final String ownerId;
   final DateTime createdAt;
   final CompanyRubro rubro;
+  final String? phone;
 
   factory Company.fromMap(String id, Map<String, dynamic> map) {
     return Company(
@@ -51,6 +53,7 @@ class Company {
       ownerId: map['ownerId'] as String? ?? '',
       createdAt: parseMapDate(map['createdAt']),
       rubro: CompanyRubro.fromStorage(map['rubro'] as String?),
+      phone: blankToNull(map['phone'] as String?),
     );
   }
 
@@ -60,6 +63,7 @@ class Company {
       'ownerId': ownerId,
       'createdAt': createdAt.toIso8601String(),
       'rubro': rubro.name,
+      'phone': phone?.trim(),
     };
   }
 
@@ -69,6 +73,7 @@ class Company {
     String? ownerId,
     DateTime? createdAt,
     CompanyRubro? rubro,
+    Object? phone = _unset,
   }) {
     return Company(
       id: id ?? this.id,
@@ -76,6 +81,15 @@ class Company {
       ownerId: ownerId ?? this.ownerId,
       createdAt: createdAt ?? this.createdAt,
       rubro: rubro ?? this.rubro,
+      phone: identical(phone, _unset) ? this.phone : phone as String?,
     );
   }
+}
+
+const _unset = Object();
+
+String? blankToNull(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return trimmed;
 }
