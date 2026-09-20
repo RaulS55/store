@@ -7,6 +7,7 @@ import '../../data/formatters.dart';
 import '../../models/order.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_confirm_dialog.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/qty_stepper.dart';
 import '../../widgets/search_field.dart';
@@ -435,60 +436,108 @@ class _CustomerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final customer = order.customer;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return InkWell(
-      onTap: readOnly ? null : () => _pickCustomer(context),
-      borderRadius: BorderRadius.circular(AppRadii.md),
-      child: Ink(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadii.md),
-          color: isDark ? AppColors.darkElevated : AppColors.lightSurface,
-          border: Border.all(
-            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-          ),
-        ),
-        child: Row(
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.person_outline, color: AppColors.slate),
-            const SizedBox(width: 10),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(
+                Icons.person_outline,
+                size: 16,
+                color: AppColors.mutedText,
+              ),
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Cliente',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.mutedText,
-                    ),
-                  ),
-                  Text(
-                    customer.name.toUpperCase(),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                    customer.name,
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   if (customer.detailSubtitle != null)
                     Text(
                       customer.detailSubtitle!,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: AppColors.slate,
+                      ),
                     ),
                 ],
               ),
             ),
-            if (!readOnly) const Icon(Icons.chevron_right),
+            if (!readOnly)
+              TextButton(
+                key: const ValueKey('change-order-customer'),
+                onPressed: () => _pickCustomer(context),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  foregroundColor: AppColors.slate,
+                  textStyle: textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                child: const Text('Cambiar'),
+              ),
           ],
         ),
-      ),
+        if (!readOnly)
+          Padding(
+            padding: const EdgeInsets.only(left: 24, top: 2),
+            child: Text(
+              'Se pedirá confirmación antes de cambiar el cliente.',
+              style: textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
+            ),
+          ),
+      ],
     );
   }
 
   Future<void> _pickCustomer(BuildContext context) async {
-    final selected = await showCustomerPicker(context);
+    final store = context.read<AppStore>();
+    final current = order.customer;
+    final blocked = {
+      for (final open in store.orders)
+        if (open.customer.id != current.id) open.customer.id,
+    };
+    final selected = await showCustomerPicker(
+      context,
+      blockedCustomerIds: blocked,
+      confirmCustomer: (dialogContext, selected) {
+        if (selected.id == current.id) return Future.value(true);
+        return showAppConfirmDialog(
+          context: dialogContext,
+          title: 'Cambiar cliente',
+          message:
+              'El pedido se va a asignar a ${selected.name}. Confirmá para completar el cambio.',
+          confirmLabel: 'Confirmar',
+          icon: Icons.swap_horiz,
+          destructive: false,
+        );
+      },
+    );
     if (selected == null || !context.mounted) return;
-    context.read<AppStore>().selectCustomer(order.id, selected);
+    if (selected.id == current.id) return;
+    final ok = context.read<AppStore>().selectCustomer(order.id, selected);
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Este cliente ya tiene un pedido abierto.'),
+        ),
+      );
+    }
   }
 }
 

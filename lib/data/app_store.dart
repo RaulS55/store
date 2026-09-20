@@ -57,6 +57,7 @@ class AppStore extends ChangeNotifier {
   int _draftSeq = 0;
   int _customerSeq = 0;
   String? activeOrderId;
+  String? lastAddedOrderId;
 
   bool ivaEnabled = false;
   double ivaPercent = 21;
@@ -131,6 +132,7 @@ class AppStore extends ChangeNotifier {
     orders.clear();
     closedOrders.clear();
     activeOrderId = null;
+    lastAddedOrderId = null;
     _orderSeq = 0;
     _draftSeq = 0;
     _imageBytes.clear();
@@ -208,6 +210,10 @@ class AppStore extends ChangeNotifier {
     if (activeOrderId != null &&
         !orders.any((order) => order.id == activeOrderId)) {
       activeOrderId = orders.isEmpty ? null : orders.first.id;
+    }
+    if (lastAddedOrderId != null &&
+        !orders.any((order) => order.id == lastAddedOrderId)) {
+      lastAddedOrderId = null;
     }
     notifyListeners();
   }
@@ -290,6 +296,30 @@ class AppStore extends ChangeNotifier {
       if (order.id == activeOrderId) return order;
     }
     return null;
+  }
+
+  DraftOrder? openOrderForCustomer(String customerId) {
+    for (final order in orders) {
+      if (order.customer.id == customerId) return order;
+    }
+    return null;
+  }
+
+  List<DraftOrder> get addTargetOrders {
+    if (orders.isEmpty) return const [];
+    final preferredId = lastAddedOrderId;
+    if (preferredId == null) return List<DraftOrder>.unmodifiable(orders);
+    DraftOrder? preferred;
+    final rest = <DraftOrder>[];
+    for (final order in orders) {
+      if (order.id == preferredId) {
+        preferred = order;
+      } else {
+        rest.add(order);
+      }
+    }
+    if (preferred == null) return List<DraftOrder>.unmodifiable(orders);
+    return [preferred, ...rest];
   }
 
   int get cartCount => orders.fold(0, (sum, order) => sum + order.itemCount);
@@ -690,6 +720,14 @@ class AppStore extends ChangeNotifier {
   }
 
   DraftOrder createOrder(Customer customer) {
+    final existing = openOrderForCustomer(customer.id);
+    if (existing != null) {
+      if (activeOrderId != existing.id) {
+        activeOrderId = existing.id;
+        notifyListeners();
+      }
+      return existing;
+    }
     final now = DateTime.now().toUtc();
     final order = DraftOrder(
       id: nextOrderId(),
@@ -797,12 +835,15 @@ class AppStore extends ChangeNotifier {
     );
   }
 
-  void selectCustomer(String orderId, Customer customer) {
+  bool selectCustomer(String orderId, Customer customer) {
     final order = orderById(orderId);
-    if (order == null || order.isClosed) return;
+    if (order == null || order.isClosed) return false;
+    final existing = openOrderForCustomer(customer.id);
+    if (existing != null && existing.id != orderId) return false;
     order.customer = customer;
     notifyListeners();
     unawaited(_persistOrder(order));
+    return true;
   }
 
   bool addToOrder(
@@ -838,6 +879,7 @@ class AppStore extends ChangeNotifier {
     }
     order.status = OrderStatus.borrador;
     activeOrderId = order.id;
+    lastAddedOrderId = order.id;
     notifyListeners();
     unawaited(_persistOrder(order));
     return true;
@@ -893,6 +935,9 @@ class AppStore extends ChangeNotifier {
     closedOrders.insert(0, order);
     if (activeOrderId == orderId) {
       activeOrderId = orders.isEmpty ? null : orders.first.id;
+    }
+    if (lastAddedOrderId == orderId) {
+      lastAddedOrderId = null;
     }
     notifyListeners();
     unawaited(_persistOrder(order));

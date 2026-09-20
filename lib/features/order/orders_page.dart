@@ -85,7 +85,16 @@ class OrdersPage extends StatelessWidget {
   Future<void> _newOrder(BuildContext context) async {
     final customer = await showCustomerPicker(context);
     if (customer == null || !context.mounted) return;
-    final order = context.read<AppStore>().createOrder(customer);
+    final store = context.read<AppStore>();
+    final existing = store.openOrderForCustomer(customer.id);
+    final order = store.createOrder(customer);
+    if (existing != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Este cliente ya tiene un pedido abierto.'),
+        ),
+      );
+    }
     context.go('/pedido/${order.id}');
   }
 }

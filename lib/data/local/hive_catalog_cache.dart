@@ -1,0 +1,179 @@
+import 'package:hive_ce/hive.dart';
+
+import '../../models/map_date.dart';
+import '../../models/map_value.dart';
+import 'hive_bootstrap.dart';
+
+class CatalogCollection {
+  static const products = 'products';
+  static const customers = 'customers';
+  static const orders = 'orders';
+}
+
+class HiveCatalogCache {
+  HiveCatalogCache({
+    required Box<dynamic> products,
+    required Box<dynamic> customers,
+    required Box<dynamic> orders,
+    required Box<dynamic> meta,
+  }) : _products = products,
+       _customers = customers,
+       _orders = orders,
+       _meta = meta;
+
+  static const schemaVersion = 2;
+
+  final Box<dynamic> _products;
+  final Box<dynamic> _customers;
+  final Box<dynamic> _orders;
+  final Box<dynamic> _meta;
+
+  static Future<HiveCatalogCache> open({
+    required HiveCipher cipher,
+    String nameSuffix = '',
+  }) async {
+    Future<Box<dynamic>> openBox(String name) async {
+      final boxName = '$name$nameSuffix';
+      if (Hive.isBoxOpen(boxName)) return Hive.box<dynamic>(boxName);
+      return Hive.openBox<dynamic>(boxName, encryptionCipher: cipher);
+    }
+
+    return HiveCatalogCache(
+      products: await openBox(catalogProductsBox),
+      customers: await openBox(catalogCustomersBox),
+      orders: await openBox(catalogOrdersBox),
+      meta: await openBox(catalogMetaBox),
+    );
+  }
+
+  Box<dynamic> _box(String collection) {
+    switch (collection) {
+      case CatalogCollection.products:
+        return _products;
+      case CatalogCollection.customers:
+        return _customers;
+      case CatalogCollection.orders:
+        return _orders;
+      default:
+        throw ArgumentError.value(collection, 'collection');
+    }
+  }
+
+  String _docKey(String companyId, String id) => '$companyId|$id';
+
+  String _syncKey(String companyId, String collection) {
+    return '$companyId|$collection|lastSyncAt';
+  }
+
+  String _schemaKey(String companyId, String collection) {
+    return '$companyId|$collection|schema';
+  }
+
+  Future<void> ensureSchema(String companyId, String collection) async {
+    final key = _schemaKey(companyId, collection);
+    if (_meta.get(key) == schemaVersion) return;
+    await _deleteCompanyCollection(companyId, collection);
+    await _meta.delete(_syncKey(companyId, collection));
+    await _meta.put(key, schemaVersion);
+  }
+
+  Future<List<Map<String, dynamic>>> loadActive(
+    String companyId,
+    String collection,
+  ) async {
+    await ensureSchema(companyId, collection);
+    final box = _box(collection);
+    final prefix = '$companyId|';
+    final result = <Map<String, dynamic>>[];
+    for (final key in box.keys) {
+      if (key is! String || !key.startsWith(prefix)) continue;
+      final map = decodeCatalogMap(box.get(key));
+      if (map == null || isDeletedMap(map)) continue;
+      result.add(map);
+    }
+    return result;
+  }
+
+  Future<void> upsertAll(
+    String companyId,
+    String collection,
+    List<Map<String, dynamic>> docs,
+  ) async {
+    await ensureSchema(companyId, collection);
+    final box = _box(collection);
+    for (final raw in docs) {
+      final map = coerceStringKeyMap(raw);
+      final id = (map['id'] as String?)?.trim() ?? '';
+      if (id.isEmpty) continue;
+      final key = _docKey(companyId, id);
+      final existing = decodeCatalogMap(box.get(key));
+      if (existing != null) {
+        final existingUpdated = parseOptionalMapDate(existing['updatedAt']);
+        final incomingUpdated = parseOptionalMapDate(map['updatedAt']);
+        if (existingUpdated != null &&
+            incomingUpdated != null &&
+            incomingUpdated.isBefore(existingUpdated)) {
+          continue;
+        }
+      }
+      if (isDeletedMap(map)) {
+        await box.delete(key);
+      } else {
+        await box.put(key, encodeCatalogMap(map));
+      }
+    }
+  }
+
+  DateTime? lastSyncAt(String companyId, String collection) {
+    final raw = _meta.get(_syncKey(companyId, collection));
+    if (raw is! String || raw.isEmpty) return null;
+    return DateTime.parse(raw).toUtc();
+  }
+
+  Future<void> setLastSyncAt(
+    String companyId,
+    String collection,
+    DateTime value,
+  ) {
+    return _meta.put(
+      _syncKey(companyId, collection),
+      value.toUtc().toIso8601String(),
+    );
+  }
+
+  Future<void> clearCompany(String companyId) async {
+    for (final collection in [
+      CatalogCollection.products,
+      CatalogCollection.customers,
+      CatalogCollection.orders,
+    ]) {
+      await _deleteCompanyCollection(companyId, collection);
+      await _meta.delete(_syncKey(companyId, collection));
+      await _meta.delete(_schemaKey(companyId, collection));
+    }
+  }
+
+  Future<void> _deleteCompanyCollection(
+    String companyId,
+    String collection,
+  ) async {
+    final box = _box(collection);
+    final prefix = '$companyId|';
+    final keys = [
+      for (final key in box.keys)
+        if (key is String && key.startsWith(prefix)) key,
+    ];
+    if (keys.isNotEmpty) await box.deleteAll(keys);
+  }
+
+  Future<void> close() async {
+    await _products.close();
+    await _customers.close();
+    await _orders.close();
+    await _meta.close();
+  }
+}
+
+bool isDeletedMap(Map<String, dynamic> map) {
+  return parseOptionalMapDate(map['deletedAt']) != null;
+}

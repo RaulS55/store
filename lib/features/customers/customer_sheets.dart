@@ -29,17 +29,24 @@ Future<T?> showWhiteSheet<T>({
   );
 }
 
-Future<Customer?> showCustomerPicker(BuildContext context) {
+typedef CustomerPickerConfirm =
+    Future<bool> Function(BuildContext context, Customer customer);
+
+Future<Customer?> showCustomerPicker(
+  BuildContext context, {
+  Set<String> blockedCustomerIds = const {},
+  CustomerPickerConfirm? confirmCustomer,
+}) {
   return showWhiteSheet<Customer>(
     context: context,
-    builder: (context) => const _CustomerPickerSheet(),
+    builder: (context) => _CustomerPickerSheet(
+      blockedCustomerIds: blockedCustomerIds,
+      confirmCustomer: confirmCustomer,
+    ),
   );
 }
 
-Future<Customer?> showCustomerForm(
-  BuildContext context, {
-  Customer? customer,
-}) {
+Future<Customer?> showCustomerForm(BuildContext context, {Customer? customer}) {
   return showWhiteSheet<Customer>(
     context: context,
     builder: (context) => _CustomerFormSheet(customer: customer),
@@ -47,7 +54,13 @@ Future<Customer?> showCustomerForm(
 }
 
 class _CustomerPickerSheet extends StatefulWidget {
-  const _CustomerPickerSheet();
+  const _CustomerPickerSheet({
+    this.blockedCustomerIds = const {},
+    this.confirmCustomer,
+  });
+
+  final Set<String> blockedCustomerIds;
+  final CustomerPickerConfirm? confirmCustomer;
 
   @override
   State<_CustomerPickerSheet> createState() => _CustomerPickerSheetState();
@@ -56,6 +69,7 @@ class _CustomerPickerSheet extends StatefulWidget {
 class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
   final _name = TextEditingController();
   var _saving = false;
+  var _confirming = false;
 
   @override
   void dispose() {
@@ -94,9 +108,9 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
                   const SizedBox(height: 4),
                   Text(
                     'Elegí un cliente o escribí un nombre para crear uno nuevo.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.slate,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -130,11 +144,16 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
                   else
                     for (final customer in hits)
                       ListTile(
+                        enabled: !widget.blockedCustomerIds.contains(
+                          customer.id,
+                        ),
                         title: Text(customer.name),
-                        subtitle: customer.detailSubtitle == null
+                        subtitle: _pickerSubtitle(store, customer) == null
                             ? null
-                            : Text(customer.detailSubtitle!),
-                        onTap: () => Navigator.pop(context, customer),
+                            : Text(_pickerSubtitle(store, customer)!),
+                        onTap: widget.blockedCustomerIds.contains(customer.id)
+                            ? null
+                            : () => _select(customer),
                       ),
                 ],
               ),
@@ -145,14 +164,37 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
     );
   }
 
+  String? _pickerSubtitle(AppStore store, Customer customer) {
+    final lines = <String>[
+      if (customer.detailSubtitle != null) customer.detailSubtitle!,
+      if (store.openOrderForCustomer(customer.id) != null) 'Pedido abierto',
+    ];
+    if (lines.isEmpty) return null;
+    return lines.join(' · ');
+  }
+
+  Future<void> _select(Customer customer) async {
+    if (_confirming) return;
+    final confirm = widget.confirmCustomer;
+    if (confirm != null) {
+      _confirming = true;
+      final ok = await confirm(context, customer);
+      if (!mounted) return;
+      _confirming = false;
+      if (!ok) return;
+    }
+    Navigator.pop(context, customer);
+  }
+
   Future<void> _create(AppStore store) async {
     final name = _name.text.trim();
-    if (name.isEmpty || _saving) return;
+    if (name.isEmpty || _saving || _confirming) return;
     setState(() => _saving = true);
     try {
       final customer = await store.addCustomer(name: name);
       if (!mounted) return;
-      Navigator.pop(context, customer);
+      await _select(customer);
+      if (mounted) setState(() => _saving = false);
     } catch (error, stack) {
       debugPrint('Customer create failed: $error');
       debugPrint('$stack');
@@ -215,16 +257,16 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
           children: [
             Text(
               editing ? 'Editar cliente' : 'Nuevo cliente',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
               'El nombre es el único dato obligatorio.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.slate,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -249,9 +291,7 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
             const SizedBox(height: 12),
             TextField(
               controller: _cuit,
-              decoration: const InputDecoration(
-                labelText: 'CUIT (opcional)',
-              ),
+              decoration: const InputDecoration(labelText: 'CUIT (opcional)'),
             ),
             const SizedBox(height: 12),
             InputDecorator(
@@ -268,10 +308,7 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
                       child: Text('Sin especificar'),
                     ),
                     for (final value in TaxCondition.values)
-                      DropdownMenuItem(
-                        value: value,
-                        child: Text(value.label),
-                      ),
+                      DropdownMenuItem(value: value, child: Text(value.label)),
                   ],
                   onChanged: (value) => setState(() => _tax = value),
                 ),

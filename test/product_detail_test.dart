@@ -154,4 +154,72 @@ void main() {
 
     expect(find.byKey(const ValueKey('product-image-viewer')), findsNothing);
   });
+
+  testWidgets('no open order asks which order to use', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct());
+    await tester.pumpWidget(_app(store));
+    await tester.pump();
+
+    await tester.tap(find.text('Agregar al pedido'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿A qué pedido lo agregamos?'), findsOneWidget);
+    expect(find.text('Nuevo pedido'), findsOneWidget);
+  });
+
+  testWidgets('one open order still asks which order to use', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+
+    await tester.pumpWidget(_app(store));
+    await tester.pump();
+
+    await tester.tap(find.text('Agregar al pedido'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿A qué pedido lo agregamos?'), findsOneWidget);
+    expect(find.byKey(ValueKey('order-target-${order.id}')), findsOneWidget);
+    expect(find.text('Nuevo pedido'), findsOneWidget);
+  });
+
+  testWidgets('several open orders put the last used first', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct());
+    final product = store.productById('p-test')!;
+    final monica = await seedTestCustomer(store);
+    final ana = await seedTestCustomer(
+      store,
+      customer: testCustomer(id: 'c-ana', name: 'Ana López'),
+    );
+    final first = store.createOrder(monica);
+    final second = store.createOrder(ana);
+    expect(
+      store.addToOrder(product, product.variants.first, orderId: second.id),
+      isTrue,
+    );
+    store.setActiveOrder(first.id);
+
+    await tester.pumpWidget(_app(store));
+    await tester.pump();
+
+    await tester.tap(find.text('Agregar al pedido'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿A qué pedido lo agregamos?'), findsOneWidget);
+    final lastUsed = tester.getTopLeft(
+      find.byKey(ValueKey('order-target-${second.id}')),
+    );
+    final other = tester.getTopLeft(
+      find.byKey(ValueKey('order-target-${first.id}')),
+    );
+    expect(lastUsed.dy, lessThan(other.dy));
+    expect(find.textContaining('último usado'), findsOneWidget);
+  });
 }

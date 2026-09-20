@@ -12,6 +12,7 @@ export '../customers/customer_sheets.dart' show showCustomerPicker;
 
 Future<DraftOrder?> showOrderTargetSheet(BuildContext context) async {
   final store = context.read<AppStore>();
+  final targets = store.addTargetOrders;
   final selected = await showModalBottomSheet<Object>(
     context: context,
     showDragHandle: true,
@@ -19,20 +20,18 @@ Future<DraftOrder?> showOrderTargetSheet(BuildContext context) async {
       return ListView(
         children: [
           const ListTile(title: Text('¿A qué pedido lo agregamos?')),
+          for (var i = 0; i < targets.length; i++)
+            _OrderTargetTile(
+              order: targets[i],
+              preferred: i == 0 && store.lastAddedOrderId == targets[i].id,
+            ),
           ListTile(
+            key: const ValueKey('order-target-new'),
             leading: const Icon(Icons.add, color: AppColors.terracotta),
             title: const Text('Nuevo pedido'),
             subtitle: const Text('Elegí un cliente y creá el pedido'),
             onTap: () => Navigator.pop(context, 'new'),
           ),
-          for (final order in store.orders)
-            ListTile(
-              title: Text(order.customer.name),
-              subtitle: Text(
-                '${order.orderNumber} · ${order.itemCount} prendas',
-              ),
-              onTap: () => Navigator.pop(context, order),
-            ),
         ],
       );
     },
@@ -43,11 +42,44 @@ Future<DraftOrder?> showOrderTargetSheet(BuildContext context) async {
     return selected;
   }
   if (selected == 'new') {
-    final customer = await showCustomerPicker(context);
+    final occupied = {
+      for (final order in store.orders) order.customer.id,
+    };
+    final customer = await showCustomerPicker(
+      context,
+      blockedCustomerIds: occupied,
+    );
     if (customer == null || !context.mounted) return null;
     return context.read<AppStore>().createOrder(customer);
   }
-  return store.activeOrder;
+  return null;
+}
+
+class _OrderTargetTile extends StatelessWidget {
+  const _OrderTargetTile({required this.order, required this.preferred});
+
+  final DraftOrder order;
+  final bool preferred;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      key: ValueKey('order-target-${order.id}'),
+      leading: Icon(
+        preferred ? Icons.history : Icons.assignment_outlined,
+        color: preferred ? AppColors.terracotta : null,
+      ),
+      title: Text(order.customer.name),
+      subtitle: Text(
+        [
+          order.orderNumber,
+          '${order.itemCount} prendas',
+          if (preferred) 'último usado',
+        ].join(' · '),
+      ),
+      onTap: () => Navigator.pop(context, order),
+    );
+  }
 }
 
 String invoiceRoute(String orderId) => '/pedido/$orderId/facturar';
@@ -74,7 +106,7 @@ Future<void> closeOrderFlow(BuildContext context, DraftOrder order) async {
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-            child: const Text('Cerrar'),
+            child: const Text('Aceptar'),
           ),
         ],
       );
@@ -108,41 +140,70 @@ Future<void> sendOrderWhatsApp(BuildContext context, DraftOrder order) async {
 }
 
 Future<String?> _askWhatsAppPhone(BuildContext context, String customerName) {
-  final controller = TextEditingController();
   return showDialog<String>(
     context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('WhatsApp'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Cargá el teléfono de $customerName para enviar el pedido.'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(hintText: '+54 9 11 0000-0000'),
-              onSubmitted: (value) => Navigator.pop(context, value.trim()),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+    builder: (context) => _WhatsAppPhoneDialog(customerName: customerName),
+  );
+}
+
+class _WhatsAppPhoneDialog extends StatefulWidget {
+  const _WhatsAppPhoneDialog({required this.customerName});
+
+  final String customerName;
+
+  @override
+  State<_WhatsAppPhoneDialog> createState() => _WhatsAppPhoneDialogState();
+}
+
+class _WhatsAppPhoneDialogState extends State<_WhatsAppPhoneDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('WhatsApp'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Cargá el teléfono de ${widget.customerName} para enviar el pedido.',
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-            child: const Text('Enviar'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(hintText: '+54 9 11 0000-0000'),
+            onSubmitted: (value) => Navigator.pop(context, value.trim()),
           ),
         ],
-      );
-    },
-  ).whenComplete(controller.dispose);
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+          child: const Text('Enviar'),
+        ),
+      ],
+    );
+  }
 }
 
 class WhatsAppButton extends StatelessWidget {

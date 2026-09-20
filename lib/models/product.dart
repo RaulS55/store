@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'map_value.dart';
 import 'sync_record.dart';
 
 enum ApparelLine { ropa, calzado }
@@ -259,12 +260,13 @@ class ProductVariant {
       Swatches.resolve(color, hex: colorHex == null ? null : hexValue);
 
   factory ProductVariant.fromMap(Map<String, dynamic> map) {
+    final data = coerceStringKeyMap(map);
     return ProductVariant(
-      size: map['size'] as String? ?? '',
-      color: map['color'] as String? ?? '',
-      colorHex: map['colorHex'] as String?,
-      stock: (map['stock'] as num?)?.toInt() ?? 0,
-      skuSuffix: map['skuSuffix'] as String?,
+      size: data['size'] as String? ?? '',
+      color: data['color'] as String? ?? '',
+      colorHex: data['colorHex'] as String?,
+      stock: (data['stock'] as num?)?.toInt() ?? 0,
+      skuSuffix: data['skuSuffix'] as String?,
     );
   }
 
@@ -410,35 +412,36 @@ class Product {
       '$sku-${variant.effectiveSkuSuffix}';
 
   factory Product.fromMap(String id, Map<String, dynamic> map) {
-    final record = SyncRecord.fromMap(id, map);
-    final rawVariants = map['variants'] as List<dynamic>? ?? const [];
-    final rawImages = map['images'] as List<dynamic>? ?? const [];
-    final rawCategory = (map['category'] as String? ?? '').trim();
-    final rawAudience = (map['audience'] as String? ?? '').trim();
+    final data = coerceStringKeyMap(map);
+    final record = SyncRecord.fromMap(id, data);
+    final rawVariants = data['variants'] as List<dynamic>? ?? const [];
+    final rawImages = data['images'] as List<dynamic>? ?? const [];
+    final rawCategory = (data['category'] as String? ?? '').trim();
+    final rawAudience = (data['audience'] as String? ?? '').trim();
     return Product(
       id: record.id,
-      name: (map['name'] as String? ?? '').trim(),
-      sku: (map['sku'] as String? ?? '').trim(),
+      name: (data['name'] as String? ?? '').trim(),
+      sku: (data['sku'] as String? ?? '').trim(),
       category: rawCategory.isEmpty
           ? null
           : ApparelCategory.fromStorage(rawCategory),
       audience: rawAudience.isEmpty
           ? null
           : ApparelAudience.fromStorage(rawAudience),
-      brand: (map['brand'] as String? ?? '').trim(),
-      price: (map['price'] as num?)?.toDouble() ?? 0,
+      brand: (data['brand'] as String? ?? '').trim(),
+      price: (data['price'] as num?)?.toDouble() ?? 0,
       images: [for (final image in rawImages) '$image'],
       variants: [
         for (final variant in rawVariants)
           if (variant is Map)
-            ProductVariant.fromMap(Map<String, dynamic>.from(variant)),
+            ProductVariant.fromMap(coerceStringKeyMap(variant)),
       ],
-      equivalentSizes: readEquivalentSizes(map['equivalentSizes']),
+      equivalentSizes: readEquivalentSizes(data['equivalentSizes']),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       deletedAt: record.deletedAt,
       status: ProductStatus.fromStorage(
-        map['status'] as String? ?? ProductStatus.activo.name,
+        data['status'] as String? ?? ProductStatus.activo.name,
       ),
     );
   }

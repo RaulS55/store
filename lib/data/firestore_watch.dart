@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/map_value.dart';
+
 Stream<List<T>> watchFirestoreQuery<T>({
   required Query<Map<String, dynamic>> query,
   required List<T> Function(QuerySnapshot<Map<String, dynamic>> snap) map,
@@ -37,7 +39,14 @@ Stream<List<T>> watchFirestoreQuery<T>({
     sub = query.snapshots().listen(
       (snap) {
         retries = 0;
-        if (!controller.isClosed) controller.add(map(snap));
+        try {
+          final items = map(snap);
+          if (!controller.isClosed) controller.add(items);
+        } catch (error, stack) {
+          debugPrint('$label map failed: $error');
+          debugPrint('$stack');
+          if (!controller.isClosed) controller.addError(error, stack);
+        }
       },
       onError: (Object error, StackTrace stack) {
         if (isPermissionDenied(error) && retries < 5 && !controller.isClosed) {
@@ -59,4 +68,21 @@ Stream<List<T>> watchFirestoreQuery<T>({
     onCancel: () => sub?.cancel(),
   );
   return controller.stream;
+}
+
+List<T> mapFirestoreDocs<T>({
+  required QuerySnapshot<Map<String, dynamic>> snap,
+  required T Function(String id, Map<String, dynamic> data) fromMap,
+  required String label,
+}) {
+  final items = <T>[];
+  for (final doc in snap.docs) {
+    try {
+      items.add(fromMap(doc.id, coerceStringKeyMap(doc.data())));
+    } catch (error, stack) {
+      debugPrint('$label ${doc.id} skipped: $error');
+      debugPrint('$stack');
+    }
+  }
+  return items;
 }

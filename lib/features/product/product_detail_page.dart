@@ -349,11 +349,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     ProductVariant? variant,
   ) async {
     if (variant == null) return;
-    var order = store.activeOrder;
-    if (order == null) {
-      order = await showOrderTargetSheet(context);
-      if (order == null || !mounted) return;
-    }
+    final order = await showOrderTargetSheet(context);
+    if (order == null || !mounted) return;
     final ok = store.addToOrder(
       product,
       variant,

@@ -99,4 +99,42 @@ void main() {
   test('invoice route points to the billing view of the order', () {
     expect(invoiceRoute('o1'), '/pedido/o1/facturar');
   });
+
+  testWidgets('WhatsApp phone dialog survives the close animation', (
+    tester,
+  ) async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct());
+    final product = store.productById('p-test')!;
+    final customer = await seedTestCustomer(
+      store,
+      customer: testCustomer(phone: null),
+    );
+    final order = store.createOrder(customer);
+    store.addToOrder(product, product.variants.first);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp(
+          home: Scaffold(
+            body: WhatsAppButton(order: store.orderById(order.id)!),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Enviar por WhatsApp'));
+    await tester.pumpAndSettle();
+    expect(find.text('WhatsApp'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '+54 9 11 4555-0101');
+    await tester.tap(find.text('Enviar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('WhatsApp'), findsNothing);
+    expect(store.customerById(customer.id)!.phone, '+54 9 11 4555-0101');
+  });
 }

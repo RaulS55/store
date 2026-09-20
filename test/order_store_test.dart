@@ -108,8 +108,12 @@ void main() {
     store.bindCompany('co1');
     await _flush();
     final customer = await seedTestCustomer(store);
+    final otherCustomer = await seedTestCustomer(
+      store,
+      customer: testCustomer(id: 'c-2', name: 'Ana López'),
+    );
     store.createOrder(customer);
-    store.createOrder(customer);
+    store.createOrder(otherCustomer);
     await _flush();
 
     final other = AppStore(orderAccess: access, customers: customers);
@@ -117,7 +121,11 @@ void main() {
     other.bindCompany('co1');
     await _flush();
     expect(other.orders.map((item) => item.orderNumber), containsAll(['PED-1', 'PED-2']));
-    final next = other.createOrder(customer);
+    final nextCustomer = await seedTestCustomer(
+      other,
+      customer: testCustomer(id: 'c-3', name: 'Luis Gómez'),
+    );
+    final next = other.createOrder(nextCustomer);
     expect(next.orderNumber, 'PED-3');
   });
 
@@ -134,5 +142,62 @@ void main() {
     await _flush();
     expect(store.orderById(order.id)!.customer.name, 'Boutique Abril');
     expect(access.orders['co1']![order.id]!.customer.name, 'Boutique Abril');
+  });
+
+  test('createOrder reuses the open order of the same customer', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final customer = await seedTestCustomer(store);
+    final first = store.createOrder(customer);
+    final second = store.createOrder(customer);
+    expect(second.id, first.id);
+    expect(store.orders, hasLength(1));
+  });
+
+  test('createOrder opens a new order after the previous one is closed', () async {
+    final store = AppStore(products: FakeProductAccess());
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.closeOrder(order.id), isTrue);
+    final next = store.createOrder(order.customer);
+    expect(next.id, isNot(order.id));
+    expect(next.isActive, isTrue);
+    expect(store.orders, hasLength(1));
+  });
+
+  test('selectCustomer rejects a customer who already has an open order', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final monica = await seedTestCustomer(store);
+    final ana = await seedTestCustomer(
+      store,
+      customer: testCustomer(id: 'c-ana', name: 'Ana López'),
+    );
+    final monicaOrder = store.createOrder(monica);
+    final anaOrder = store.createOrder(ana);
+    expect(store.selectCustomer(anaOrder.id, monica), isFalse);
+    expect(anaOrder.customer.id, ana.id);
+    expect(store.openOrderForCustomer(monica.id)?.id, monicaOrder.id);
+  });
+
+  test('addToOrder remembers the last order a product was added to', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct());
+    final product = store.productById('p-test')!;
+    final monica = await seedTestCustomer(store);
+    final ana = await seedTestCustomer(
+      store,
+      customer: testCustomer(id: 'c-ana', name: 'Ana López'),
+    );
+    final first = store.createOrder(monica);
+    final second = store.createOrder(ana);
+    store.setActiveOrder(first.id);
+    expect(store.addToOrder(product, product.variants.first, orderId: second.id), isTrue);
+    expect(store.lastAddedOrderId, second.id);
+    expect(store.addTargetOrders.first.id, second.id);
+    expect(store.addTargetOrders.map((item) => item.id), [second.id, first.id]);
+    store.setActiveOrder(first.id);
+    expect(store.addTargetOrders.first.id, second.id);
   });
 }

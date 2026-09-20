@@ -1,5 +1,6 @@
 import 'customer.dart';
 import 'map_date.dart';
+import 'map_value.dart';
 import 'product.dart';
 import 'sync_record.dart';
 
@@ -56,13 +57,14 @@ class OrderLine {
   }
 
   factory OrderLine.fromMap(Map<String, dynamic> map) {
-    final productMap = Map<String, dynamic>.from(map['product'] as Map);
+    final data = coerceStringKeyMap(map);
+    final productMap = coerceStringKeyMap(data['product']);
     final productId = (productMap['id'] as String?)?.trim() ?? '';
-    final variantMap = Map<String, dynamic>.from(map['variant'] as Map);
+    final variantMap = coerceStringKeyMap(data['variant']);
     return OrderLine(
       product: Product.fromMap(productId, productMap),
       variant: ProductVariant.fromMap(variantMap),
-      quantity: (map['quantity'] as num?)?.toInt() ?? 0,
+      quantity: (data['quantity'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -145,26 +147,27 @@ class DraftOrder {
   }
 
   factory DraftOrder.fromMap(String id, Map<String, dynamic> map) {
-    final record = SyncRecord.fromMap(id, map);
-    final customerMap = Map<String, dynamic>.from(map['customer'] as Map);
+    final data = coerceStringKeyMap(map);
+    final record = SyncRecord.fromMap(id, data);
+    final customerMap = coerceStringKeyMap(data['customer']);
     final customerId = (customerMap['id'] as String?)?.trim() ?? '';
-    final rawLines = map['lines'] as List<dynamic>? ?? const [];
-    final rawStatus = map['status'] as String? ?? OrderStatus.borrador.name;
+    final rawLines = data['lines'] as List<dynamic>? ?? const [];
+    final rawStatus = data['status'] as String? ?? OrderStatus.borrador.name;
     return DraftOrder(
       id: record.id,
-      orderNumber: (map['orderNumber'] as String? ?? '').trim(),
+      orderNumber: (data['orderNumber'] as String? ?? '').trim(),
       customer: Customer.fromMap(customerId, customerMap),
       lines: [
         for (final line in rawLines)
-          if (line is Map) OrderLine.fromMap(Map<String, dynamic>.from(line)),
+          if (line is Map) OrderLine.fromMap(coerceStringKeyMap(line)),
       ],
       status: OrderStatus.fromStorage(rawStatus),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
-      closedAt: parseOptionalMapDate(map['closedAt']),
+      closedAt: parseOptionalMapDate(data['closedAt']),
       deletedAt: record.deletedAt,
-      ivaEnabled: map['ivaEnabled'] as bool? ?? false,
-      ivaPercent: (map['ivaPercent'] as num?)?.toDouble() ?? 21,
+      ivaEnabled: data['ivaEnabled'] as bool? ?? false,
+      ivaPercent: (data['ivaPercent'] as num?)?.toDouble() ?? 21,
     );
   }
 

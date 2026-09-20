@@ -1,3 +1,4 @@
+import 'map_value.dart';
 import 'sync_record.dart';
 
 enum TaxCondition {
@@ -88,14 +89,15 @@ class Customer {
   }
 
   factory Customer.fromMap(String id, Map<String, dynamic> map) {
-    final record = SyncRecord.fromMap(id, map);
+    final data = coerceStringKeyMap(map);
+    final record = SyncRecord.fromMap(id, data);
     return Customer(
       id: record.id,
-      name: (map['name'] as String? ?? '').trim(),
-      cuit: _blankToNull(map['cuit'] as String?),
-      taxCondition: TaxCondition.fromStorage(map['taxCondition'] as String?),
-      phone: _blankToNull(map['phone'] as String?),
-      address: _blankToNull(map['address'] as String?),
+      name: (data['name'] as String? ?? '').trim(),
+      cuit: _blankToNull(data['cuit'] as String?),
+      taxCondition: TaxCondition.fromStorage(data['taxCondition'] as String?),
+      phone: _blankToNull(data['phone'] as String?),
+      address: _blankToNull(data['address'] as String?),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       deletedAt: record.deletedAt,

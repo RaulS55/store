@@ -1,4 +1,5 @@
 import 'map_date.dart';
+import 'map_value.dart';
 
 class SyncRecord {
   const SyncRecord({
@@ -21,12 +22,13 @@ class SyncRecord {
   }
 
   factory SyncRecord.fromMap(String id, Map<String, dynamic> map) {
-    final raw = (map['id'] as String?)?.trim() ?? '';
+    final data = coerceStringKeyMap(map);
+    final raw = (data['id'] as String?)?.trim() ?? '';
     return SyncRecord(
       id: raw.isEmpty ? id : raw,
-      createdAt: parseMapDate(map['createdAt']),
-      updatedAt: parseMapDate(map['updatedAt']),
-      deletedAt: parseOptionalMapDate(map['deletedAt']),
+      createdAt: parseMapDate(data['createdAt']),
+      updatedAt: parseMapDate(data['updatedAt']),
+      deletedAt: parseOptionalMapDate(data['deletedAt']),
     );
   }
 

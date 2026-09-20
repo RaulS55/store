@@ -103,8 +103,11 @@ GoRouter createRouter(SessionStore session) {
                 routes: [
                   GoRoute(
                     path: 'facturar',
-                    builder: (context, state) =>
-                        InvoicePage(orderId: state.pathParameters['orderId']!),
+                    pageBuilder: (context, state) => NoTransitionPage(
+                      child: InvoicePage(
+                        orderId: state.pathParameters['orderId']!,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -136,8 +139,10 @@ GoRouter createRouter(SessionStore session) {
             routes: [
               GoRoute(
                 path: ':customerId',
-                builder: (context, state) => CustomerDetailPage(
-                  customerId: state.pathParameters['customerId']!,
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: CustomerDetailPage(
+                    customerId: state.pathParameters['customerId']!,
+                  ),
                 ),
               ),
             ],

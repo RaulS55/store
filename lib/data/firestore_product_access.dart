@@ -1,10 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/product.dart';
+import 'firestore_sync_query.dart';
 import 'firestore_watch.dart';
-import 'product_access.dart';
+import 'incremental_access.dart';
 
-class FirestoreProductAccess implements ProductAccess {
+class FirestoreProductAccess implements IncrementalProductAccess {
   FirestoreProductAccess({FirebaseFirestore? firestore})
     : _db = firestore ?? FirebaseFirestore.instance;
 
@@ -33,14 +34,34 @@ class FirestoreProductAccess implements ProductAccess {
   }
 
   @override
+  Future<List<Product>> fetchChanged(String companyId, DateTime? since) async {
+    final snap = await catalogSyncQuery(
+      collection: _products(companyId),
+      since: since,
+    ).get();
+    return _mapSnapshot(snap);
+  }
+
+  @override
+  Stream<List<Product>> watchChanged(String companyId, DateTime since) {
+    return watchFirestoreQuery(
+      query: catalogSyncQuery(collection: _products(companyId), since: since),
+      map: _mapSnapshot,
+      label: 'Products delta',
+    );
+  }
+
+  @override
   Future<void> saveProduct(String companyId, Product product) {
     return _products(companyId).doc(product.id).set(product.toMap());
   }
 
   List<Product> _mapSnapshot(QuerySnapshot<Map<String, dynamic>> snap) {
-    final products = [
-      for (final doc in snap.docs) Product.fromMap(doc.id, doc.data()),
-    ];
+    final products = mapFirestoreDocs(
+      snap: snap,
+      fromMap: Product.fromMap,
+      label: 'Product',
+    );
     products.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return products;
   }

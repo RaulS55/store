@@ -18,6 +18,10 @@ import 'data/firestore_company_access.dart';
 import 'data/firestore_customer_access.dart';
 import 'data/firestore_order_access.dart';
 import 'data/firestore_product_access.dart';
+import 'data/local/cached_customer_access.dart';
+import 'data/local/cached_order_access.dart';
+import 'data/local/cached_product_access.dart';
+import 'data/local/hive_bootstrap.dart';
 import 'data/session_store.dart';
 import 'features/auth/loading_page.dart';
 import 'firebase_options.dart';
@@ -63,10 +67,20 @@ class _ModaStockAppState extends State<ModaStockApp> {
         options: DefaultFirebaseOptions.currentPlatform,
       );
       await configureFirebaseForPlatform();
+      final cache = await openEncryptedCatalogCache();
       final store = AppStore(
-        products: FirestoreProductAccess(),
-        customers: FirestoreCustomerAccess(),
-        orderAccess: FirestoreOrderAccess(),
+        products: CachedProductAccess(
+          remote: FirestoreProductAccess(),
+          cache: cache,
+        ),
+        customers: CachedCustomerAccess(
+          remote: FirestoreCustomerAccess(),
+          cache: cache,
+        ),
+        orderAccess: CachedOrderAccess(
+          remote: FirestoreOrderAccess(),
+          cache: cache,
+        ),
         images: FirebaseImageAccess(),
       );
       final session = SessionStore(
@@ -116,18 +130,28 @@ class _ModaStockAppState extends State<ModaStockApp> {
     final session = _session;
     final router = _router;
     if (store == null || session == null || router == null) {
+      // Web uses the URL as initialRoute; this boot app has no named routes.
       return MaterialApp(
         title: 'Moda Stock',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
-        home: _bootFailed
-            ? _BootErrorPage(
-                onRetry: () {
-                  setState(() => _bootFailed = false);
-                  unawaited(_boot());
-                },
-              )
-            : const LoadingPage(),
+        builder: (context, child) {
+          if (_bootFailed) {
+            return _BootErrorPage(
+              onRetry: () {
+                setState(() => _bootFailed = false);
+                unawaited(_boot());
+              },
+            );
+          }
+          return const LoadingPage();
+        },
+        onGenerateRoute: (settings) {
+          return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (_) => const SizedBox.shrink(),
+          );
+        },
       );
     }
     return MultiProvider(

@@ -1,10 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/order.dart';
+import 'firestore_sync_query.dart';
 import 'firestore_watch.dart';
-import 'order_access.dart';
+import 'incremental_access.dart';
 
-class FirestoreOrderAccess implements OrderAccess {
+class FirestoreOrderAccess implements IncrementalOrderAccess {
   FirestoreOrderAccess({FirebaseFirestore? firestore})
     : _db = firestore ?? FirebaseFirestore.instance;
 
@@ -33,14 +34,37 @@ class FirestoreOrderAccess implements OrderAccess {
   }
 
   @override
+  Future<List<DraftOrder>> fetchChanged(
+    String companyId,
+    DateTime? since,
+  ) async {
+    final snap = await catalogSyncQuery(
+      collection: _orders(companyId),
+      since: since,
+    ).get();
+    return _mapSnapshot(snap);
+  }
+
+  @override
+  Stream<List<DraftOrder>> watchChanged(String companyId, DateTime since) {
+    return watchFirestoreQuery(
+      query: catalogSyncQuery(collection: _orders(companyId), since: since),
+      map: _mapSnapshot,
+      label: 'Orders delta',
+    );
+  }
+
+  @override
   Future<void> saveOrder(String companyId, DraftOrder order) {
     return _orders(companyId).doc(order.id).set(order.toMap());
   }
 
   List<DraftOrder> _mapSnapshot(QuerySnapshot<Map<String, dynamic>> snap) {
-    final orders = [
-      for (final doc in snap.docs) DraftOrder.fromMap(doc.id, doc.data()),
-    ];
+    final orders = mapFirestoreDocs(
+      snap: snap,
+      fromMap: DraftOrder.fromMap,
+      label: 'Order',
+    );
     orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return orders;
   }

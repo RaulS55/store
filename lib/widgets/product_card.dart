@@ -128,19 +128,7 @@ class ProductCard extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        StockLabel(stock: product.stock),
-                        if (product.isLowStock) ...[
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.warning_amber_rounded,
-                            size: 14,
-                            color: AppColors.warning,
-                          ),
-                        ],
-                      ],
-                    ),
+                    StockLabel(stock: product.stock),
                     const SizedBox(height: 6),
                     Text(
                       MoneyFormat.labeled(product.price),
