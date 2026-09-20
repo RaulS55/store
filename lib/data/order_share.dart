@@ -30,11 +30,13 @@ class OrderShare {
   }
 
   static Uri? whatsappUri(DraftOrder order) {
+    if (order.lines.isEmpty) return null;
     final digits = order.customer.whatsappDigits;
-    if (digits.isEmpty || order.lines.isEmpty) return null;
-    return Uri.parse(
-      'https://wa.me/$digits?text=${Uri.encodeComponent(message(order))}',
-    );
+    final text = Uri.encodeComponent(message(order));
+    if (digits.isEmpty) {
+      return Uri.parse('https://wa.me/?text=$text');
+    }
+    return Uri.parse('https://wa.me/$digits?text=$text');
   }
 
   static Future<bool> openWhatsApp(DraftOrder order) async {

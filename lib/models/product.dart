@@ -313,6 +313,7 @@ class Product {
     required this.updatedAt,
     this.deletedAt,
     this.status = ProductStatus.activo,
+    this.lotId = '',
   });
 
   final String id;
@@ -329,8 +330,11 @@ class Product {
   final DateTime updatedAt;
   final DateTime? deletedAt;
   final ProductStatus status;
+  final String lotId;
 
   bool get isDeleted => deletedAt != null;
+
+  bool get hasLot => lotId.trim().isNotEmpty;
 
   static const lowStockThreshold = 8;
 
@@ -443,6 +447,7 @@ class Product {
       status: ProductStatus.fromStorage(
         data['status'] as String? ?? ProductStatus.activo.name,
       ),
+      lotId: (data['lotId'] as String? ?? '').trim(),
     );
   }
 
@@ -464,6 +469,7 @@ class Product {
       'variants': [for (final variant in variants) variant.toMap()],
       'equivalentSizes': storedEquivalentSizes,
       'status': status.name,
+      'lotId': lotId.trim(),
     };
   }
 
@@ -500,6 +506,7 @@ class Product {
     DateTime? updatedAt,
     DateTime? deletedAt,
     ProductStatus? status,
+    String? lotId,
   }) {
     return Product(
       id: id ?? this.id,
@@ -516,6 +523,7 @@ class Product {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       status: status ?? this.status,
+      lotId: lotId ?? this.lotId,
     );
   }
 }

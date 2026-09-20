@@ -6,6 +6,7 @@ import '../../data/app_store.dart';
 import '../../data/order_share.dart';
 import '../../models/order.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_confirm_dialog.dart';
 import '../customers/customer_sheets.dart';
 
 export '../customers/customer_sheets.dart' show showCustomerPicker;
@@ -42,9 +43,7 @@ Future<DraftOrder?> showOrderTargetSheet(BuildContext context) async {
     return selected;
   }
   if (selected == 'new') {
-    final occupied = {
-      for (final order in store.orders) order.customer.id,
-    };
+    final occupied = {for (final order in store.orders) order.customer.id};
     final customer = await showCustomerPicker(
       context,
       blockedCustomerIds: occupied,
@@ -88,6 +87,61 @@ void openInvoice(BuildContext context, String orderId) {
   context.push(invoiceRoute(orderId));
 }
 
+Future<void> cancelOrderWithConfirm({
+  required BuildContext context,
+  required DraftOrder order,
+}) async {
+  if (!order.isActive) return;
+  final confirmed = await showAppConfirmDialog(
+    context: context,
+    title: 'Cancelar pedido',
+    message:
+        '¿Cancelar ${order.orderNumber}? El pedido se elimina y el cliente queda libre para uno nuevo.',
+    confirmLabel: 'Cancelar pedido',
+  );
+  if (!confirmed || !context.mounted) return;
+  final store = context.read<AppStore>();
+  final messenger = ScaffoldMessenger.of(context);
+  final router = GoRouter.of(context);
+  await WidgetsBinding.instance.endOfFrame;
+  if (!context.mounted) return;
+  router.go('/pedido');
+  try {
+    final ok = await store.deleteOrder(order.id);
+    if (!ok) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No se pudo cancelar el pedido.')),
+      );
+      return;
+    }
+  } catch (error, stack) {
+    debugPrint('Order cancel failed: $error');
+    debugPrint('$stack');
+    messenger.showSnackBar(
+      const SnackBar(content: Text('No se pudo cancelar el pedido.')),
+    );
+    return;
+  }
+  messenger.showSnackBar(const SnackBar(content: Text('Pedido cancelado')));
+}
+
+class CancelOrderButton extends StatelessWidget {
+  const CancelOrderButton({super.key, required this.order});
+
+  final DraftOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      key: const ValueKey('cancel-order'),
+      onPressed: () => cancelOrderWithConfirm(context: context, order: order),
+      style: TextButton.styleFrom(foregroundColor: AppColors.stockLow),
+      icon: const Icon(Icons.delete_outline, size: 18),
+      label: const Text('Cancelar pedido'),
+    );
+  }
+}
+
 Future<void> closeOrderFlow(BuildContext context, DraftOrder order) async {
   if (order.lines.isEmpty || order.isClosed) return;
   final confirmed = await showDialog<bool>(
@@ -121,88 +175,12 @@ Future<void> closeOrderFlow(BuildContext context, DraftOrder order) async {
 
 Future<void> sendOrderWhatsApp(BuildContext context, DraftOrder order) async {
   if (order.lines.isEmpty) return;
-  var current = order;
-  if (current.customer.whatsappDigits.isEmpty) {
-    final phone = await _askWhatsAppPhone(context, current.customer.name);
-    if (phone == null || !context.mounted) return;
-    final store = context.read<AppStore>();
-    await store.setCustomerPhone(current.customer.id, phone);
-    current = store.orderById(current.id) ?? current;
-    if (current.customer.whatsappDigits.isEmpty) return;
-  }
-  final ok = await OrderShare.openWhatsApp(current);
+  final ok = await OrderShare.openWhatsApp(order);
   if (!context.mounted) return;
   if (!ok) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('No se pudo abrir WhatsApp.')));
-  }
-}
-
-Future<String?> _askWhatsAppPhone(BuildContext context, String customerName) {
-  return showDialog<String>(
-    context: context,
-    builder: (context) => _WhatsAppPhoneDialog(customerName: customerName),
-  );
-}
-
-class _WhatsAppPhoneDialog extends StatefulWidget {
-  const _WhatsAppPhoneDialog({required this.customerName});
-
-  final String customerName;
-
-  @override
-  State<_WhatsAppPhoneDialog> createState() => _WhatsAppPhoneDialogState();
-}
-
-class _WhatsAppPhoneDialogState extends State<_WhatsAppPhoneDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('WhatsApp'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Cargá el teléfono de ${widget.customerName} para enviar el pedido.',
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(hintText: '+54 9 11 0000-0000'),
-            onSubmitted: (value) => Navigator.pop(context, value.trim()),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, _controller.text.trim()),
-          style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-          child: const Text('Enviar'),
-        ),
-      ],
-    );
   }
 }
 

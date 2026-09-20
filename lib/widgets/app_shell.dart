@@ -32,6 +32,12 @@ class AppShell extends StatelessWidget {
       Icons.people_alt_rounded,
       Icons.people_alt_outlined,
     ),
+    _Dest(
+      '/montones',
+      'Montones',
+      Icons.inventory_2_rounded,
+      Icons.inventory_2_outlined,
+    ),
     _Dest('/equipo', 'Equipo', Icons.groups_rounded, Icons.groups_outlined),
     _Dest('/config', 'Config', Icons.settings_rounded, Icons.settings_outlined),
   ];
@@ -66,11 +72,16 @@ class AppShell extends StatelessWidget {
 
   static List<_Dest> _destinationsFor(SessionStore session, bool wide) {
     final all = wide ? _wideDestinations : _mobileDestinations;
-    if (session.canViewTeam) return all;
     return [
       for (final dest in all)
-        if (dest.path != '/equipo') dest,
+        if (_canShow(session, dest)) dest,
     ];
+  }
+
+  static bool _canShow(SessionStore session, _Dest dest) {
+    if (dest.path == '/equipo') return session.canViewTeam;
+    if (dest.path == '/montones') return session.canManageLots;
+    return true;
   }
 }
 

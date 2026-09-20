@@ -18,7 +18,8 @@ Future<void> deleteCustomerWithConfirm({
   final confirmed = await showAppConfirmDialog(
     context: context,
     title: 'Eliminar cliente',
-    message: '¿Eliminar ${customer.name}? Los pedidos del cliente se mantienen en el historial.',
+    message:
+        '¿Eliminar ${customer.name}? Los pedidos del cliente se mantienen en el historial.',
     confirmLabel: 'Eliminar',
   );
   if (!confirmed || !context.mounted) return;

@@ -85,7 +85,9 @@ void main() {
     expect(find.text('Boutique Abril'), findsOneWidget);
   });
 
-  testWidgets('employee does not see delete on customer detail', (tester) async {
+  testWidgets('employee does not see delete on customer detail', (
+    tester,
+  ) async {
     _setPhoneView(tester);
     final store = AppStore();
     addTearDown(store.dispose);
@@ -100,7 +102,9 @@ void main() {
     expect(find.byKey(const ValueKey('delete-customer')), findsNothing);
   });
 
-  testWidgets('owner confirm delete leaves the customers route', (tester) async {
+  testWidgets('owner confirm delete leaves the customers route', (
+    tester,
+  ) async {
     _setPhoneView(tester);
     final customers = FakeCustomerAccess();
     final store = AppStore(customers: customers);
@@ -125,7 +129,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.customerById('c-test'), isNull);
-    expect(customers.customers[session.companyId]!['c-test']!.isDeleted, isTrue);
+    expect(
+      customers.customers[session.companyId]!['c-test']!.isDeleted,
+      isTrue,
+    );
     expect(router.routeInformationProvider.value.uri.path, '/clientes');
     expect(find.text('Cliente eliminado'), findsOneWidget);
   });

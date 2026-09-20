@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../data/app_store.dart';
 import '../../data/gallery_picker.dart';
 import '../../data/image_compress.dart';
+import '../../data/session_store.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/product_image.dart';
@@ -37,6 +38,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
   String _categoryQuery = '';
   String _brandQuery = '';
   ApparelAudience? _audience;
+  String _lotId = '';
   final List<_ProductImageDraft> _images = [];
   String? _error;
   late final String _productId;
@@ -58,6 +60,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
     _categoryQuery = existing?.categoryLabel ?? '';
     _brandQuery = existing?.brand ?? '';
     _audience = existing?.audience;
+    _lotId = existing?.lotId ?? '';
     _draft = VariantDraft(
       sizes: existing?.sizes,
       colors: existing?.colors,
@@ -168,6 +171,8 @@ class _ProductFormPageState extends State<ProductFormPage> {
       if (!mounted) return;
       final existing = widget.id == null ? null : store.productById(widget.id!);
       final now = DateTime.now().toUtc();
+      final canAssignLot =
+          context.read<SessionStore?>()?.canManageLots ?? false;
       final product = Product(
         id: _productId,
         name: _name.text.trim(),
@@ -182,6 +187,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
         deletedAt: existing?.deletedAt,
+        lotId: canAssignLot ? _lotId : (existing?.lotId ?? ''),
       );
       await store.upsertProduct(product);
       if (!mounted) return;
@@ -450,6 +456,32 @@ class _ProductFormPageState extends State<ProductFormPage> {
           validator: _priceValidator,
         ),
       ),
+      if (context.watch<SessionStore?>()?.canManageLots ?? false)
+        _LabeledField(
+          label: 'Montón',
+          child: Builder(
+            builder: (context) {
+              final lots = context.watch<AppStore>().lots;
+              final value = lots.any((lot) => lot.id == _lotId) ? _lotId : '';
+              return DropdownButtonFormField<String>(
+                key: const ValueKey('product-lot'),
+                initialValue: value,
+                isExpanded: true,
+                decoration: const InputDecoration(hintText: 'Sin montón'),
+                items: [
+                  const DropdownMenuItem(value: '', child: Text('Sin montón')),
+                  for (final lot in lots)
+                    DropdownMenuItem(
+                      value: lot.id,
+                      child: Text(lot.displayName),
+                    ),
+                ],
+                onChanged: (selected) =>
+                    setState(() => _lotId = selected ?? ''),
+              );
+            },
+          ),
+        ),
     ];
   }
 

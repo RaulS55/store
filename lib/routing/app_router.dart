@@ -8,6 +8,7 @@ import '../features/auth/sign_in_page.dart';
 import '../features/auth/sign_up_page.dart';
 import '../features/customers/customer_detail_page.dart';
 import '../features/customers/customers_page.dart';
+import '../features/lots/lots_page.dart';
 import '../features/more/more_page.dart';
 import '../features/order/invoice_page.dart';
 import '../features/order/order_page.dart';
@@ -48,6 +49,7 @@ GoRouter createRouter(SessionStore session) {
           return '/';
         }
         if (path == '/equipo' && !session.canViewTeam) return '/';
+        if (path == '/montones' && !session.canManageLots) return '/';
         return null;
       }
       if (needsCompany) {
@@ -146,6 +148,11 @@ GoRouter createRouter(SessionStore session) {
                 ),
               ),
             ],
+          ),
+          GoRoute(
+            path: '/montones',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: LotsPage()),
           ),
           GoRoute(
             path: '/equipo',

@@ -100,7 +100,7 @@ void main() {
     expect(invoiceRoute('o1'), '/pedido/o1/facturar');
   });
 
-  testWidgets('WhatsApp phone dialog survives the close animation', (
+  testWidgets('WhatsApp without a saved number does not ask for a phone', (
     tester,
   ) async {
     final store = AppStore();
@@ -128,13 +128,9 @@ void main() {
 
     await tester.tap(find.text('Enviar por WhatsApp'));
     await tester.pumpAndSettle();
-    expect(find.text('WhatsApp'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), '+54 9 11 4555-0101');
-    await tester.tap(find.text('Enviar'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('WhatsApp'), findsNothing);
-    expect(store.customerById(customer.id)!.phone, '+54 9 11 4555-0101');
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('Cargá el teléfono'), findsNothing);
+    expect(store.customerById(customer.id)!.phone, isNull);
   });
 }

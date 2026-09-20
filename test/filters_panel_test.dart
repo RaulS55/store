@@ -71,40 +71,41 @@ void main() {
     }
   });
 
-  testWidgets('web filter bar keeps letter sizes and Poco stock without checkmark', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'web filter bar keeps letter sizes and Poco stock without checkmark',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: AppStore(),
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          home: const Scaffold(body: WebFilterBar()),
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: AppStore(),
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const Scaffold(body: WebFilterBar()),
+          ),
         ),
-      ),
-    );
+      );
 
-    expect(find.text('S'), findsOneWidget);
-    expect(find.text('M'), findsOneWidget);
-    expect(find.text('L'), findsOneWidget);
-    expect(find.text('38'), findsNothing);
-    expect(find.text('40'), findsNothing);
-    expect(find.text('42'), findsNothing);
-    expect(find.text('Poco stock'), findsOneWidget);
-    expect(find.text('Solo bajo stock'), findsNothing);
+      expect(find.text('S'), findsOneWidget);
+      expect(find.text('M'), findsOneWidget);
+      expect(find.text('L'), findsOneWidget);
+      expect(find.text('38'), findsNothing);
+      expect(find.text('40'), findsNothing);
+      expect(find.text('42'), findsNothing);
+      expect(find.text('Poco stock'), findsOneWidget);
+      expect(find.text('Solo bajo stock'), findsNothing);
 
-    await tester.tap(find.widgetWithText(FilterChip, 'Poco stock'));
-    await tester.pump();
+      await tester.tap(find.widgetWithText(FilterChip, 'Poco stock'));
+      await tester.pump();
 
-    final chip = tester.widget<FilterChip>(
-      find.widgetWithText(FilterChip, 'Poco stock'),
-    );
-    expect(chip.selected, isTrue);
-    expect(chip.showCheckmark, isFalse);
-  });
+      final chip = tester.widget<FilterChip>(
+        find.widgetWithText(FilterChip, 'Poco stock'),
+      );
+      expect(chip.selected, isTrue);
+      expect(chip.showCheckmark, isFalse);
+    },
+  );
 }

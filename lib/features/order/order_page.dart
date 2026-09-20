@@ -171,17 +171,21 @@ class _MobileOrder extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: WhatsAppButton(order: order),
           ),
-          if (!order.isClosed)
+          if (!order.isClosed) ...[
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: FilledButton(
                 onPressed: order.lines.isEmpty
                     ? null
                     : () => closeOrderFlow(context, order),
                 child: const Text('Cerrar pedido'),
               ),
-            )
-          else
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: CancelOrderButton(order: order),
+            ),
+          ] else
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: OutlinedButton.icon(
@@ -318,6 +322,8 @@ class _WebOrder extends StatelessWidget {
                                 : () => closeOrderFlow(context, order),
                             child: const Text('Cerrar pedido'),
                           ),
+                          const SizedBox(height: 4),
+                          CancelOrderButton(order: order),
                         ] else ...[
                           const SizedBox(height: 10),
                           OutlinedButton.icon(

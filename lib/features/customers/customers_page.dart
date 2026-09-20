@@ -32,18 +32,16 @@ class CustomersPage extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       'Agenda de clientes para armar pedidos.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.slate,
-                      ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: AppColors.slate),
                     ),
                   ],
                 ),
               ),
               FilledButton.icon(
                 onPressed: () => showCustomerForm(context),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 48),
-                ),
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Nuevo cliente'),
               ),

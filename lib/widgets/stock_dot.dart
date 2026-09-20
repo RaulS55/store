@@ -22,11 +22,7 @@ class StockDot extends StatelessWidget {
 }
 
 class StockLabel extends StatelessWidget {
-  const StockLabel({
-    super.key,
-    required this.stock,
-    this.compact = true,
-  });
+  const StockLabel({super.key, required this.stock, this.compact = true});
 
   final int stock;
   final bool compact;

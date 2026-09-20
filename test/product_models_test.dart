@@ -236,4 +236,27 @@ void main() {
     expect(saved.deletedAt, isNull);
     expect(saved.createdAt, product.createdAt);
   });
+
+  test('Product.fromMap reads an assigned lot id', () {
+    final product = Product.fromMap('p1', {
+      'id': 'p1',
+      'name': 'Remera',
+      'sku': 'RM-1',
+      'category': 'remeras',
+      'brand': 'Test',
+      'price': 10000,
+      'images': <String>[],
+      'variants': [
+        {'size': 'M', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 4},
+      ],
+      'status': 'activo',
+      'lotId': 'l1',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+    });
+    expect(product.lotId, 'l1');
+    expect(product.hasLot, isTrue);
+    expect(product.toMap()['lotId'], 'l1');
+  });
 }

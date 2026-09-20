@@ -16,9 +16,11 @@ import 'data/firebase_bootstrap.dart';
 import 'data/firebase_image_access.dart';
 import 'data/firestore_company_access.dart';
 import 'data/firestore_customer_access.dart';
+import 'data/firestore_lot_access.dart';
 import 'data/firestore_order_access.dart';
 import 'data/firestore_product_access.dart';
 import 'data/local/cached_customer_access.dart';
+import 'data/local/cached_lot_access.dart';
 import 'data/local/cached_order_access.dart';
 import 'data/local/cached_product_access.dart';
 import 'data/local/hive_bootstrap.dart';
@@ -52,6 +54,8 @@ class _ModaStockAppState extends State<ModaStockApp> {
   SessionStore? _session;
   GoRouter? _router;
   var _bootFailed = false;
+  var _booting = false;
+  String? _bootError;
 
   @override
   void initState() {
@@ -60,15 +64,26 @@ class _ModaStockAppState extends State<ModaStockApp> {
   }
 
   Future<void> _boot() async {
+    if (_booting) return;
+    _booting = true;
+    AppStore? store;
+    SessionStore? session;
+    var step = 'inicio';
     try {
+      step = 'idioma';
       await initializeDateFormatting('es_AR');
       Intl.defaultLocale = 'es_AR';
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+      step = 'firebase';
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
       await configureFirebaseForPlatform();
+      step = 'cache';
       final cache = await openEncryptedCatalogCache();
-      final store = AppStore(
+      step = 'tienda';
+      store = AppStore(
         products: CachedProductAccess(
           remote: FirestoreProductAccess(),
           cache: cache,
@@ -81,14 +96,16 @@ class _ModaStockAppState extends State<ModaStockApp> {
           remote: FirestoreOrderAccess(),
           cache: cache,
         ),
+        lotAccess: CachedLotAccess(remote: FirestoreLotAccess(), cache: cache),
         images: FirebaseImageAccess(),
       );
-      final session = SessionStore(
+      session = SessionStore(
         auth: FirebaseAuthClient(),
         access: FirestoreCompanyAccess(),
       );
       session.addListener(_bindCatalog);
       session.start();
+      step = 'navegación';
       final router = createRouter(session);
       if (!mounted) {
         session.removeListener(_bindCatalog);
@@ -101,18 +118,50 @@ class _ModaStockAppState extends State<ModaStockApp> {
         _session = session;
         _router = router;
         _bootFailed = false;
+        _bootError = null;
       });
-      _bindCatalog();
-    } catch (_) {
-      if (mounted) setState(() => _bootFailed = true);
+      try {
+        _bindCatalog();
+      } catch (error, stack) {
+        debugPrint('Catalog bind failed: $error');
+        debugPrint('$stack');
+      }
+    } catch (error, stack) {
+      debugPrint('Boot failed at $step: $error');
+      debugPrint('$stack');
+      if (!identical(_store, store)) {
+        session?.removeListener(_bindCatalog);
+        session?.dispose();
+        store?.dispose();
+      }
+      if (mounted && _store == null) {
+        setState(() {
+          _bootFailed = true;
+          _bootError = '$step: $error';
+        });
+      }
+    } finally {
+      _booting = false;
     }
+  }
+
+  void _retryBoot() {
+    if (_booting) return;
+    setState(() {
+      _bootFailed = false;
+      _bootError = null;
+    });
+    unawaited(_boot());
   }
 
   void _bindCatalog() {
     final store = _store;
     final session = _session;
     if (store == null || session == null) return;
-    store.bindCompany(session.isSignedIn ? session.companyId : null);
+    store.bindCompany(
+      session.isSignedIn ? session.companyId : null,
+      watchLots: session.canManageLots,
+    );
     store.setRubro(session.company?.rubro ?? CompanyRubro.ambos);
   }
 
@@ -137,12 +186,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
         theme: AppTheme.light(),
         builder: (context, child) {
           if (_bootFailed) {
-            return _BootErrorPage(
-              onRetry: () {
-                setState(() => _bootFailed = false);
-                unawaited(_boot());
-              },
-            );
+            return _BootErrorPage(detail: _bootError, onRetry: _retryBoot);
           }
           return const LoadingPage();
         },
@@ -177,23 +221,36 @@ class _ModaStockAppState extends State<ModaStockApp> {
 }
 
 class _BootErrorPage extends StatelessWidget {
-  const _BootErrorPage({required this.onRetry});
+  const _BootErrorPage({required this.onRetry, this.detail});
 
   final VoidCallback onRetry;
+  final String? detail;
 
   @override
   Widget build(BuildContext context) {
+    final detailText = detail?.trim();
     return Scaffold(
       body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const BrandLogo(),
-            const SizedBox(height: 16),
-            const Text('No se pudo iniciar la app.'),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const BrandLogo(),
+              const SizedBox(height: 16),
+              const Text('No se pudo iniciar la app.'),
+              if (detailText != null && detailText.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                SelectableText(
+                  detailText,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              const SizedBox(height: 12),
+              FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
+            ],
+          ),
         ),
       ),
     );

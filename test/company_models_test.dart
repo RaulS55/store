@@ -51,6 +51,12 @@ void main() {
     expect(CompanyRole.owner.canEditCompanySettings, isTrue);
     expect(CompanyRole.administrator.canEditCompanySettings, isTrue);
     expect(CompanyRole.employee.canEditCompanySettings, isFalse);
+    expect(CompanyRole.owner.canManageLots, isTrue);
+    expect(CompanyRole.administrator.canManageLots, isTrue);
+    expect(CompanyRole.employee.canManageLots, isFalse);
+    expect(CompanyRole.owner.canViewLotStats, isTrue);
+    expect(CompanyRole.administrator.canViewLotStats, isFalse);
+    expect(CompanyRole.employee.canViewLotStats, isFalse);
   });
 
   test('Invitation.fromMap reads pending status and path', () {

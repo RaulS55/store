@@ -145,6 +145,33 @@ void main() {
       expect(loaded, isEmpty);
       expect(cache.lastSyncAt(companyId, CatalogCollection.products), isNull);
     });
+
+    test('lots collection stores and clears with the company', () async {
+      await cache.upsertAll(companyId, CatalogCollection.lots, [
+        testLot(id: 'l1', createdAt: early).toMap(),
+      ]);
+      final loaded = await cache.loadActive(companyId, CatalogCollection.lots);
+      expect(loaded, hasLength(1));
+      expect(loaded.single['id'], 'l1');
+
+      await cache.clearCompany(companyId);
+      expect(
+        await cache.loadActive(companyId, CatalogCollection.lots),
+        isEmpty,
+      );
+    });
+
+    test('open reuses boxes already open', () async {
+      final again = await HiveCatalogCache.open(
+        cipher: HiveAesCipher(Hive.generateSecureKey()),
+        nameSuffix: '_t$_boxSuffix',
+      );
+      await again.upsertAll(companyId, CatalogCollection.lots, [
+        testLot(id: 'l-retry', createdAt: early).toMap(),
+      ]);
+      final loaded = await cache.loadActive(companyId, CatalogCollection.lots);
+      expect(loaded.single['id'], 'l-retry');
+    });
   });
 
   group('CachedProductAccess', () {

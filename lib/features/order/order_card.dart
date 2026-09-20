@@ -64,7 +64,9 @@ class OrderSummaryCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            showCustomer ? order.customer.name : order.orderNumber,
+                            showCustomer
+                                ? order.customer.name
+                                : order.orderNumber,
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
@@ -86,9 +88,9 @@ class OrderSummaryCard extends StatelessWidget {
                           MoneyFormat.detailed(order.total),
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.terracotta,
-                          ),
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.terracotta,
+                              ),
                         ),
                         Text(
                           order.itemCount == 1
@@ -127,9 +129,9 @@ class OrderSummaryCard extends StatelessWidget {
                             '${item.category.label} ×${item.quantity}',
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
-                              color: AppColors.terracotta,
-                              fontWeight: FontWeight.w600,
-                            ),
+                                  color: AppColors.terracotta,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                         ),
                     ],
@@ -141,9 +143,9 @@ class OrderSummaryCard extends StatelessWidget {
                     names.join(' · '),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.slate,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
                   ),
                 ],
               ],

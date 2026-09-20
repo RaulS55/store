@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 import 'package:hive_ce/hive.dart';
 
 import '../../models/map_date.dart';
@@ -8,6 +11,7 @@ class CatalogCollection {
   static const products = 'products';
   static const customers = 'customers';
   static const orders = 'orders';
+  static const lots = 'lots';
 }
 
 class HiveCatalogCache {
@@ -15,10 +19,12 @@ class HiveCatalogCache {
     required Box<dynamic> products,
     required Box<dynamic> customers,
     required Box<dynamic> orders,
+    required Box<dynamic> lots,
     required Box<dynamic> meta,
   }) : _products = products,
        _customers = customers,
        _orders = orders,
+       _lots = lots,
        _meta = meta;
 
   static const schemaVersion = 2;
@@ -26,6 +32,7 @@ class HiveCatalogCache {
   final Box<dynamic> _products;
   final Box<dynamic> _customers;
   final Box<dynamic> _orders;
+  final Box<dynamic> _lots;
   final Box<dynamic> _meta;
 
   static Future<HiveCatalogCache> open({
@@ -35,13 +42,33 @@ class HiveCatalogCache {
     Future<Box<dynamic>> openBox(String name) async {
       final boxName = '$name$nameSuffix';
       if (Hive.isBoxOpen(boxName)) return Hive.box<dynamic>(boxName);
-      return Hive.openBox<dynamic>(boxName, encryptionCipher: cipher);
+      try {
+        return await Hive.openBox<dynamic>(boxName, encryptionCipher: cipher);
+      } catch (error, stack) {
+        debugPrint('Hive open $boxName failed: $error');
+        debugPrint('$stack');
+        try {
+          await Hive.deleteBoxFromDisk(boxName);
+        } catch (_) {}
+        try {
+          return await Hive.openBox<dynamic>(boxName, encryptionCipher: cipher);
+        } catch (error2, stack2) {
+          debugPrint('Hive reopen $boxName failed: $error2');
+          debugPrint('$stack2');
+          return Hive.openBox<dynamic>(
+            '${boxName}__mem',
+            bytes: Uint8List(0),
+            encryptionCipher: cipher,
+          );
+        }
+      }
     }
 
     return HiveCatalogCache(
       products: await openBox(catalogProductsBox),
       customers: await openBox(catalogCustomersBox),
       orders: await openBox(catalogOrdersBox),
+      lots: await openBox(catalogLotsBox),
       meta: await openBox(catalogMetaBox),
     );
   }
@@ -54,6 +81,8 @@ class HiveCatalogCache {
         return _customers;
       case CatalogCollection.orders:
         return _orders;
+      case CatalogCollection.lots:
+        return _lots;
       default:
         throw ArgumentError.value(collection, 'collection');
     }
@@ -146,6 +175,7 @@ class HiveCatalogCache {
       CatalogCollection.products,
       CatalogCollection.customers,
       CatalogCollection.orders,
+      CatalogCollection.lots,
     ]) {
       await _deleteCompanyCollection(companyId, collection);
       await _meta.delete(_syncKey(companyId, collection));
@@ -170,6 +200,7 @@ class HiveCatalogCache {
     await _products.close();
     await _customers.close();
     await _orders.close();
+    await _lots.close();
     await _meta.close();
   }
 }

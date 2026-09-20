@@ -45,9 +45,7 @@ class OrdersPage extends StatelessWidget {
                 ),
                 FilledButton.icon(
                   onPressed: () => _newOrder(context),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 48),
-                  ),
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Nuevo pedido'),
                 ),
@@ -110,7 +108,11 @@ class _EmptyOrders extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.assignment_outlined, color: AppColors.mutedText, size: 40),
+            const Icon(
+              Icons.assignment_outlined,
+              color: AppColors.mutedText,
+              size: 40,
+            ),
             const SizedBox(height: 12),
             Text(
               'No hay pedidos abiertos',
@@ -120,9 +122,9 @@ class _EmptyOrders extends StatelessWidget {
             Text(
               'Creá un pedido y asignalo a un cliente.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.slate,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
             ),
           ],
         ),
@@ -130,4 +132,3 @@ class _EmptyOrders extends StatelessWidget {
     );
   }
 }
-

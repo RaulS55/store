@@ -86,9 +86,6 @@ void main() {
   });
 
   test('OrderStatus.fromStorage rejects an unknown value', () {
-    expect(
-      () => OrderStatus.fromStorage('facturado'),
-      throwsFormatException,
-    );
+    expect(() => OrderStatus.fromStorage('facturado'), throwsFormatException);
   });
 }

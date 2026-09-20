@@ -100,4 +100,51 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets('active orders offer cancel and keep the order if dismissed', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('cancel-order')), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('cancel-order')));
+    await tester.tap(find.byKey(const ValueKey('cancel-order')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cancelar pedido'), findsWidgets);
+    expect(
+      find.text(
+        '¿Cancelar ${order.orderNumber}? El pedido se elimina y el cliente queda libre para uno nuevo.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+
+    expect(store.orders, hasLength(1));
+    expect(store.orderById(order.id), isNotNull);
+    expect(store.orderById(order.id)!.isDeleted, isFalse);
+  });
+
+  testWidgets('closed orders do not offer cancel', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.closeOrder(order.id), isTrue);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('cancel-order')), findsNothing);
+    expect(find.text('Cancelar pedido'), findsNothing);
+  });
 }

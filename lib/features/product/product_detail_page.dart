@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
 import '../../data/formatters.dart';
+import '../../data/session_store.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/product_image.dart';
@@ -54,6 +55,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final canAdd = variant != null && variant.stock > 0;
     final wide = AppBreakpoints.isWide(context);
     final canDelete = canDeleteProduct(context);
+    final canSeeLot = context.watch<SessionStore?>()?.canManageLots ?? false;
+    final lot = canSeeLot && product.hasLot
+        ? store.lotById(product.lotId)
+        : null;
+    final lotLabel = lot?.displayName;
 
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -136,6 +142,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               product: product,
                             )
                           : null,
+                      lotLabel: lotLabel,
                     )
                   else ...[
                     _ProductImagePager(
@@ -218,6 +225,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                     if (product.brand.trim().isNotEmpty)
                       _Attr('Marca', product.brand, Icons.storefront_outlined),
+                    if (lotLabel != null)
+                      _Attr('Montón', lotLabel, Icons.inventory_2_outlined),
                     if (product.sizes.isNotEmpty) ...[
                       _Attr(
                         'Talle en prenda',
@@ -384,6 +393,7 @@ class _WideDetail extends StatelessWidget {
     required this.onAdd,
     required this.onEdit,
     this.onDelete,
+    this.lotLabel,
   });
 
   final Product product;
@@ -399,6 +409,7 @@ class _WideDetail extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onEdit;
   final VoidCallback? onDelete;
+  final String? lotLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -483,6 +494,10 @@ class _WideDetail extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              if (lotLabel != null) ...[
+                const SizedBox(height: 8),
+                _Attr('Montón', lotLabel!, Icons.inventory_2_outlined),
+              ],
               const SizedBox(height: 16),
               if (product.sizes.isNotEmpty) ...[
                 _Attr('Talle en prenda', product.sizeLabel, Icons.straighten),

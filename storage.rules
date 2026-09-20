@@ -16,7 +16,9 @@ service firebase.storage {
     }
 
     match /companies/{companyId}/products/{productId}/{fileName} {
-      allow read: if isMember(companyId);
+      // Image.network loads download URLs without Firebase Auth.
+      allow get: if true;
+      allow list: if isMember(companyId);
       allow create: if isMember(companyId)
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType == 'image/jpeg';

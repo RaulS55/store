@@ -4,11 +4,13 @@ import 'package:flutter/foundation.dart';
 
 Future<void> configureFirebaseForPlatform() async {
   if (!kIsWeb) return;
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: false,
-    webExperimentalForceLongPolling: true,
-    webExperimentalAutoDetectLongPolling: false,
-  );
+  try {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: false,
+      webExperimentalForceLongPolling: true,
+      webExperimentalAutoDetectLongPolling: false,
+    );
+  } catch (_) {}
   try {
     await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
   } catch (_) {}

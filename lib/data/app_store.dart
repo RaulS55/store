@@ -6,11 +6,14 @@ import 'package:flutter/material.dart';
 import '../models/company.dart';
 import '../models/customer.dart';
 import '../models/filters.dart';
+import '../models/lot.dart';
+import '../models/lot_stats.dart';
 import '../models/order.dart';
 import '../models/product.dart';
 import 'customer_access.dart';
 import 'image_access.dart';
 import 'image_compress.dart';
+import 'lot_access.dart';
 import 'order_access.dart';
 import 'product_access.dart';
 
@@ -19,28 +22,34 @@ class AppStore extends ChangeNotifier {
     ProductAccess? products,
     CustomerAccess? customers,
     OrderAccess? orderAccess,
+    LotAccess? lotAccess,
     ImageAccess? images,
     void Function(String message)? log,
   }) : _productAccess = products,
        _customerAccess = customers,
        _orderAccess = orderAccess,
+       _lotAccess = lotAccess,
        _imageAccess = images,
        _log = log ?? debugPrint;
 
   final ProductAccess? _productAccess;
   final CustomerAccess? _customerAccess;
   final OrderAccess? _orderAccess;
+  final LotAccess? _lotAccess;
   final ImageAccess? _imageAccess;
   final void Function(String message) _log;
   StreamSubscription<List<Product>>? _productsSub;
   StreamSubscription<List<Customer>>? _customersSub;
   StreamSubscription<List<DraftOrder>>? _ordersSub;
+  StreamSubscription<List<Lot>>? _lotsSub;
   String? _companyId;
+  bool _watchLots = false;
   final Map<String, Uint8List> _imageBytes = {};
 
   ThemeMode themeMode = ThemeMode.light;
   List<Product> _products = [];
   List<Customer> _customers = [];
+  List<Lot> _lots = [];
   final List<DraftOrder> orders = [];
   final List<DraftOrder> closedOrders = [];
 
@@ -56,6 +65,7 @@ class AppStore extends ChangeNotifier {
   int _orderSeq = 0;
   int _draftSeq = 0;
   int _customerSeq = 0;
+  int _lotSeq = 0;
   String? activeOrderId;
   String? lastAddedOrderId;
 
@@ -65,6 +75,7 @@ class AppStore extends ChangeNotifier {
 
   List<Product> get products => List.unmodifiable(_products);
   List<Customer> get customers => List.unmodifiable(_customers);
+  List<Lot> get lots => List.unmodifiable(_lots);
 
   List<ApparelCategory> get visibleCategories {
     switch (rubro) {
@@ -118,71 +129,108 @@ class AppStore extends ChangeNotifier {
     return result;
   }
 
-  void bindCompany(String? companyId) {
-    if (_companyId == companyId) return;
-    _productsSub?.cancel();
-    _customersSub?.cancel();
-    _ordersSub?.cancel();
-    _productsSub = null;
-    _customersSub = null;
-    _ordersSub = null;
-    _companyId = companyId;
-    _products = [];
-    _customers = [];
-    orders.clear();
-    closedOrders.clear();
-    activeOrderId = null;
-    lastAddedOrderId = null;
-    _orderSeq = 0;
-    _draftSeq = 0;
-    _imageBytes.clear();
-    notifyListeners();
+  void bindCompany(String? companyId, {bool watchLots = false}) {
+    final sameCompany = _companyId == companyId;
+    if (sameCompany && _watchLots == watchLots) return;
+    if (!sameCompany) {
+      _productsSub?.cancel();
+      _customersSub?.cancel();
+      _ordersSub?.cancel();
+      _lotsSub?.cancel();
+      _productsSub = null;
+      _customersSub = null;
+      _ordersSub = null;
+      _lotsSub = null;
+      _companyId = companyId;
+      _products = [];
+      _customers = [];
+      _lots = [];
+      orders.clear();
+      closedOrders.clear();
+      activeOrderId = null;
+      lastAddedOrderId = null;
+      _orderSeq = 0;
+      _draftSeq = 0;
+      _imageBytes.clear();
+      notifyListeners();
+    } else if (_watchLots != watchLots) {
+      _lotsSub?.cancel();
+      _lotsSub = null;
+      if (!watchLots) {
+        _lots = [];
+        notifyListeners();
+      }
+    }
+    _watchLots = watchLots;
     if (companyId == null) return;
-    final productAccess = _productAccess;
-    if (productAccess != null) {
-      _productsSub = productAccess
-          .watchProducts(companyId)
-          .listen(
-            (list) {
-              _products = [
-                for (final product in list)
-                  if (!product.isDeleted) product,
-              ];
-              notifyListeners();
-            },
-            onError: (Object error) {
-              _log('Products watch failed: $error');
-            },
-          );
+    if (!sameCompany) {
+      final productAccess = _productAccess;
+      if (productAccess != null) {
+        _productsSub = productAccess
+            .watchProducts(companyId)
+            .listen(
+              (list) {
+                _products = [
+                  for (final product in list)
+                    if (!product.isDeleted) product,
+                ];
+                notifyListeners();
+              },
+              onError: (Object error) {
+                _log('Products watch failed: $error');
+              },
+            );
+      }
+      final customerAccess = _customerAccess;
+      if (customerAccess != null) {
+        _customersSub = customerAccess
+            .watchCustomers(companyId)
+            .listen(
+              (list) {
+                _customers = [
+                  for (final customer in list)
+                    if (!customer.isDeleted) customer,
+                ];
+                notifyListeners();
+              },
+              onError: (Object error) {
+                _log('Customers watch failed: $error');
+              },
+            );
+      }
+      final orderAccess = _orderAccess;
+      if (orderAccess != null) {
+        _ordersSub = orderAccess
+            .watchOrders(companyId)
+            .listen(
+              _setOrders,
+              onError: (Object error) {
+                _log('Orders watch failed: $error');
+              },
+            );
+      }
     }
-    final customerAccess = _customerAccess;
-    if (customerAccess != null) {
-      _customersSub = customerAccess
-          .watchCustomers(companyId)
-          .listen(
-            (list) {
-              _customers = [
-                for (final customer in list)
-                  if (!customer.isDeleted) customer,
-              ];
-              notifyListeners();
-            },
-            onError: (Object error) {
-              _log('Customers watch failed: $error');
-            },
-          );
-    }
-    final orderAccess = _orderAccess;
-    if (orderAccess != null) {
-      _ordersSub = orderAccess
-          .watchOrders(companyId)
-          .listen(
-            _setOrders,
-            onError: (Object error) {
-              _log('Orders watch failed: $error');
-            },
-          );
-    }
+    if (watchLots) _subscribeLots(companyId);
+  }
+
+  void _subscribeLots(String companyId) {
+    if (_lotsSub != null) return;
+    final lotAccess = _lotAccess;
+    if (lotAccess == null) return;
+    _lotsSub = lotAccess
+        .watchLots(companyId)
+        .listen(
+          (list) {
+            _lots = [
+              for (final lot in list)
+                if (!lot.isDeleted) lot,
+            ];
+            notifyListeners();
+          },
+          onError: (Object error) {
+            _log('Lots watch failed: $error');
+          },
+        );
   }
 
   void _setOrders(List<DraftOrder> list) {
@@ -279,6 +327,23 @@ class AppStore extends ChangeNotifier {
     final access = _customerAccess;
     if (companyId == null || access == null) return;
     await access.saveCustomer(companyId, customer);
+  }
+
+  Lot _stampLot(Lot lot) {
+    final now = DateTime.now().toUtc();
+    final existing = lotById(lot.id);
+    return lot.copyWith(
+      createdAt: existing?.createdAt ?? lot.createdAt,
+      updatedAt: now,
+      deletedAt: existing?.deletedAt ?? lot.deletedAt,
+    );
+  }
+
+  Future<void> _persistLot(Lot lot) async {
+    final companyId = _companyId;
+    final access = _lotAccess;
+    if (companyId == null || access == null) return;
+    await access.saveLot(companyId, lot);
   }
 
   void _syncCustomerInOrders(Customer customer) {
@@ -489,6 +554,22 @@ class AppStore extends ChangeNotifier {
       if (customer.id == id) return customer;
     }
     return null;
+  }
+
+  Lot? lotById(String id) {
+    if (id.trim().isEmpty) return null;
+    for (final lot in _lots) {
+      if (lot.id == id) return lot;
+    }
+    return null;
+  }
+
+  LotStats statsForLot(Lot lot) {
+    return computeLotStats(
+      lot: lot,
+      products: _products,
+      closedOrders: closedOrders,
+    );
   }
 
   DraftOrder? orderById(String id) {
@@ -791,6 +872,29 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> upsertLot(Lot lot) async {
+    final next = _stampLot(lot);
+    final index = _lots.indexWhere((item) => item.id == next.id);
+    if (index >= 0) {
+      _lots[index] = next;
+    } else {
+      _lots.insert(0, next);
+    }
+    notifyListeners();
+    await _persistLot(next);
+  }
+
+  Future<void> deleteLot(String lotId) async {
+    final existing = lotById(lotId);
+    if (existing == null) return;
+    final next = _stampLot(
+      existing.copyWith(deletedAt: DateTime.now().toUtc()),
+    );
+    await _persistLot(next);
+    _lots.removeWhere((lot) => lot.id == lotId);
+    notifyListeners();
+  }
+
   String? _blankToNull(String? value) {
     final trimmed = value?.trim();
     if (trimmed == null || trimmed.isEmpty) return null;
@@ -944,6 +1048,28 @@ class AppStore extends ChangeNotifier {
     return true;
   }
 
+  Future<bool> deleteOrder(String orderId) async {
+    final order = orderById(orderId);
+    if (order == null || order.isClosed || order.isDeleted) return false;
+    final previousDeletedAt = order.deletedAt;
+    order.deletedAt = DateTime.now().toUtc();
+    try {
+      await _persistOrder(order);
+    } catch (_) {
+      order.deletedAt = previousDeletedAt;
+      rethrow;
+    }
+    orders.removeWhere((item) => item.id == orderId);
+    if (activeOrderId == orderId) {
+      activeOrderId = orders.isEmpty ? null : orders.first.id;
+    }
+    if (lastAddedOrderId == orderId) {
+      lastAddedOrderId = null;
+    }
+    notifyListeners();
+    return true;
+  }
+
   String nextSku() {
     final n = _products.length + 1;
     return 'MS-${n.toString().padLeft(4, '0')}';
@@ -978,11 +1104,22 @@ class AppStore extends ChangeNotifier {
     return 'o$_draftSeq';
   }
 
+  String nextLotId() {
+    final companyId = _companyId;
+    final access = _lotAccess;
+    if (companyId != null && access != null) {
+      return access.nextLotId(companyId);
+    }
+    _lotSeq += 1;
+    return 'l$_lotSeq';
+  }
+
   @override
   void dispose() {
     _productsSub?.cancel();
     _customersSub?.cancel();
     _ordersSub?.cancel();
+    _lotsSub?.cancel();
     super.dispose();
   }
 }

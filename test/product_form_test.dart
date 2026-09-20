@@ -5,13 +5,16 @@ import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 import 'package:store_app/data/app_store.dart';
 import 'package:store_app/data/picked_image_file.dart';
+import 'package:store_app/data/session_store.dart';
 import 'package:store_app/features/product/product_form_page.dart';
 import 'package:store_app/models/company.dart';
+import 'package:store_app/models/company_role.dart';
 import 'package:store_app/models/product.dart';
 
 import 'fakes/catalog_harness.dart';
 import 'fakes/fake_image_access.dart';
 import 'fakes/fake_product_access.dart';
+import 'fakes/session_harness.dart';
 
 Finder _fieldWithHint(String hint) {
   return find.byWidgetPredicate(
@@ -22,13 +25,17 @@ Finder _fieldWithHint(String hint) {
 Widget _formApp(
   AppStore store, {
   String? productId,
+  SessionStore? session,
   Future<List<PickedImageFile>> Function({required int limit})? pickImages,
 }) {
   final form = pickImages == null
       ? ProductFormPage(id: productId)
       : ProductFormPage(id: productId, pickImages: pickImages);
-  return ChangeNotifierProvider.value(
-    value: store,
+  return MultiProvider(
+    providers: [
+      ChangeNotifierProvider.value(value: store),
+      if (session != null) ChangeNotifierProvider.value(value: session),
+    ],
     child: MaterialApp(home: Scaffold(body: form)),
   );
 }
@@ -299,6 +306,47 @@ void main() {
       'Image compress start originalBytes=${original.lengthInBytes}',
     ]);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('owner can assign a lot on the product form', (tester) async {
+    _setTallView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertLot(testLot(id: 'l1', name: 'Lote feria'));
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+
+    await tester.pumpWidget(_formApp(store, session: session));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('product-lot')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('product-lot')));
+    await tester.pumpAndSettle();
+    expect(find.text('Lote feria').hitTestable(), findsWidgets);
+  });
+
+  testWidgets('employee form hides the lot and keeps it on save', (
+    tester,
+  ) async {
+    _setTallView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct(id: 'p-own', lotId: 'l1'));
+    final session = await signedInMemberSession(role: CompanyRole.employee);
+    addTearDown(session.dispose);
+
+    await tester.pumpWidget(
+      _formApp(store, productId: 'p-own', session: session),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('product-lot')), findsNothing);
+
+    await tester.ensureVisible(find.text('Guardar prenda'));
+    await tester.tap(find.text('Guardar prenda'));
+    await tester.pump();
+
+    expect(store.productById('p-own')!.lotId, 'l1');
   });
 }
 

@@ -54,10 +54,7 @@ void main() {
     await store.setCustomerPhone(customer.id, '+54 9 11 9999-0000');
     expect(store.customerById(customer.id)!.phone, '+54 9 11 9999-0000');
     expect(order.customer.phone, '+54 9 11 9999-0000');
-    expect(
-      access.customers['co1']![customer.id]!.phone,
-      '+54 9 11 9999-0000',
-    );
+    expect(access.customers['co1']![customer.id]!.phone, '+54 9 11 9999-0000');
   });
 
   test('deleteCustomer soft-deletes and leaves the live list', () async {

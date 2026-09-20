@@ -47,7 +47,9 @@ class SettingsPage extends StatelessWidget {
           ),
           const ListTile(
             title: Text('Datos'),
-            subtitle: Text('Catálogo, clientes y pedidos se guardan en la empresa'),
+            subtitle: Text(
+              'Catálogo, clientes y pedidos se guardan en la empresa',
+            ),
           ),
         ],
       ),

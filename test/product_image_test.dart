@@ -49,16 +49,8 @@ void main() {
       const MaterialApp(
         home: Column(
           children: [
-            SizedBox(
-              width: 80,
-              height: 80,
-              child: ProductImage(path: url),
-            ),
-            SizedBox(
-              width: 400,
-              height: 240,
-              child: ProductImage(path: url),
-            ),
+            SizedBox(width: 80, height: 80, child: ProductImage(path: url)),
+            SizedBox(width: 400, height: 240, child: ProductImage(path: url)),
           ],
         ),
       ),

@@ -12,7 +12,10 @@ Future<void> _flush() => Future<void>.delayed(Duration.zero);
 void main() {
   test('createOrder writes a document with sync fields', () async {
     final access = FakeOrderAccess();
-    final store = AppStore(orderAccess: access, customers: FakeCustomerAccess());
+    final store = AppStore(
+      orderAccess: access,
+      customers: FakeCustomerAccess(),
+    );
     addTearDown(store.dispose);
     store.bindCompany('co1');
     await _flush();
@@ -120,7 +123,10 @@ void main() {
     addTearDown(other.dispose);
     other.bindCompany('co1');
     await _flush();
-    expect(other.orders.map((item) => item.orderNumber), containsAll(['PED-1', 'PED-2']));
+    expect(
+      other.orders.map((item) => item.orderNumber),
+      containsAll(['PED-1', 'PED-2']),
+    );
     final nextCustomer = await seedTestCustomer(
       other,
       customer: testCustomer(id: 'c-3', name: 'Luis Gómez'),
@@ -131,7 +137,10 @@ void main() {
 
   test('customer rename copies into persisted orders', () async {
     final access = FakeOrderAccess();
-    final store = AppStore(orderAccess: access, customers: FakeCustomerAccess());
+    final store = AppStore(
+      orderAccess: access,
+      customers: FakeCustomerAccess(),
+    );
     addTearDown(store.dispose);
     store.bindCompany('co1');
     await _flush();
@@ -154,31 +163,37 @@ void main() {
     expect(store.orders, hasLength(1));
   });
 
-  test('createOrder opens a new order after the previous one is closed', () async {
-    final store = AppStore(products: FakeProductAccess());
-    addTearDown(store.dispose);
-    final order = await seedTestOrder(store);
-    expect(store.closeOrder(order.id), isTrue);
-    final next = store.createOrder(order.customer);
-    expect(next.id, isNot(order.id));
-    expect(next.isActive, isTrue);
-    expect(store.orders, hasLength(1));
-  });
+  test(
+    'createOrder opens a new order after the previous one is closed',
+    () async {
+      final store = AppStore(products: FakeProductAccess());
+      addTearDown(store.dispose);
+      final order = await seedTestOrder(store);
+      expect(store.closeOrder(order.id), isTrue);
+      final next = store.createOrder(order.customer);
+      expect(next.id, isNot(order.id));
+      expect(next.isActive, isTrue);
+      expect(store.orders, hasLength(1));
+    },
+  );
 
-  test('selectCustomer rejects a customer who already has an open order', () async {
-    final store = AppStore();
-    addTearDown(store.dispose);
-    final monica = await seedTestCustomer(store);
-    final ana = await seedTestCustomer(
-      store,
-      customer: testCustomer(id: 'c-ana', name: 'Ana López'),
-    );
-    final monicaOrder = store.createOrder(monica);
-    final anaOrder = store.createOrder(ana);
-    expect(store.selectCustomer(anaOrder.id, monica), isFalse);
-    expect(anaOrder.customer.id, ana.id);
-    expect(store.openOrderForCustomer(monica.id)?.id, monicaOrder.id);
-  });
+  test(
+    'selectCustomer rejects a customer who already has an open order',
+    () async {
+      final store = AppStore();
+      addTearDown(store.dispose);
+      final monica = await seedTestCustomer(store);
+      final ana = await seedTestCustomer(
+        store,
+        customer: testCustomer(id: 'c-ana', name: 'Ana López'),
+      );
+      final monicaOrder = store.createOrder(monica);
+      final anaOrder = store.createOrder(ana);
+      expect(store.selectCustomer(anaOrder.id, monica), isFalse);
+      expect(anaOrder.customer.id, ana.id);
+      expect(store.openOrderForCustomer(monica.id)?.id, monicaOrder.id);
+    },
+  );
 
   test('addToOrder remembers the last order a product was added to', () async {
     final store = AppStore();
@@ -193,11 +208,84 @@ void main() {
     final first = store.createOrder(monica);
     final second = store.createOrder(ana);
     store.setActiveOrder(first.id);
-    expect(store.addToOrder(product, product.variants.first, orderId: second.id), isTrue);
+    expect(
+      store.addToOrder(product, product.variants.first, orderId: second.id),
+      isTrue,
+    );
     expect(store.lastAddedOrderId, second.id);
     expect(store.addTargetOrders.first.id, second.id);
     expect(store.addTargetOrders.map((item) => item.id), [second.id, first.id]);
     store.setActiveOrder(first.id);
     expect(store.addTargetOrders.first.id, second.id);
   });
+
+  test(
+    'deleteOrder soft-deletes an open order and frees the customer',
+    () async {
+      final access = FakeOrderAccess();
+      final store = AppStore(
+        orderAccess: access,
+        customers: FakeCustomerAccess(),
+        products: FakeProductAccess(),
+      );
+      addTearDown(store.dispose);
+      store.bindCompany('co1');
+      await _flush();
+      final order = await seedTestOrder(store);
+      await _flush();
+      final product = store.productById('p-test')!;
+      final stockBefore = product.variants.first.stock;
+      store.setActiveOrder(order.id);
+
+      expect(await store.deleteOrder(order.id), isTrue);
+      await _flush();
+
+      expect(store.orders, isEmpty);
+      expect(store.closedOrders, isEmpty);
+      expect(store.orderById(order.id), isNull);
+      expect(store.openOrderForCustomer(order.customer.id), isNull);
+      expect(store.activeOrderId, isNull);
+      expect(store.lastAddedOrderId, isNull);
+      expect(store.productById('p-test')!.variants.first.stock, stockBefore);
+      final saved = access.orders['co1']![order.id]!;
+      expect(saved.deletedAt, isNotNull);
+      expect(saved.isDeleted, isTrue);
+      expect(saved.status, OrderStatus.borrador);
+
+      final next = store.createOrder(order.customer);
+      expect(next.id, isNot(order.id));
+      expect(next.isActive, isTrue);
+      expect(store.orders, hasLength(1));
+    },
+  );
+
+  test(
+    'deleteOrder ignores closed orders and leaves stock unchanged',
+    () async {
+      final access = FakeOrderAccess();
+      final store = AppStore(
+        orderAccess: access,
+        customers: FakeCustomerAccess(),
+        products: FakeProductAccess(),
+      );
+      addTearDown(store.dispose);
+      store.bindCompany('co1');
+      await _flush();
+      final order = await seedTestOrder(store);
+      await _flush();
+      expect(store.closeOrder(order.id), isTrue);
+      await _flush();
+      final stockAfterClose = store.productById('p-test')!.variants.first.stock;
+
+      expect(await store.deleteOrder(order.id), isFalse);
+      await _flush();
+      expect(store.closedOrders.any((item) => item.id == order.id), isTrue);
+      expect(store.orderById(order.id)!.isDeleted, isFalse);
+      expect(access.orders['co1']![order.id]!.deletedAt, isNull);
+      expect(
+        store.productById('p-test')!.variants.first.stock,
+        stockAfterClose,
+      );
+    },
+  );
 }
