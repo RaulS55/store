@@ -238,7 +238,8 @@ service cloud.firestore {
       }
 
       match /products/{productId} {
-        allow read: if isMember(companyId) || isPublicProduct();
+        allow get: if isPublicProduct() || isMember(companyId);
+        allow list: if resource.data.deletedAt == null || isMember(companyId);
         allow create: if isMember(companyId)
           && hasSyncFields(productId)
           && (

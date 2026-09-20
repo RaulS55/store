@@ -10,26 +10,31 @@ import '../models/lot.dart';
 import '../models/lot_stats.dart';
 import '../models/order.dart';
 import '../models/product.dart';
+import '../models/product_filter.dart';
 import 'customer_access.dart';
 import 'image_access.dart';
 import 'image_compress.dart';
 import 'lot_access.dart';
 import 'order_access.dart';
 import 'product_access.dart';
+import 'product_filter_host.dart';
+import 'product_image_cache.dart';
 
-class AppStore extends ChangeNotifier {
+class AppStore extends ChangeNotifier implements ProductFilterHost {
   AppStore({
     ProductAccess? products,
     CustomerAccess? customers,
     OrderAccess? orderAccess,
     LotAccess? lotAccess,
     ImageAccess? images,
+    ProductImageCache? imageCache,
     void Function(String message)? log,
   }) : _productAccess = products,
        _customerAccess = customers,
        _orderAccess = orderAccess,
        _lotAccess = lotAccess,
        _imageAccess = images,
+       _imageCache = imageCache ?? ProductImageCache(),
        _log = log ?? debugPrint;
 
   final ProductAccess? _productAccess;
@@ -37,6 +42,7 @@ class AppStore extends ChangeNotifier {
   final OrderAccess? _orderAccess;
   final LotAccess? _lotAccess;
   final ImageAccess? _imageAccess;
+  final ProductImageCache _imageCache;
   final void Function(String message) _log;
   StreamSubscription<List<Product>>? _productsSub;
   StreamSubscription<List<Customer>>? _customersSub;
@@ -44,7 +50,6 @@ class AppStore extends ChangeNotifier {
   StreamSubscription<List<Lot>>? _lotsSub;
   String? _companyId;
   bool _watchLots = false;
-  final Map<String, Uint8List> _imageBytes = {};
 
   ThemeMode themeMode = ThemeMode.light;
   List<Product> _products = [];
@@ -54,8 +59,11 @@ class AppStore extends ChangeNotifier {
   final List<DraftOrder> closedOrders = [];
 
   String searchQuery = '';
+  @override
   ApparelCategory? chipCategory;
+  @override
   ApparelAudience? chipAudience;
+  @override
   ProductFilters filters = const ProductFilters();
   StockViewMode viewMode = StockViewMode.cards;
   StockSort sort = StockSort.recent;
@@ -73,10 +81,13 @@ class AppStore extends ChangeNotifier {
   double ivaPercent = 21;
   CompanyRubro rubro = CompanyRubro.ambos;
 
+  ProductImageCache get imageCache => _imageCache;
+
   List<Product> get products => List.unmodifiable(_products);
   List<Customer> get customers => List.unmodifiable(_customers);
   List<Lot> get lots => List.unmodifiable(_lots);
 
+  @override
   List<ApparelCategory> get visibleCategories {
     switch (rubro) {
       case CompanyRubro.ropa:
@@ -151,7 +162,6 @@ class AppStore extends ChangeNotifier {
       lastAddedOrderId = null;
       _orderSeq = 0;
       _draftSeq = 0;
-      _imageBytes.clear();
       notifyListeners();
     } else if (_watchLots != watchLots) {
       _lotsSub?.cancel();
@@ -174,6 +184,7 @@ class AppStore extends ChangeNotifier {
                   for (final product in list)
                     if (!product.isDeleted) product,
                 ];
+                unawaited(_imageCache.prefetchProductImages(_products));
                 notifyListeners();
               },
               onError: (Object error) {
@@ -389,18 +400,8 @@ class AppStore extends ChangeNotifier {
 
   int get cartCount => orders.fold(0, (sum, order) => sum + order.itemCount);
 
-  List<String> get allBrands {
-    final seen = <String>{};
-    final list = <String>[];
-    for (final product in _products) {
-      final brand = product.brand.trim();
-      if (brand.isEmpty) continue;
-      if (!seen.add(brand.toLowerCase())) continue;
-      list.add(brand);
-    }
-    list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    return list;
-  }
+  @override
+  List<String> get allBrands => brandsOf(_products);
 
   List<String> brandSuggestions(String query) {
     final q = query.trim().toLowerCase();
@@ -421,82 +422,25 @@ class AppStore extends ChangeNotifier {
     return query;
   }
 
-  List<String> get allSizes {
-    const preferred = ApparelSizes.all;
-    final extra = <String>{for (final product in _products) ...product.sizes};
-    return [
-      ...preferred.where(extra.contains),
-      ...extra.where((s) => !preferred.contains(s)).toList()..sort(),
-    ];
-  }
+  @override
+  List<String> get allSizes => sizesOf(_products);
 
-  List<SwatchColor> get allColors {
-    final seen = <String>{};
-    final list = <SwatchColor>[];
-    for (final product in _products) {
-      for (final color in product.colors) {
-        if (seen.add(color.name)) list.add(color);
-      }
-    }
-    return list;
-  }
+  @override
+  List<SwatchColor> get allColors => colorsOf(_products);
 
   List<Product> get filteredProducts {
-    final q = searchQuery.trim().toLowerCase();
-    var list = _products.where((product) {
-      if (q.isNotEmpty) {
-        final hay =
-            '${product.name} ${product.sku} ${product.brand} ${product.audienceLabel}'
-                .toLowerCase();
-        if (!hay.contains(q)) return false;
-      }
-      final category = product.category;
-      if (category != null && !visibleCategories.contains(category)) {
-        return false;
-      }
-      if (chipCategory != null &&
-          category != chipCategory &&
-          category?.chipFamily != chipCategory) {
-        return false;
-      }
-      if (filters.categories.isNotEmpty &&
-          (category == null || !filters.categories.contains(category))) {
-        return false;
-      }
-      if (chipAudience != null && product.audience != chipAudience) {
-        return false;
-      }
-      if (filters.audiences.isNotEmpty &&
-          (product.audience == null ||
-              !filters.audiences.contains(product.audience))) {
-        return false;
-      }
-      if (filters.sizes.isNotEmpty &&
-          product.sizes.toSet().intersection(filters.sizes).isEmpty) {
-        return false;
-      }
-      if (filters.colorNames.isNotEmpty &&
-          product.colors
-              .map((c) => c.name)
-              .toSet()
-              .intersection(filters.colorNames)
-              .isEmpty) {
-        return false;
-      }
-      if (filters.brands.isNotEmpty &&
-          (product.brand.trim().isEmpty ||
-              !filters.brands.contains(product.brand))) {
-        return false;
-      }
-      if (filters.onlyLowStock && !product.isLowStock) return false;
-      if (filters.minPrice != null && product.price < filters.minPrice!) {
-        return false;
-      }
-      if (filters.maxPrice != null && product.price > filters.maxPrice!) {
-        return false;
-      }
-      return true;
-    }).toList();
+    var list = _products
+        .where(
+          (product) => matchesProductFilters(
+            product: product,
+            searchQuery: searchQuery,
+            visibleCategories: visibleCategories,
+            chipCategory: chipCategory,
+            chipAudience: chipAudience,
+            filters: filters,
+          ),
+        )
+        .toList();
 
     list.sort((a, b) {
       switch (sort) {
@@ -657,24 +601,28 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
   void selectChipCategory(ApparelCategory? category) {
     chipCategory = category;
     page = 0;
     notifyListeners();
   }
 
+  @override
   void selectChipAudience(ApparelAudience? audience) {
     chipAudience = audience;
     page = 0;
     notifyListeners();
   }
 
+  @override
   void applyFilters(ProductFilters next) {
     filters = next;
     page = 0;
     notifyListeners();
   }
 
+  @override
   void clearFilters() {
     filters = const ProductFilters();
     chipCategory = null;
@@ -720,7 +668,7 @@ class AppStore extends ChangeNotifier {
     await _persist(next);
     _products.removeWhere((product) => product.id == productId);
     for (final url in existing.images) {
-      _imageBytes.remove(url);
+      _imageCache.remove(url);
     }
     notifyListeners();
     final companyId = _companyId;
@@ -765,11 +713,11 @@ class AppStore extends ChangeNotifier {
       bytes: bytes,
       contentType: 'image/jpeg',
     );
-    _imageBytes[url] = bytes;
+    unawaited(_imageCache.put(url, bytes));
     return url;
   }
 
-  Uint8List? cachedProductImage(String url) => _imageBytes[url];
+  Uint8List? cachedProductImage(String url) => _imageCache.peek(url);
 
   void updateVariantStock(
     String productId,

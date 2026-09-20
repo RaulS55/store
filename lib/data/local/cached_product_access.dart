@@ -9,6 +9,8 @@ class CachedProductAccess implements ProductAccess {
     required IncrementalProductAccess remote,
     required HiveCatalogCache cache,
     void Function(String message)? log,
+    bool publicSafe = false,
+    Duration publicStaleAfter = const Duration(minutes: 5),
   }) : _remote = remote,
        _cached = CachedCatalogAccess<Product>(
          cache: cache,
@@ -21,6 +23,8 @@ class CachedProductAccess implements ProductAccess {
          watchChanged: remote.watchChanged,
          saveRemote: remote.saveProduct,
          log: log,
+         publicSafe: publicSafe,
+         publicStaleAfter: publicStaleAfter,
        );
 
   final IncrementalProductAccess _remote;

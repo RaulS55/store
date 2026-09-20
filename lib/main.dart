@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -30,22 +31,27 @@ import 'data/session_store.dart';
 import 'features/auth/loading_page.dart';
 import 'firebase_options.dart';
 import 'models/company.dart';
+import 'routing/app_entry.dart';
 import 'routing/app_router.dart';
 import 'theme/app_theme.dart';
 import 'widgets/brand_logo.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final entryLocation = appEntryLocation();
+  usePathUrlStrategy();
   GoogleFonts.config.allowRuntimeFetching = false;
   LicenseRegistry.addLicense(() async* {
     final license = await rootBundle.loadString('google_fonts/OFL.txt');
     yield LicenseEntryWithLineBreaks(['google_fonts'], license);
   });
-  runApp(const ModaStockApp());
+  runApp(ModaStockApp(entryLocation: entryLocation));
 }
 
 class ModaStockApp extends StatefulWidget {
-  const ModaStockApp({super.key});
+  const ModaStockApp({super.key, this.entryLocation = '/'});
+
+  final String entryLocation;
 
   @override
   State<ModaStockApp> createState() => _ModaStockAppState();
@@ -86,6 +92,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
       await configureFirebaseForPlatform();
       step = 'cache';
       final cache = await openEncryptedCatalogCache();
+      final imageCache = await openProductImageCache();
       final cartCache = HiveCatalogCartCache();
       await cartCache.ensureOpen();
       step = 'tienda';
@@ -99,19 +106,32 @@ class _ModaStockAppState extends State<ModaStockApp> {
         orderAccess: CachedOrderAccess(remote: orderAccess, cache: cache),
         lotAccess: CachedLotAccess(remote: FirestoreLotAccess(), cache: cache),
         images: FirebaseImageAccess(),
+        imageCache: imageCache,
       );
       session = SessionStore(auth: FirebaseAuthClient(), access: companyAccess);
       catalog = CatalogBindings(
         companies: companyAccess,
-        products: productAccess,
+        products: CachedProductAccess(
+          remote: productAccess,
+          cache: cache,
+          publicSafe: true,
+        ),
         customers: customerAccess,
         orders: orderAccess,
         cart: cartCache,
+        images: imageCache,
       );
       session.addListener(_bindCatalog);
       session.start();
       step = 'navegación';
-      final router = createRouter(session);
+      final entry = widget.entryLocation.trim().isEmpty
+          ? '/'
+          : widget.entryLocation;
+      final router = createRouter(
+        session,
+        initialLocation: entry,
+        overridePlatformDefaultLocation: entry != '/',
+      );
       if (!mounted) {
         session.removeListener(_bindCatalog);
         session.dispose();
@@ -189,23 +209,13 @@ class _ModaStockAppState extends State<ModaStockApp> {
     final catalog = _catalog;
     final router = _router;
     if (store == null || session == null || catalog == null || router == null) {
-      // Web uses the URL as initialRoute; this boot app has no named routes.
       return MaterialApp(
         title: 'Moda Stock',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
-        builder: (context, child) {
-          if (_bootFailed) {
-            return _BootErrorPage(detail: _bootError, onRetry: _retryBoot);
-          }
-          return const LoadingPage();
-        },
-        onGenerateRoute: (settings) {
-          return MaterialPageRoute<void>(
-            settings: settings,
-            builder: (_) => const SizedBox.shrink(),
-          );
-        },
+        home: _bootFailed
+            ? _BootErrorPage(detail: _bootError, onRetry: _retryBoot)
+            : const LoadingPage(),
       );
     }
     return MultiProvider(
@@ -213,6 +223,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
         ChangeNotifierProvider.value(value: store),
         ChangeNotifierProvider.value(value: session),
         Provider.value(value: catalog),
+        Provider.value(value: store.imageCache),
       ],
       child: Selector<AppStore, ThemeMode>(
         selector: (_, store) => store.themeMode,

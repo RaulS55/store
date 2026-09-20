@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/data/catalog_guest_store.dart';
 import 'package:store_app/data/local/catalog_cart_cache.dart';
 import 'package:store_app/data/order_share.dart';
+import 'package:store_app/data/product_access.dart';
 import 'package:store_app/data/session_exception.dart';
 import 'package:store_app/models/company.dart';
+import 'package:store_app/models/filters.dart';
 import 'package:store_app/models/product.dart';
 import 'package:store_app/models/record_source.dart';
 
@@ -181,4 +185,117 @@ void main() {
     expect(result.whatsappUri, isNull);
     expect(orders.orders['co1'], isNotEmpty);
   });
+
+  test('catalog stops loading if company and products never arrive', () async {
+    final products = _HangingProductAccess();
+    final store = CatalogGuestStore(
+      companyId: 'co1',
+      companies: _HangingCompanyAccess(),
+      products: products,
+      customers: FakeCustomerAccess(),
+      orders: FakeOrderAccess(),
+      loadTimeout: const Duration(milliseconds: 20),
+    );
+    addTearDown(() {
+      store.dispose();
+      products.close();
+    });
+    await store.ready;
+    expect(store.isLoading, isFalse);
+    expect(store.notFound, isTrue);
+  });
+
+  test('catalog stops loading if the company lookup throws', () async {
+    final products = FakeProductAccess();
+    await products.saveProduct('co1', testProduct());
+    final store = CatalogGuestStore(
+      companyId: 'co1',
+      companies: _ThrowingCompanyAccess(),
+      products: products,
+      customers: FakeCustomerAccess(),
+      orders: FakeOrderAccess(),
+      loadTimeout: const Duration(milliseconds: 50),
+    );
+    addTearDown(store.dispose);
+    await store.ready;
+    expect(store.isLoading, isFalse);
+    expect(store.notFound, isTrue);
+  });
+
+  test(
+    'guest catalog applies the same category and audience filters',
+    () async {
+      final companies = FakeCompanyAccess()..companies['co1'] = _company();
+      final products = FakeProductAccess();
+      await products.saveProduct(
+        'co1',
+        testProduct(
+          id: 'p-m',
+          name: 'Remera mujer',
+          audience: ApparelAudience.mujer,
+        ),
+      );
+      await products.saveProduct(
+        'co1',
+        testProduct(
+          id: 'p-h',
+          name: 'Jean hombre',
+          sku: 'TST-0002',
+          category: ApparelCategory.jeans,
+          audience: ApparelAudience.hombre,
+        ),
+      );
+      final store = await _store(
+        companies: companies,
+        products: products,
+        customers: FakeCustomerAccess(),
+        orders: FakeOrderAccess(),
+      );
+      addTearDown(store.dispose);
+
+      expect(store.visibleProducts.map((p) => p.id).toSet(), {'p-h', 'p-m'});
+
+      store.selectChipCategory(ApparelCategory.remeras);
+      expect(store.visibleProducts.map((p) => p.id), ['p-m']);
+
+      store.selectChipCategory(null);
+      store.selectChipAudience(ApparelAudience.hombre);
+      expect(store.visibleProducts.map((p) => p.id), ['p-h']);
+
+      store.clearFilters();
+      store.applyFilters(const ProductFilters(sizes: {'M'}));
+      expect(store.visibleProducts.map((p) => p.id).toSet(), {'p-m', 'p-h'});
+    },
+  );
+}
+
+class _HangingCompanyAccess extends FakeCompanyAccess {
+  final _pending = Completer<Company?>();
+
+  @override
+  Future<Company?> getCompany(String companyId) => _pending.future;
+}
+
+class _ThrowingCompanyAccess extends FakeCompanyAccess {
+  @override
+  Future<Company?> getCompany(String companyId) {
+    throw Exception('unavailable');
+  }
+}
+
+class _HangingProductAccess implements ProductAccess {
+  final _controller = StreamController<List<Product>>.broadcast();
+
+  @override
+  String nextProductId(String companyId) => 'p-hang';
+
+  @override
+  Stream<List<Product>> watchProducts(String companyId) => _controller.stream;
+
+  @override
+  Future<void> saveProduct(String companyId, Product product) async {}
+
+  void close() {
+    _controller.close();
+  }
 }

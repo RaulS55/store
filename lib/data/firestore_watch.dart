@@ -64,7 +64,10 @@ Stream<List<T>> watchFirestoreQuery<T>({
   }
 
   controller = StreamController<List<T>>(
-    onListen: listen,
+    onListen: () {
+      unawaited(emitFromGet());
+      listen();
+    },
     onCancel: () => sub?.cancel(),
   );
   return controller.stream;

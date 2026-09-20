@@ -4,6 +4,7 @@ import 'customer_access.dart';
 import 'local/catalog_cart_cache.dart';
 import 'order_access.dart';
 import 'product_access.dart';
+import 'product_image_cache.dart';
 
 class CatalogBindings {
   CatalogBindings({
@@ -12,6 +13,7 @@ class CatalogBindings {
     required this.customers,
     required this.orders,
     CatalogCartCache? cart,
+    this.images,
   }) : cart = cart ?? MemoryCatalogCartCache();
 
   final CompanyAccess companies;
@@ -19,6 +21,7 @@ class CatalogBindings {
   final CustomerAccess customers;
   final OrderAccess orders;
   final CatalogCartCache cart;
+  final ProductImageCache? images;
   final _stores = <String, CatalogGuestStore>{};
 
   CatalogGuestStore storeFor(String companyId) {
@@ -31,6 +34,7 @@ class CatalogBindings {
         customers: customers,
         orders: orders,
         cart: cart,
+        images: images,
       ),
     );
   }

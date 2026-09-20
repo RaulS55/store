@@ -23,9 +23,14 @@ import '../features/stock/stock_page.dart';
 import '../features/team/team_page.dart';
 import '../widgets/app_shell.dart';
 
-GoRouter createRouter(SessionStore session) {
+GoRouter createRouter(
+  SessionStore session, {
+  String initialLocation = '/',
+  bool overridePlatformDefaultLocation = false,
+}) {
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: initialLocation,
+    overridePlatformDefaultLocation: overridePlatformDefaultLocation,
     refreshListenable: session,
     redirect: (context, state) => sessionRedirect(session, state.uri.path),
     routes: [

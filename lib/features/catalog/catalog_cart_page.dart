@@ -38,14 +38,19 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
   @override
   void initState() {
     super.initState();
-    _name = TextEditingController();
+    _name = TextEditingController()..addListener(_onNameChanged);
   }
 
   @override
   void dispose() {
+    _name.removeListener(_onNameChanged);
     _name.dispose();
     super.dispose();
   }
+
+  void _onNameChanged() => setState(() {});
+
+  bool get _hasName => _name.text.trim().length >= 2;
 
   Future<void> _send() async {
     final store = context.read<CatalogGuestStore>();
@@ -178,7 +183,9 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
                     width: double.infinity,
                     child: FilledButton.icon(
                       key: const ValueKey('catalog-send'),
-                      onPressed: lines.isEmpty || store.isBusy ? null : _send,
+                      onPressed: lines.isEmpty || store.isBusy || !_hasName
+                          ? null
+                          : _send,
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.whatsapp,
                         disabledBackgroundColor: AppColors.whatsapp.withValues(

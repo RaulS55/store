@@ -12,6 +12,8 @@ Future<void> configureFirebaseForPlatform() async {
     );
   } catch (_) {}
   try {
-    await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+    await FirebaseAuth.instance
+        .setPersistence(Persistence.LOCAL)
+        .timeout(const Duration(seconds: 2));
   } catch (_) {}
 }

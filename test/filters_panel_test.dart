@@ -35,7 +35,7 @@ Widget _app(AppStore store) {
     value: store,
     child: MaterialApp(
       theme: AppTheme.light(),
-      home: const Scaffold(body: FiltersEditor()),
+      home: Scaffold(body: FiltersEditor(host: store)),
     ),
   );
 }

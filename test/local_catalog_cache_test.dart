@@ -161,6 +161,27 @@ void main() {
       );
     });
 
+    test('replaceActive drops docs missing from the remote snapshot', () async {
+      final keep = testProduct(id: 'p1', createdAt: early);
+      final gone = testProduct(id: 'p2', createdAt: early);
+      await cache.upsertAll(companyId, CatalogCollection.products, [
+        keep.toMap(),
+        gone.toMap(),
+      ]);
+
+      await cache.replaceActive(companyId, CatalogCollection.products, [
+        keep.copyWith(name: 'Vigente').toMap(),
+      ]);
+
+      final loaded = await cache.loadActive(
+        companyId,
+        CatalogCollection.products,
+      );
+      expect(loaded, hasLength(1));
+      expect(loaded.single['id'], 'p1');
+      expect(loaded.single['name'], 'Vigente');
+    });
+
     test('open reuses boxes already open', () async {
       final again = await HiveCatalogCache.open(
         cipher: HiveAesCipher(Hive.generateSecureKey()),
@@ -267,6 +288,71 @@ void main() {
       expect(local.single['id'], 'p1');
       expect(remote.products[companyId]!['p1']!.id, 'p1');
       expect(cache.lastSyncAt(companyId, CatalogCollection.products), late);
+    });
+
+    test('public catalog skips Firestore when the snapshot is fresh', () async {
+      final publicAccess = CachedProductAccess(
+        remote: remote,
+        cache: cache,
+        publicSafe: true,
+        publicStaleAfter: const Duration(minutes: 5),
+      );
+      final cached = testProduct(id: 'p1', createdAt: early);
+      await cache.upsertAll(companyId, CatalogCollection.products, [
+        cached.toMap(),
+      ]);
+      await cache.setLastPublicSyncAt(
+        companyId,
+        CatalogCollection.products,
+        DateTime.now().toUtc(),
+      );
+      remote.products[companyId] = {
+        'p2': testProduct(id: 'p2', name: 'Nuevo', createdAt: late),
+      };
+
+      final events = <List<Product>>[];
+      final sub = publicAccess.watchProducts(companyId).listen(events.add);
+      await _pumpUntil(() => events.isNotEmpty);
+      addTearDown(sub.cancel);
+
+      expect(events.single.single.id, 'p1');
+      expect(remote.fetchSinceCalls, isEmpty);
+      expect(remote.watchSinceCalls, isEmpty);
+    });
+
+    test('public catalog replaces local docs on a stale snapshot', () async {
+      final publicAccess = CachedProductAccess(
+        remote: remote,
+        cache: cache,
+        publicSafe: true,
+        publicStaleAfter: const Duration(minutes: 5),
+      );
+      final stale = testProduct(id: 'p-old', createdAt: early);
+      final live = testProduct(id: 'p-new', name: 'Nuevo', createdAt: late);
+      await cache.upsertAll(companyId, CatalogCollection.products, [
+        stale.toMap(),
+      ]);
+      await cache.setLastPublicSyncAt(
+        companyId,
+        CatalogCollection.products,
+        DateTime.utc(2026, 9, 11),
+      );
+      remote.products[companyId] = {live.id: live};
+
+      final events = <List<Product>>[];
+      final sub = publicAccess.watchProducts(companyId).listen(events.add);
+      await _pumpUntil(
+        () => events.any((list) => list.any((item) => item.id == 'p-new')),
+      );
+      addTearDown(sub.cancel);
+
+      expect(events.last.map((item) => item.id), ['p-new']);
+      expect(remote.fetchSinceCalls, [isNull]);
+      expect(remote.watchSinceCalls, isEmpty);
+      expect(
+        await cache.loadActive(companyId, CatalogCollection.products),
+        hasLength(1),
+      );
     });
 
     test('live delta tombstones a cached product', () async {

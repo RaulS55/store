@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -9,7 +8,7 @@ import '../../data/session_store.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/product_image.dart';
-import '../../widgets/product_image_viewer.dart';
+import '../../widgets/product_image_pager.dart';
 import '../../widgets/qty_stepper.dart';
 import '../../widgets/stock_dot.dart';
 import '../../widgets/variant_picker.dart';
@@ -145,7 +144,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       lotLabel: lotLabel,
                     )
                   else ...[
-                    _ProductImagePager(
+                    ProductImagePager(
                       images: images,
                       index: _index,
                       onIndex: (i) => setState(() => _index = i),
@@ -419,7 +418,7 @@ class _WideDetail extends StatelessWidget {
         Expanded(
           child: Column(
             children: [
-              _ProductImagePager(
+              ProductImagePager(
                 images: images,
                 index: index,
                 onIndex: onIndex,
@@ -549,115 +548,6 @@ class _WideDetail extends StatelessWidget {
       ],
     );
   }
-}
-
-class _ProductImagePager extends StatefulWidget {
-  const _ProductImagePager({
-    required this.images,
-    required this.index,
-    required this.onIndex,
-    required this.aspectRatio,
-  });
-
-  final List<String> images;
-  final int index;
-  final ValueChanged<int> onIndex;
-  final double aspectRatio;
-
-  @override
-  State<_ProductImagePager> createState() => _ProductImagePagerState();
-}
-
-class _ProductImagePagerState extends State<_ProductImagePager> {
-  late final PageController _controller;
-  bool _syncing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = PageController(initialPage: widget.index);
-  }
-
-  @override
-  void didUpdateWidget(covariant _ProductImagePager oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_controller.hasClients) return;
-    if (widget.index == oldWidget.index) return;
-    final current = _controller.page?.round() ?? _controller.initialPage;
-    if (current == widget.index) return;
-    _syncing = true;
-    _controller.jumpToPage(widget.index);
-    _syncing = false;
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final images = widget.images;
-    return AspectRatio(
-      aspectRatio: widget.aspectRatio,
-      child: ScrollConfiguration(
-        behavior: const _PagerScrollBehavior(),
-        child: PageView.builder(
-          controller: _controller,
-          physics: images.length > 1
-              ? const PageScrollPhysics(parent: AlwaysScrollableScrollPhysics())
-              : const NeverScrollableScrollPhysics(),
-          onPageChanged: (i) {
-            if (_syncing) return;
-            widget.onIndex(i);
-          },
-          itemCount: images.length,
-          itemBuilder: (context, i) {
-            final isDark = Theme.of(context).brightness == Brightness.dark;
-            return GestureDetector(
-              key: ValueKey('product-pager-open-$i-${images[i]}'),
-              onTap: () => showProductImageViewer(
-                context: context,
-                images: productImageEntries(images),
-                initialIndex: i,
-              ),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ColoredBox(
-                    color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
-                  ),
-                  IgnorePointer(
-                    child: ProductImage(
-                      key: ValueKey('product-pager-image-$i-${images[i]}'),
-                      path: images[i],
-                      fit: BoxFit.contain,
-                      borderRadius: BorderRadius.circular(AppRadii.lg),
-                    ),
-                  ),
-                  const ColoredBox(color: Color(0x00000000)),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _PagerScrollBehavior extends MaterialScrollBehavior {
-  const _PagerScrollBehavior();
-
-  @override
-  Set<PointerDeviceKind> get dragDevices => const {
-    PointerDeviceKind.touch,
-    PointerDeviceKind.mouse,
-    PointerDeviceKind.stylus,
-    PointerDeviceKind.trackpad,
-    PointerDeviceKind.invertedStylus,
-  };
 }
 
 class _Attr extends StatelessWidget {

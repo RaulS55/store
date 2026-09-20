@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/data/session_store.dart';
 import 'package:store_app/routing/app_router.dart';
 
+import 'fakes/fake_auth_client.dart';
+import 'fakes/fake_company_access.dart';
 import 'fakes/session_harness.dart';
 
 Future<void> _waitReady(SessionStore session) async {
@@ -43,5 +45,21 @@ void main() {
     expect(session.isReady, isFalse);
     expect(sessionRedirect(session, '/'), '/cargando');
     expect(sessionRedirect(session, '/catalogo/co1'), isNull);
+  });
+
+  test('catalog stays public if auth never emits', () async {
+    final auth = FakeAuthClient()..emitInitial = false;
+    final session = SessionStore(
+      auth: auth,
+      access: FakeCompanyAccess(),
+      authReadyTimeout: const Duration(milliseconds: 20),
+    )..start();
+    addTearDown(session.dispose);
+    expect(sessionRedirect(session, '/catalogo/co1'), isNull);
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(session.isReady, isTrue);
+    expect(session.isSignedIn, isFalse);
+    expect(sessionRedirect(session, '/catalogo/co1'), isNull);
+    expect(sessionRedirect(session, '/'), '/ingresar');
   });
 }

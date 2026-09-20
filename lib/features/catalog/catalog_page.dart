@@ -3,9 +3,11 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/catalog_guest_store.dart';
+import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/search_field.dart';
+import '../stock/filters_panel.dart';
 import 'catalog_routes.dart';
 
 class CatalogPage extends StatelessWidget {
@@ -95,9 +97,30 @@ class _CatalogViewState extends State<_CatalogView> {
                   controller: _search,
                   hint: 'Buscar prenda, SKU o marca...',
                   onChanged: store.setSearch,
+                  trailing: IconButton(
+                    key: const ValueKey('catalog-filters'),
+                    tooltip: 'Filtros',
+                    onPressed: () => showFiltersSheet(context, host: store),
+                    icon: Badge(
+                      isLabelVisible: store.filters.activeCount > 0,
+                      label: Text('${store.filters.activeCount}'),
+                      child: const Icon(Icons.tune, size: 20),
+                    ),
+                  ),
                 ),
               ),
             ),
+            if (!wide && !store.isLoading && !store.notFound)
+              SliverToBoxAdapter(
+                child: _CategoryChips(chips: store.visibleCategories),
+              ),
+            if (wide && !store.isLoading && !store.notFound)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: WebFilterBar(host: store),
+                ),
+              ),
             if (store.isLoading)
               const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator()),
@@ -119,7 +142,16 @@ class _CatalogViewState extends State<_CatalogView> {
                       : 'No encontramos prendas',
                   body: store.products.isEmpty
                       ? 'Este negocio todavía no publicó su catálogo.'
-                      : 'Probá con otro nombre, SKU o marca.',
+                      : 'Probá con otro nombre, SKU o limpiá los filtros.',
+                  action: store.products.isEmpty
+                      ? null
+                      : (
+                          label: 'Limpiar filtros',
+                          onPressed: () {
+                            store.clearFilters();
+                            _search.clear();
+                          },
+                        ),
                 ),
               )
             else
@@ -151,12 +183,58 @@ class _CatalogViewState extends State<_CatalogView> {
   }
 }
 
+class _CategoryChips extends StatelessWidget {
+  const _CategoryChips({required this.chips});
+
+  final List<ApparelCategory> chips;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<CatalogGuestStore>();
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              avatar: store.chipCategory == null
+                  ? const Icon(Icons.check, size: 16)
+                  : null,
+              label: const Text('Todo'),
+              selected: store.chipCategory == null,
+              onSelected: (_) => store.selectChipCategory(null),
+            ),
+          ),
+          for (final category in chips)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(category.label),
+                selected: store.chipCategory == category,
+                onSelected: (_) => store.selectChipCategory(category),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Message extends StatelessWidget {
-  const _Message({required this.icon, required this.title, required this.body});
+  const _Message({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.action,
+  });
 
   final IconData icon;
   final String title;
   final String body;
+  final ({String label, VoidCallback onPressed})? action;
 
   @override
   Widget build(BuildContext context) {
@@ -177,6 +255,13 @@ class _Message extends StatelessWidget {
                 context,
               ).textTheme.bodyMedium?.copyWith(color: AppColors.slate),
             ),
+            if (action case final filterAction?) ...[
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: filterAction.onPressed,
+                child: Text(filterAction.label),
+              ),
+            ],
           ],
         ),
       ),

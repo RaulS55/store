@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../../data/product_filter_host.dart';
 import '../../models/filters.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 
-Future<void> showFiltersSheet(BuildContext context) {
+Future<void> showFiltersSheet(BuildContext context, {ProductFilterHost? host}) {
+  final resolved = host ?? context.read<AppStore>();
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -23,6 +25,7 @@ Future<void> showFiltersSheet(BuildContext context) {
         minChildSize: 0.5,
         builder: (context, controller) {
           return FiltersEditor(
+            host: resolved,
             scrollController: controller,
             compact: false,
             onClose: () => Navigator.of(context).pop(),
@@ -36,11 +39,13 @@ Future<void> showFiltersSheet(BuildContext context) {
 class FiltersEditor extends StatefulWidget {
   const FiltersEditor({
     super.key,
+    required this.host,
     this.scrollController,
     this.compact = true,
     this.onClose,
   });
 
+  final ProductFilterHost host;
   final ScrollController? scrollController;
   final bool compact;
   final VoidCallback? onClose;
@@ -57,7 +62,7 @@ class _FiltersEditorState extends State<FiltersEditor> {
   @override
   void initState() {
     super.initState();
-    final store = context.read<AppStore>();
+    final store = widget.host;
     _draft = store.filters;
     _min = TextEditingController(
       text: _draft.minPrice?.toStringAsFixed(0) ?? '',
@@ -113,7 +118,7 @@ class _FiltersEditorState extends State<FiltersEditor> {
   }
 
   void _apply() {
-    context.read<AppStore>().applyFilters(_withPrices());
+    widget.host.applyFilters(_withPrices());
     widget.onClose?.call();
   }
 
@@ -123,208 +128,216 @@ class _FiltersEditorState extends State<FiltersEditor> {
       _min.clear();
       _max.clear();
     });
-    context.read<AppStore>().applyFilters(const ProductFilters());
+    widget.host.applyFilters(const ProductFilters());
   }
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<AppStore>();
+    final store = widget.host;
     final theme = Theme.of(context);
 
-    return Column(
-      children: [
-        if (!widget.compact)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 8, 8),
-            child: Row(
-              children: [
-                Text(
-                  'Filtros',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
+    return AnimatedBuilder(
+      animation: store,
+      builder: (context, _) {
+        return Column(
+          children: [
+            if (!widget.compact)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 8, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      'Filtros',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: widget.onClose,
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: ListView(
+                controller: widget.scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                children: [
+                  _Label('Categoría'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final category in store.visibleCategories)
+                        FilterChip(
+                          label: Text(category.label),
+                          selected: _draft.categories.contains(category),
+                          onSelected: (_) => _toggleCategory(category),
+                          showCheckmark: true,
+                        ),
+                    ],
                   ),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: widget.onClose,
-                  icon: const Icon(Icons.close),
-                ),
-              ],
+                  const SizedBox(height: 18),
+                  _Label('Público'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final audience in ApparelAudience.values)
+                        FilterChip(
+                          label: Text(audience.label),
+                          selected: _draft.audiences.contains(audience),
+                          onSelected: (_) => _toggleAudience(audience),
+                          showCheckmark: true,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _Label('Talle en prenda'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final size in store.allSizes)
+                        FilterChip(
+                          label: Text(size),
+                          selected: _draft.sizes.contains(size),
+                          showCheckmark: false,
+                          selectedColor: AppColors.terracottaChip,
+                          onSelected: (_) => _toggleSize(size),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _Label('Color'),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 12,
+                    children: [
+                      for (final color in store.allColors)
+                        if (color.isCustom)
+                          FilterChip(
+                            label: Text(color.name),
+                            selected: _draft.colorNames.contains(color.name),
+                            showCheckmark: false,
+                            selectedColor: AppColors.terracottaChip,
+                            onSelected: (_) => _toggleColor(color.name),
+                          )
+                        else
+                          _ColorDot(
+                            color: color.color,
+                            label: color.name,
+                            selected: _draft.colorNames.contains(color.name),
+                            onTap: () => _toggleColor(color.name),
+                          ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      _Label('Marca'),
+                      const Spacer(),
+                      Text(
+                        'Ver todas',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: AppColors.terracotta,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  for (final brand in store.allBrands.take(6))
+                    CheckboxListTile(
+                      value: _draft.brands.contains(brand),
+                      onChanged: (_) => _toggleBrand(brand),
+                      title: Text(brand),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: AppColors.terracotta,
+                    ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    value: _draft.onlyLowStock,
+                    onChanged: (v) => setState(
+                      () => _draft = _draft.copyWith(onlyLowStock: v),
+                    ),
+                    title: const Text('Solo bajo stock'),
+                    contentPadding: EdgeInsets.zero,
+                    activeThumbColor: Colors.white,
+                    activeTrackColor: AppColors.terracotta,
+                  ),
+                  const SizedBox(height: 8),
+                  _Label('Rango de precio'),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _min,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            prefixText: r'$ ',
+                            hintText: 'Mínimo',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _max,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            prefixText: r'$ ',
+                            hintText: 'Máximo',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        Expanded(
-          child: ListView(
-            controller: widget.scrollController,
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            children: [
-              _Label('Categoría'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final category in store.visibleCategories)
-                    FilterChip(
-                      label: Text(category.label),
-                      selected: _draft.categories.contains(category),
-                      onSelected: (_) => _toggleCategory(category),
-                      showCheckmark: true,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              _Label('Público'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final audience in ApparelAudience.values)
-                    FilterChip(
-                      label: Text(audience.label),
-                      selected: _draft.audiences.contains(audience),
-                      onSelected: (_) => _toggleAudience(audience),
-                      showCheckmark: true,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              _Label('Talle en prenda'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final size in store.allSizes)
-                    FilterChip(
-                      label: Text(size),
-                      selected: _draft.sizes.contains(size),
-                      showCheckmark: false,
-                      selectedColor: AppColors.terracottaChip,
-                      onSelected: (_) => _toggleSize(size),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              _Label('Color'),
-              Wrap(
-                spacing: 16,
-                runSpacing: 12,
-                children: [
-                  for (final color in store.allColors)
-                    if (color.isCustom)
-                      FilterChip(
-                        label: Text(color.name),
-                        selected: _draft.colorNames.contains(color.name),
-                        showCheckmark: false,
-                        selectedColor: AppColors.terracottaChip,
-                        onSelected: (_) => _toggleColor(color.name),
-                      )
-                    else
-                      _ColorDot(
-                        color: color.color,
-                        label: color.name,
-                        selected: _draft.colorNames.contains(color.name),
-                        onTap: () => _toggleColor(color.name),
-                      ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  _Label('Marca'),
-                  const Spacer(),
-                  Text(
-                    'Ver todas',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: AppColors.terracotta,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              for (final brand in store.allBrands.take(6))
-                CheckboxListTile(
-                  value: _draft.brands.contains(brand),
-                  onChanged: (_) => _toggleBrand(brand),
-                  title: Text(brand),
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  activeColor: AppColors.terracotta,
-                ),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                value: _draft.onlyLowStock,
-                onChanged: (v) =>
-                    setState(() => _draft = _draft.copyWith(onlyLowStock: v)),
-                title: const Text('Solo bajo stock'),
-                contentPadding: EdgeInsets.zero,
-                activeThumbColor: Colors.white,
-                activeTrackColor: AppColors.terracotta,
-              ),
-              const SizedBox(height: 8),
-              _Label('Rango de precio'),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _min,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        prefixText: r'$ ',
-                        hintText: 'Mínimo',
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _clear,
+                        child: const Text('Limpiar'),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _max,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        prefixText: r'$ ',
-                        hintText: 'Máximo',
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton(
+                        onPressed: _apply,
+                        child: const Text('Aplicar filtros'),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _clear,
-                    child: const Text('Limpiar'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: FilledButton(
-                    onPressed: _apply,
-                    child: const Text('Aplicar filtros'),
-                  ),
-                ),
-              ],
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
 
 class WebFilterBar extends StatelessWidget {
-  const WebFilterBar({super.key});
+  const WebFilterBar({super.key, this.host});
+
+  final ProductFilterHost? host;
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<AppStore>();
+    final store = host ?? context.watch<AppStore>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
@@ -422,7 +435,7 @@ class WebFilterBar extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               FilledButton(
-                onPressed: () => showFiltersSheet(context),
+                onPressed: () => showFiltersSheet(context, host: store),
                 style: FilledButton.styleFrom(minimumSize: const Size(140, 40)),
                 child: const Text('Aplicar filtros'),
               ),
@@ -437,7 +450,7 @@ class WebFilterBar extends StatelessWidget {
 class _FilterChipRow extends StatelessWidget {
   const _FilterChipRow({required this.store});
 
-  final AppStore store;
+  final ProductFilterHost store;
 
   @override
   Widget build(BuildContext context) {

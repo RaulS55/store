@@ -13,14 +13,19 @@ import 'company_access.dart';
 import 'session_exception.dart';
 
 class SessionStore extends ChangeNotifier {
-  SessionStore({required AuthClient auth, required CompanyAccess access})
-    : _auth = auth,
-      _access = access;
+  SessionStore({
+    required AuthClient auth,
+    required CompanyAccess access,
+    this.authReadyTimeout = const Duration(seconds: 8),
+  }) : _auth = auth,
+       _access = access;
 
   final AuthClient _auth;
   final CompanyAccess _access;
+  final Duration authReadyTimeout;
 
   StreamSubscription<AuthIdentity?>? _authSub;
+  Timer? _readyTimeout;
   Completer<void>? _readyCompleter;
   int _loadGen = 0;
 
@@ -70,6 +75,13 @@ class SessionStore extends ChangeNotifier {
     if (_authSub != null) return;
     _readyCompleter = Completer<void>();
     _authSub = _auth.authStateChanges.listen(_onAuthChanged);
+    _readyTimeout?.cancel();
+    _readyTimeout = Timer(authReadyTimeout, () {
+      if (_ready || _identity != null) return;
+      _clearSession();
+      _markReady();
+      notifyListeners();
+    });
   }
 
   Future<void> signIn({
@@ -282,7 +294,7 @@ class SessionStore extends ChangeNotifier {
 
   String shareUrl(String path) {
     if (kIsWeb) {
-      return '${Uri.base.origin}/#$path';
+      return '${Uri.base.origin}$path';
     }
     return path;
   }
@@ -297,6 +309,7 @@ class SessionStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    _readyTimeout?.cancel();
     _authSub?.cancel();
     super.dispose();
   }
@@ -526,6 +539,7 @@ class SessionStore extends ChangeNotifier {
 
   void _markReady() {
     _ready = true;
+    _readyTimeout?.cancel();
     final pending = _readyCompleter;
     if (pending != null && !pending.isCompleted) {
       pending.complete();

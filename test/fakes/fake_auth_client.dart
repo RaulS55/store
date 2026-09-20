@@ -10,10 +10,11 @@ class FakeAuthClient implements AuthClient {
   AuthIdentity? _current;
   var _seq = 0;
   var signInCalls = 0;
+  var emitInitial = true;
 
   @override
   Stream<AuthIdentity?> get authStateChanges async* {
-    yield _current;
+    if (emitInitial) yield _current;
     yield* _controller.stream;
   }
 

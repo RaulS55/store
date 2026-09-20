@@ -112,6 +112,8 @@ void main() {
     await tester.pumpWidget(_app(store, order.id));
     await tester.pump();
 
+    expect(find.text('WhatsApp'), findsOneWidget);
+    expect(find.text('Cerrar pedido'), findsOneWidget);
     expect(find.byKey(const ValueKey('cancel-order')), findsOneWidget);
 
     await tester.ensureVisible(find.byKey(const ValueKey('cancel-order')));

@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -35,6 +33,8 @@ class HiveCatalogCache {
   final Box<dynamic> _lots;
   final Box<dynamic> _meta;
 
+  static var _memorySuffix = 0;
+
   static Future<HiveCatalogCache> open({
     required HiveCipher cipher,
     String nameSuffix = '',
@@ -55,11 +55,7 @@ class HiveCatalogCache {
         } catch (error2, stack2) {
           debugPrint('Hive reopen $boxName failed: $error2');
           debugPrint('$stack2');
-          return Hive.openBox<dynamic>(
-            '${boxName}__mem',
-            bytes: Uint8List(0),
-            encryptionCipher: cipher,
-          );
+          return _openMemoryBox(boxName, cipher);
         }
       }
     }
@@ -70,6 +66,27 @@ class HiveCatalogCache {
       orders: await openBox(catalogOrdersBox),
       lots: await openBox(catalogLotsBox),
       meta: await openBox(catalogMetaBox),
+    );
+  }
+
+  static Future<HiveCatalogCache> openInMemory() async {
+    _memorySuffix += 1;
+    final cipher = HiveAesCipher(Hive.generateSecureKey());
+    final suffix = '__mem$_memorySuffix';
+    return HiveCatalogCache(
+      products: await _openMemoryBox('$catalogProductsBox$suffix', cipher),
+      customers: await _openMemoryBox('$catalogCustomersBox$suffix', cipher),
+      orders: await _openMemoryBox('$catalogOrdersBox$suffix', cipher),
+      lots: await _openMemoryBox('$catalogLotsBox$suffix', cipher),
+      meta: await _openMemoryBox('$catalogMetaBox$suffix', cipher),
+    );
+  }
+
+  static Future<Box<dynamic>> _openMemoryBox(String name, HiveCipher cipher) {
+    return Hive.openBox<dynamic>(
+      name,
+      bytes: Uint8List(0),
+      encryptionCipher: cipher,
     );
   }
 
@@ -94,6 +111,10 @@ class HiveCatalogCache {
     return '$companyId|$collection|lastSyncAt';
   }
 
+  String _publicSyncKey(String companyId, String collection) {
+    return '$companyId|$collection|publicSyncAt';
+  }
+
   String _schemaKey(String companyId, String collection) {
     return '$companyId|$collection|schema';
   }
@@ -103,6 +124,7 @@ class HiveCatalogCache {
     if (_meta.get(key) == schemaVersion) return;
     await _deleteCompanyCollection(companyId, collection);
     await _meta.delete(_syncKey(companyId, collection));
+    await _meta.delete(_publicSyncKey(companyId, collection));
     await _meta.put(key, schemaVersion);
   }
 
@@ -153,8 +175,40 @@ class HiveCatalogCache {
     }
   }
 
+  Future<void> replaceActive(
+    String companyId,
+    String collection,
+    List<Map<String, dynamic>> docs,
+  ) async {
+    await ensureSchema(companyId, collection);
+    final box = _box(collection);
+    final prefix = '$companyId|';
+    final keep = <String>{};
+    for (final raw in docs) {
+      final map = coerceStringKeyMap(raw);
+      final id = (map['id'] as String?)?.trim() ?? '';
+      if (id.isEmpty || isDeletedMap(map)) continue;
+      final key = _docKey(companyId, id);
+      keep.add(key);
+      await box.put(key, encodeCatalogMap(map));
+    }
+    final stale = [
+      for (final key in box.keys)
+        if (key is String && key.startsWith(prefix) && !keep.contains(key)) key,
+    ];
+    if (stale.isNotEmpty) await box.deleteAll(stale);
+  }
+
   DateTime? lastSyncAt(String companyId, String collection) {
-    final raw = _meta.get(_syncKey(companyId, collection));
+    return _readMetaDate(_syncKey(companyId, collection));
+  }
+
+  DateTime? lastPublicSyncAt(String companyId, String collection) {
+    return _readMetaDate(_publicSyncKey(companyId, collection));
+  }
+
+  DateTime? _readMetaDate(String key) {
+    final raw = _meta.get(key);
     if (raw is! String || raw.isEmpty) return null;
     return DateTime.parse(raw).toUtc();
   }
@@ -170,6 +224,17 @@ class HiveCatalogCache {
     );
   }
 
+  Future<void> setLastPublicSyncAt(
+    String companyId,
+    String collection,
+    DateTime value,
+  ) {
+    return _meta.put(
+      _publicSyncKey(companyId, collection),
+      value.toUtc().toIso8601String(),
+    );
+  }
+
   Future<void> clearCompany(String companyId) async {
     for (final collection in [
       CatalogCollection.products,
@@ -179,6 +244,7 @@ class HiveCatalogCache {
     ]) {
       await _deleteCompanyCollection(companyId, collection);
       await _meta.delete(_syncKey(companyId, collection));
+      await _meta.delete(_publicSyncKey(companyId, collection));
       await _meta.delete(_schemaKey(companyId, collection));
     }
   }

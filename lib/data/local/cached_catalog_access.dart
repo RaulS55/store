@@ -18,6 +18,8 @@ class CachedCatalogAccess<T> {
     watchChanged,
     required Future<void> Function(String companyId, T value) saveRemote,
     void Function(String message)? log,
+    this.publicSafe = false,
+    this.publicStaleAfter = const Duration(minutes: 5),
   }) : _cache = cache,
        _collection = collection,
        _fromMap = fromMap,
@@ -41,6 +43,8 @@ class CachedCatalogAccess<T> {
   _watchChanged;
   final Future<void> Function(String companyId, T value) _saveRemote;
   final void Function(String message) _log;
+  final bool publicSafe;
+  final Duration publicStaleAfter;
 
   Stream<List<T>> watch(String companyId) {
     late final StreamController<List<T>> controller;
@@ -75,8 +79,31 @@ class CachedCatalogAccess<T> {
       await emitLocal();
     }
 
+    Future<void> syncPublic() async {
+      final last = _cache.lastPublicSyncAt(companyId, _collection);
+      final now = DateTime.now().toUtc();
+      if (last != null && now.difference(last) < publicStaleAfter) {
+        return;
+      }
+      try {
+        final changed = await _fetchChanged(companyId, null);
+        await _cache.replaceActive(companyId, _collection, [
+          for (final item in changed) _toMap(item),
+        ]);
+        await _cache.setLastPublicSyncAt(companyId, _collection, now);
+        await emitLocal();
+      } catch (error, stack) {
+        _log('Catalog $_collection public sync failed: $error');
+        _log('$stack');
+      }
+    }
+
     Future<void> start() async {
       await emitLocal();
+      if (publicSafe) {
+        await syncPublic();
+        return;
+      }
       final since = _cache.lastSyncAt(companyId, _collection);
       var fetchOk = false;
       try {

@@ -5,9 +5,10 @@ import 'package:provider/provider.dart';
 
 import '../data/app_store.dart';
 import '../data/image_compress.dart';
+import '../data/product_image_cache.dart';
 import '../theme/tokens.dart';
 
-class ProductImage extends StatelessWidget {
+class ProductImage extends StatefulWidget {
   const ProductImage({
     super.key,
     this.path = '',
@@ -22,6 +23,68 @@ class ProductImage extends StatelessWidget {
   final BorderRadius? borderRadius;
 
   @override
+  State<ProductImage> createState() => _ProductImageState();
+}
+
+class _ProductImageState extends State<ProductImage> {
+  ProductImageCache? _cache;
+  Uint8List? _resolved;
+  var _loading = false;
+  String? _requested;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _cache = _imageCacheOf(context);
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProductImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path == widget.path && oldWidget.bytes == widget.bytes) {
+      return;
+    }
+    _requested = null;
+    _resolved = null;
+    _loading = false;
+    _sync();
+  }
+
+  void _sync() {
+    final preview = widget.bytes;
+    if (preview != null && preview.isNotEmpty) {
+      _resolved = preview;
+      _loading = false;
+      return;
+    }
+    final path = widget.path;
+    final peeked =
+        _cache?.peek(path) ?? _appStoreOf(context)?.cachedProductImage(path);
+    if (peeked != null && peeked.isNotEmpty) {
+      _resolved = peeked;
+      _loading = false;
+      return;
+    }
+    if (_cache == null ||
+        !_cache!.allowRemoteFetch ||
+        path.isEmpty ||
+        !isNetworkProductImageUrl(path)) {
+      return;
+    }
+    if (_requested == path) return;
+    _requested = path;
+    _loading = true;
+    _cache!.load(path).then((bytes) {
+      if (!mounted || _requested != path) return;
+      setState(() {
+        _loading = false;
+        _resolved = bytes;
+      });
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fallback = ColoredBox(
@@ -34,6 +97,9 @@ class ProductImage extends StatelessWidget {
         ),
       ),
     );
+    final muted = ColoredBox(
+      color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -42,10 +108,8 @@ class ProductImage extends StatelessWidget {
             ? constraints.maxHeight
             : null;
         final dpr = MediaQuery.devicePixelRatioOf(context);
-        final preview = bytes;
-        final cached = preview == null || preview.isEmpty
-            ? _appStoreOf(context)?.cachedProductImage(path)
-            : null;
+        final preview = widget.bytes;
+        final cached = preview == null || preview.isEmpty ? _resolved : null;
         // Keep one decode size for remote/cached JPEGs so the viewer reuses cache.
         final layoutDecode = _decodeSize(width, height, dpr);
         const sharedDecode = (width: maxProductImageEdge, height: null);
@@ -53,8 +117,8 @@ class ProductImage extends StatelessWidget {
         if (preview != null && preview.isNotEmpty) {
           image = Image.memory(
             preview,
-            key: ValueKey('memory:$path:${preview.length}'),
-            fit: fit,
+            key: ValueKey('memory:${widget.path}:${preview.length}'),
+            fit: widget.fit,
             width: width,
             height: height,
             cacheWidth: layoutDecode.width,
@@ -65,8 +129,8 @@ class ProductImage extends StatelessWidget {
         } else if (cached != null && cached.isNotEmpty) {
           image = Image.memory(
             cached,
-            key: ValueKey('cached:$path:${cached.length}'),
-            fit: fit,
+            key: ValueKey('cached:${widget.path}:${cached.length}'),
+            fit: widget.fit,
             width: width,
             height: height,
             cacheWidth: sharedDecode.width,
@@ -74,13 +138,15 @@ class ProductImage extends StatelessWidget {
             gaplessPlayback: true,
             errorBuilder: (_, _, _) => fallback,
           );
-        } else if (path.isEmpty) {
+        } else if (widget.path.isEmpty) {
           image = fallback;
-        } else if (_isNetworkPath(path)) {
+        } else if (_loading && isNetworkProductImageUrl(widget.path)) {
+          image = muted;
+        } else if (_isNetworkPath(widget.path)) {
           image = Image.network(
-            path,
-            key: ValueKey('network:$path'),
-            fit: fit,
+            widget.path,
+            key: ValueKey('network:${widget.path}'),
+            fit: widget.fit,
             width: width,
             height: height,
             cacheWidth: sharedDecode.width,
@@ -88,15 +154,15 @@ class ProductImage extends StatelessWidget {
             gaplessPlayback: true,
             webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
             errorBuilder: (_, error, _) {
-              debugPrint('Product image network failed: $path $error');
+              debugPrint('Product image network failed: ${widget.path} $error');
               return fallback;
             },
           );
         } else {
           image = Image.asset(
-            path,
-            key: ValueKey('asset:$path'),
-            fit: fit,
+            widget.path,
+            key: ValueKey('asset:${widget.path}'),
+            fit: widget.fit,
             width: width,
             height: height,
             cacheWidth: sharedDecode.width,
@@ -106,8 +172,8 @@ class ProductImage extends StatelessWidget {
           );
         }
 
-        if (borderRadius == null) return image;
-        return ClipRRect(borderRadius: borderRadius!, child: image);
+        if (widget.borderRadius == null) return image;
+        return ClipRRect(borderRadius: widget.borderRadius!, child: image);
       },
     );
   }
@@ -121,10 +187,15 @@ AppStore? _appStoreOf(BuildContext context) {
   }
 }
 
-bool _isNetworkPath(String path) {
-  final uri = Uri.tryParse(path);
-  return uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
+ProductImageCache? _imageCacheOf(BuildContext context) {
+  try {
+    return Provider.of<ProductImageCache>(context, listen: false);
+  } on ProviderNotFoundException {
+    return null;
+  }
 }
+
+bool _isNetworkPath(String path) => isNetworkProductImageUrl(path);
 
 int? _cachePx(double? size, double dpr) {
   if (size == null || !size.isFinite || size <= 0) return null;

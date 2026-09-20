@@ -46,6 +46,9 @@ dependencies:
   hive_ce: ^2.20.0
   hive_ce_flutter: ^2.3.4
   flutter_secure_storage: ^10.3.4
+  http: ^1.5.0
+  flutter_web_plugins:
+    sdk: flutter
 
 # firebase_core_web 3.11.0 calls e.isA<JSObject>() on Object.
 # That API exists from Dart 3.12. This app uses Dart 3.9.2 (Flutter 3.35.5).

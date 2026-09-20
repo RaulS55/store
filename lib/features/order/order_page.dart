@@ -168,32 +168,9 @@ class _MobileOrder extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: WhatsAppButton(order: order),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: _OrderActions(order: order),
           ),
-          if (!order.isClosed) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: FilledButton(
-                onPressed: order.lines.isEmpty
-                    ? null
-                    : () => closeOrderFlow(context, order),
-                child: const Text('Cerrar pedido'),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: CancelOrderButton(order: order),
-            ),
-          ] else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: OutlinedButton.icon(
-                onPressed: () => openInvoice(context, order.id),
-                icon: const Icon(Icons.receipt_long_outlined, size: 18),
-                label: const Text('Ver factura'),
-              ),
-            ),
         ],
       ),
     );
@@ -313,28 +290,7 @@ class _WebOrder extends StatelessWidget {
                         const SizedBox(height: 8),
                         _Totals(order: order),
                         const SizedBox(height: 20),
-                        WhatsAppButton(order: order),
-                        if (!order.isClosed) ...[
-                          const SizedBox(height: 10),
-                          FilledButton(
-                            onPressed: order.lines.isEmpty
-                                ? null
-                                : () => closeOrderFlow(context, order),
-                            child: const Text('Cerrar pedido'),
-                          ),
-                          const SizedBox(height: 4),
-                          CancelOrderButton(order: order),
-                        ] else ...[
-                          const SizedBox(height: 10),
-                          OutlinedButton.icon(
-                            onPressed: () => openInvoice(context, order.id),
-                            icon: const Icon(
-                              Icons.receipt_long_outlined,
-                              size: 18,
-                            ),
-                            label: const Text('Ver factura'),
-                          ),
-                        ],
+                        _OrderActions(order: order),
                       ],
                     ),
                   ),
@@ -344,6 +300,57 @@ class _WebOrder extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _OrderActions extends StatelessWidget {
+  const _OrderActions({required this.order});
+
+  final DraftOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(child: WhatsAppButton(order: order, compact: true)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: order.isClosed
+                  ? OutlinedButton.icon(
+                      onPressed: () => openInvoice(context, order.id),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        textStyle: Theme.of(context).textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                      label: const Text('Ver factura'),
+                    )
+                  : FilledButton(
+                      onPressed: order.lines.isEmpty
+                          ? null
+                          : () => closeOrderFlow(context, order),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        textStyle: Theme.of(context).textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Cerrar pedido'),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+        if (!order.isClosed) CancelOrderButton(order: order),
+      ],
     );
   }
 }

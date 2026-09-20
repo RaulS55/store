@@ -135,7 +135,11 @@ class CancelOrderButton extends StatelessWidget {
     return TextButton.icon(
       key: const ValueKey('cancel-order'),
       onPressed: () => cancelOrderWithConfirm(context: context, order: order),
-      style: TextButton.styleFrom(foregroundColor: AppColors.stockLow),
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.stockLow,
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
       icon: const Icon(Icons.delete_outline, size: 18),
       label: const Text('Cancelar pedido'),
     );
@@ -185,27 +189,49 @@ Future<void> sendOrderWhatsApp(BuildContext context, DraftOrder order) async {
 }
 
 class WhatsAppButton extends StatelessWidget {
-  const WhatsAppButton({super.key, required this.order, this.outlined = false});
+  const WhatsAppButton({
+    super.key,
+    required this.order,
+    this.outlined = false,
+    this.compact = false,
+  });
 
   final DraftOrder order;
   final bool outlined;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final enabled = order.lines.isNotEmpty;
-    final child = Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
-        Icon(Icons.chat, size: 18),
-        SizedBox(width: 8),
-        Text('Enviar por WhatsApp'),
-      ],
+    final child = FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.chat, size: 18),
+          const SizedBox(width: 6),
+          Text(compact ? 'WhatsApp' : 'Enviar por WhatsApp'),
+        ],
+      ),
     );
+    final minSize = compact ? const Size(0, 48) : const Size.fromHeight(48);
+    final padding = compact
+        ? const EdgeInsets.symmetric(horizontal: 10)
+        : null;
+    final textStyle = compact
+        ? Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          )
+        : null;
     if (outlined) {
       return OutlinedButton(
         onPressed: enabled ? () => sendOrderWhatsApp(context, order) : null,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.whatsapp,
+          minimumSize: minSize,
+          padding: padding,
+          textStyle: textStyle,
           side: BorderSide(
             color: enabled ? AppColors.whatsapp : AppColors.lightBorder,
           ),
@@ -219,6 +245,9 @@ class WhatsAppButton extends StatelessWidget {
         backgroundColor: AppColors.whatsapp,
         disabledBackgroundColor: AppColors.whatsapp.withValues(alpha: 0.35),
         foregroundColor: Colors.white,
+        minimumSize: minSize,
+        padding: padding,
+        textStyle: textStyle,
       ),
       child: child,
     );

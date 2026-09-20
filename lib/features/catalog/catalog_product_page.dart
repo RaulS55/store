@@ -7,6 +7,7 @@ import '../../data/formatters.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/product_image.dart';
+import '../../widgets/product_image_pager.dart';
 import '../../widgets/qty_stepper.dart';
 import '../../widgets/stock_dot.dart';
 import '../../widgets/variant_picker.dart';
@@ -56,8 +57,14 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
     if (variant == null || variant.stock <= 0) return;
     store.addToCart(product, variant, quantity: _qty);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Agregamos ${product.name} al pedido.')),
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        key: const ValueKey('catalog-added-snackbar'),
+        behavior: SnackBarBehavior.floating,
+        content: Text('Agregamos ${product.name} al pedido.'),
+      ),
     );
   }
 
@@ -66,9 +73,9 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
     final store = context.watch<CatalogGuestStore>();
     final product = store.productById(widget.id);
     if (product == null) {
-      return Material(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: SafeArea(
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: SafeArea(
           child: Column(
             children: [
               Align(
@@ -92,9 +99,9 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
     final variant = product.variantFor(selection.size, selection.color);
     final canAdd = variant != null && variant.stock > 0;
 
-    return Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: SafeArea(
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
         child: Column(
           children: [
             Padding(
@@ -134,15 +141,31 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 children: [
-                  AspectRatio(
+                  ProductImagePager(
+                    images: images,
+                    index: _index,
+                    onIndex: (i) => setState(() => _index = i),
                     aspectRatio: 1.15,
-                    child: ProductImage(
-                      path: images[_index.clamp(0, images.length - 1)],
-                      fit: BoxFit.contain,
-                      borderRadius: BorderRadius.circular(AppRadii.md),
-                    ),
                   ),
                   if (images.length > 1) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (var i = 0; i < images.length; i++)
+                          Container(
+                            width: 7,
+                            height: 7,
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: i == _index
+                                  ? AppColors.terracotta
+                                  : AppColors.mutedText.withValues(alpha: 0.4),
+                            ),
+                          ),
+                      ],
+                    ),
                     const SizedBox(height: 10),
                     SizedBox(
                       height: 72,
@@ -153,6 +176,7 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
                         itemBuilder: (context, i) {
                           final selected = i == _index;
                           return InkWell(
+                            key: ValueKey('product-gallery-thumb-$i'),
                             onTap: () => setState(() => _index = i),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 160),
@@ -249,23 +273,17 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
                 ],
               ),
             ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: canAdd
-                        ? () => _add(store, product, variant)
-                        : null,
-                    icon: const Icon(Icons.add_shopping_cart_outlined),
-                    label: Text(canAdd ? 'Agregar al pedido' : 'Sin stock'),
-                  ),
-                ),
-              ),
-            ),
           ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: FilledButton.icon(
+            onPressed: canAdd ? () => _add(store, product, variant) : null,
+            icon: const Icon(Icons.add_shopping_cart_outlined),
+            label: Text(canAdd ? 'Agregar al pedido' : 'Sin stock'),
+          ),
         ),
       ),
     );

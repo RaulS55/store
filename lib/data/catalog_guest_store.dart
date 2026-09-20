@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 
 import '../models/company.dart';
 import '../models/customer.dart';
+import '../models/filters.dart';
 import '../models/order.dart';
 import '../models/product.dart';
+import '../models/product_filter.dart';
 import '../models/record_source.dart';
 import 'company_access.dart';
 import 'customer_access.dart';
@@ -13,6 +15,8 @@ import 'local/catalog_cart_cache.dart';
 import 'order_access.dart';
 import 'order_share.dart';
 import 'product_access.dart';
+import 'product_filter_host.dart';
+import 'product_image_cache.dart';
 import 'session_exception.dart';
 
 class CatalogSubmitResult {
@@ -27,7 +31,7 @@ class CatalogSubmitResult {
   final bool missingPhone;
 }
 
-class CatalogGuestStore extends ChangeNotifier {
+class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
   CatalogGuestStore({
     required this.companyId,
     required CompanyAccess companies,
@@ -35,20 +39,25 @@ class CatalogGuestStore extends ChangeNotifier {
     required CustomerAccess customers,
     required OrderAccess orders,
     CatalogCartCache? cart,
+    ProductImageCache? images,
+    this.loadTimeout = const Duration(seconds: 8),
   }) : _companies = companies,
        _products = products,
        _customers = customers,
        _orders = orders,
-       _cart = cart ?? MemoryCatalogCartCache() {
+       _cart = cart ?? MemoryCatalogCartCache(),
+       _images = images {
     ready = _start();
   }
 
   final String companyId;
+  final Duration loadTimeout;
   final CompanyAccess _companies;
   final ProductAccess _products;
   final CustomerAccess _customers;
   final OrderAccess _orders;
   final CatalogCartCache _cart;
+  final ProductImageCache? _images;
 
   late final Future<void> ready;
   StreamSubscription<List<Product>>? _productSub;
@@ -57,6 +66,12 @@ class CatalogGuestStore extends ChangeNotifier {
   List<Product> _allProducts = const [];
   List<CatalogCartLine> _lines = const [];
   String searchQuery = '';
+  @override
+  ApparelCategory? chipCategory;
+  @override
+  ApparelAudience? chipAudience;
+  @override
+  ProductFilters filters = const ProductFilters();
   var _booted = false;
   var _busy = false;
 
@@ -75,29 +90,42 @@ class CatalogGuestStore extends ChangeNotifier {
     ];
   }
 
+  CompanyRubro get rubro => _company?.rubro ?? CompanyRubro.ambos;
+
+  @override
+  List<ApparelCategory> get visibleCategories {
+    switch (rubro) {
+      case CompanyRubro.ropa:
+        return ApparelCategory.forLine(ApparelLine.ropa);
+      case CompanyRubro.calzado:
+        return ApparelCategory.forLine(ApparelLine.calzado);
+      case CompanyRubro.ambos:
+        return ApparelCategory.values;
+    }
+  }
+
+  @override
+  List<String> get allBrands => brandsOf(products);
+
+  @override
+  List<String> get allSizes => sizesOf(products);
+
+  @override
+  List<SwatchColor> get allColors => colorsOf(products);
+
   List<Product> get visibleProducts {
-    final q = searchQuery.trim().toLowerCase();
-    var list = products;
-    final rubro = _company?.rubro ?? CompanyRubro.ambos;
-    list = [
-      for (final product in list)
-        if (product.category == null ||
-            (product.category!.line == ApparelLine.ropa &&
-                rubro.includesRopa) ||
-            (product.category!.line == ApparelLine.calzado &&
-                rubro.includesCalzado))
+    return [
+      for (final product in products)
+        if (matchesProductFilters(
+          product: product,
+          searchQuery: searchQuery,
+          visibleCategories: visibleCategories,
+          chipCategory: chipCategory,
+          chipAudience: chipAudience,
+          filters: filters,
+        ))
           product,
     ];
-    if (q.isNotEmpty) {
-      list = [
-        for (final product in list)
-          if ('${product.name} ${product.sku} ${product.brand} ${product.audienceLabel}'
-              .toLowerCase()
-              .contains(q))
-            product,
-      ];
-    }
-    return list;
   }
 
   Product? productById(String id) {
@@ -132,6 +160,33 @@ class CatalogGuestStore extends ChangeNotifier {
   void setSearch(String value) {
     if (searchQuery == value) return;
     searchQuery = value;
+    notifyListeners();
+  }
+
+  @override
+  void selectChipCategory(ApparelCategory? category) {
+    chipCategory = category;
+    notifyListeners();
+  }
+
+  @override
+  void selectChipAudience(ApparelAudience? audience) {
+    chipAudience = audience;
+    notifyListeners();
+  }
+
+  @override
+  void applyFilters(ProductFilters next) {
+    filters = next;
+    notifyListeners();
+  }
+
+  @override
+  void clearFilters() {
+    filters = const ProductFilters();
+    chipCategory = null;
+    chipAudience = null;
+    searchQuery = '';
     notifyListeners();
   }
 
@@ -243,35 +298,61 @@ class CatalogGuestStore extends ChangeNotifier {
   }
 
   Future<void> _start() async {
-    final cart = _cart;
-    if (cart is HiveCatalogCartCache) {
-      await cart.ensureOpen();
-    }
-    _company = await _companies.getCompany(companyId);
-    _lines = _cart.load(companyId);
-    _booted = true;
-    notifyListeners();
     try {
-      final productsReady = Completer<void>();
+      await Future.wait<void>([
+        _loadCompanyAndCart(),
+        _bindProducts(),
+      ]).timeout(loadTimeout);
+    } catch (error, stack) {
+      debugPrint('Catalog load failed: $error');
+      debugPrint('$stack');
+    } finally {
+      _booted = true;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _loadCompanyAndCart() async {
+    try {
+      final cart = _cart;
+      if (cart is HiveCatalogCartCache) {
+        await cart.ensureOpen();
+      }
+      _company = await _companies.getCompany(companyId);
+      _lines = _cart.load(companyId);
+      notifyListeners();
+    } catch (error, stack) {
+      debugPrint('Catalog company load failed: $error');
+      debugPrint('$stack');
+    }
+  }
+
+  Future<void> _bindProducts() async {
+    final productsReady = Completer<void>();
+    try {
       _productSub = _products
           .watchProducts(companyId)
           .listen(
             (list) {
               _allProducts = list;
               _pruneMissing();
+              unawaited(
+                _images?.prefetchProductImages(products, coversOnly: true),
+              );
               notifyListeners();
               if (!productsReady.isCompleted) productsReady.complete();
             },
             onError: (Object error, StackTrace stack) {
-              if (!productsReady.isCompleted) {
-                productsReady.completeError(error, stack);
-              }
+              debugPrint('Catalog products failed: $error');
+              debugPrint('$stack');
+              if (!productsReady.isCompleted) productsReady.complete();
             },
           );
       await productsReady.future;
-    } catch (_) {
-      notifyListeners();
-      rethrow;
+    } catch (error, stack) {
+      debugPrint('Catalog products bind failed: $error');
+      debugPrint('$stack');
+      if (!productsReady.isCompleted) productsReady.complete();
     }
   }
 
