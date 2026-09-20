@@ -135,4 +135,31 @@ void main() {
     expect(store.filteredProducts, isEmpty);
     expect(store.visibleCategories.first.line, ApparelLine.calzado);
   });
+
+  testWidgets('settings shows the catalog share link', (tester) async {
+    final store = AppStore();
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: store),
+          ChangeNotifierProvider.value(value: session),
+        ],
+        child: const MaterialApp(home: Scaffold(body: SettingsPage())),
+      ),
+    );
+
+    expect(find.text('Compartir catálogo'), findsOneWidget);
+    expect(find.byKey(const ValueKey('catalog-share')), findsOneWidget);
+    expect(session.catalogShareUrl(), '/catalogo/${session.companyId}');
+    expect(find.text('/catalogo/${session.companyId}'), findsOneWidget);
+    expect(
+      find.text(
+        'Cargá un teléfono para que puedan enviarte el pedido por WhatsApp.',
+      ),
+      findsOneWidget,
+    );
+  });
 }

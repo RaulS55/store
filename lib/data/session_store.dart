@@ -280,12 +280,19 @@ class SessionStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  String inviteShareUrl(Invitation invitation) {
-    final path = invitation.path;
+  String shareUrl(String path) {
     if (kIsWeb) {
       return '${Uri.base.origin}/#$path';
     }
     return path;
+  }
+
+  String inviteShareUrl(Invitation invitation) => shareUrl(invitation.path);
+
+  String? catalogShareUrl() {
+    final id = company?.id;
+    if (id == null || id.isEmpty) return null;
+    return shareUrl('/catalogo/$id');
   }
 
   @override

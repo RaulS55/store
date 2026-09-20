@@ -2,6 +2,7 @@ import 'customer.dart';
 import 'map_date.dart';
 import 'map_value.dart';
 import 'product.dart';
+import 'record_source.dart';
 import 'sync_record.dart';
 
 enum OrderStatus {
@@ -90,6 +91,7 @@ class DraftOrder {
     this.deletedAt,
     this.ivaEnabled = false,
     this.ivaPercent = 21,
+    this.source = RecordSource.staff,
   }) : lines = lines ?? <OrderLine>[],
        createdAt = createdAt ?? DateTime.now().toUtc(),
        updatedAt = updatedAt ?? createdAt ?? DateTime.now().toUtc();
@@ -105,12 +107,15 @@ class DraftOrder {
   DateTime? deletedAt;
   bool ivaEnabled;
   double ivaPercent;
+  RecordSource source;
 
   bool get isClosed => status == OrderStatus.cerrado;
 
   bool get isActive => status == OrderStatus.borrador;
 
   bool get isDeleted => deletedAt != null;
+
+  bool get isCatalog => source == RecordSource.catalog;
 
   int get itemCount => lines.fold(0, (sum, line) => sum + line.quantity);
 
@@ -168,6 +173,7 @@ class DraftOrder {
       deletedAt: record.deletedAt,
       ivaEnabled: data['ivaEnabled'] as bool? ?? false,
       ivaPercent: (data['ivaPercent'] as num?)?.toDouble() ?? 21,
+      source: RecordSource.fromStorage(data['source'] as String?),
     );
   }
 
@@ -186,6 +192,7 @@ class DraftOrder {
       'closedAt': closedAt?.toUtc().toIso8601String(),
       'ivaEnabled': ivaEnabled,
       'ivaPercent': ivaPercent,
+      'source': source.name,
     };
   }
 }

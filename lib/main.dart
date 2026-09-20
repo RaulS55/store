@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'data/app_store.dart';
+import 'data/catalog_bindings.dart';
 import 'data/firebase_auth_client.dart';
 import 'data/firebase_bootstrap.dart';
 import 'data/firebase_image_access.dart';
@@ -23,6 +24,7 @@ import 'data/local/cached_customer_access.dart';
 import 'data/local/cached_lot_access.dart';
 import 'data/local/cached_order_access.dart';
 import 'data/local/cached_product_access.dart';
+import 'data/local/catalog_cart_cache.dart';
 import 'data/local/hive_bootstrap.dart';
 import 'data/session_store.dart';
 import 'features/auth/loading_page.dart';
@@ -52,6 +54,7 @@ class ModaStockApp extends StatefulWidget {
 class _ModaStockAppState extends State<ModaStockApp> {
   AppStore? _store;
   SessionStore? _session;
+  CatalogBindings? _catalog;
   GoRouter? _router;
   var _bootFailed = false;
   var _booting = false;
@@ -68,6 +71,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
     _booting = true;
     AppStore? store;
     SessionStore? session;
+    CatalogBindings? catalog;
     var step = 'inicio';
     try {
       step = 'idioma';
@@ -82,26 +86,27 @@ class _ModaStockAppState extends State<ModaStockApp> {
       await configureFirebaseForPlatform();
       step = 'cache';
       final cache = await openEncryptedCatalogCache();
+      final cartCache = HiveCatalogCartCache();
+      await cartCache.ensureOpen();
       step = 'tienda';
+      final companyAccess = FirestoreCompanyAccess();
+      final productAccess = FirestoreProductAccess();
+      final customerAccess = FirestoreCustomerAccess();
+      final orderAccess = FirestoreOrderAccess();
       store = AppStore(
-        products: CachedProductAccess(
-          remote: FirestoreProductAccess(),
-          cache: cache,
-        ),
-        customers: CachedCustomerAccess(
-          remote: FirestoreCustomerAccess(),
-          cache: cache,
-        ),
-        orderAccess: CachedOrderAccess(
-          remote: FirestoreOrderAccess(),
-          cache: cache,
-        ),
+        products: CachedProductAccess(remote: productAccess, cache: cache),
+        customers: CachedCustomerAccess(remote: customerAccess, cache: cache),
+        orderAccess: CachedOrderAccess(remote: orderAccess, cache: cache),
         lotAccess: CachedLotAccess(remote: FirestoreLotAccess(), cache: cache),
         images: FirebaseImageAccess(),
       );
-      session = SessionStore(
-        auth: FirebaseAuthClient(),
-        access: FirestoreCompanyAccess(),
+      session = SessionStore(auth: FirebaseAuthClient(), access: companyAccess);
+      catalog = CatalogBindings(
+        companies: companyAccess,
+        products: productAccess,
+        customers: customerAccess,
+        orders: orderAccess,
+        cart: cartCache,
       );
       session.addListener(_bindCatalog);
       session.start();
@@ -110,12 +115,14 @@ class _ModaStockAppState extends State<ModaStockApp> {
       if (!mounted) {
         session.removeListener(_bindCatalog);
         session.dispose();
+        catalog.dispose();
         store.dispose();
         return;
       }
       setState(() {
         _store = store;
         _session = session;
+        _catalog = catalog;
         _router = router;
         _bootFailed = false;
         _bootError = null;
@@ -132,6 +139,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
       if (!identical(_store, store)) {
         session?.removeListener(_bindCatalog);
         session?.dispose();
+        catalog?.dispose();
         store?.dispose();
       }
       if (mounted && _store == null) {
@@ -169,6 +177,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
   void dispose() {
     _session?.removeListener(_bindCatalog);
     _session?.dispose();
+    _catalog?.dispose();
     _store?.dispose();
     super.dispose();
   }
@@ -177,8 +186,9 @@ class _ModaStockAppState extends State<ModaStockApp> {
   Widget build(BuildContext context) {
     final store = _store;
     final session = _session;
+    final catalog = _catalog;
     final router = _router;
-    if (store == null || session == null || router == null) {
+    if (store == null || session == null || catalog == null || router == null) {
       // Web uses the URL as initialRoute; this boot app has no named routes.
       return MaterialApp(
         title: 'Moda Stock',
@@ -202,6 +212,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
       providers: [
         ChangeNotifierProvider.value(value: store),
         ChangeNotifierProvider.value(value: session),
+        Provider.value(value: catalog),
       ],
       child: Selector<AppStore, ThemeMode>(
         selector: (_, store) => store.themeMode,

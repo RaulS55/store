@@ -112,6 +112,7 @@ void main() {
       'phone': ' +54 9 11 4555-0101 ',
     });
     expect(withPhone.phone, '+54 9 11 4555-0101');
+    expect(withPhone.whatsappDigits, '5491145550101');
     expect(withPhone.copyWith(phone: null).phone, isNull);
 
     final footwear = Company.fromMap('co2', {

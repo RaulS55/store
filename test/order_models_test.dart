@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/models/order.dart';
+import 'package:store_app/models/record_source.dart';
 
 import 'fakes/catalog_harness.dart';
 
@@ -55,6 +56,8 @@ void main() {
     );
     expect(order.toMap()['status'], 'borrador');
     expect(order.toMap()['deletedAt'], isNull);
+    expect(order.source, RecordSource.staff);
+    expect(order.isCatalog, isFalse);
   });
 
   test('DraftOrder.fromMap reads a closed order snapshot', () {
@@ -87,5 +90,30 @@ void main() {
 
   test('OrderStatus.fromStorage rejects an unknown value', () {
     expect(() => OrderStatus.fromStorage('facturado'), throwsFormatException);
+  });
+
+  test('DraftOrder.fromMap reads a catalog source', () {
+    final order = DraftOrder.fromMap('o3', {
+      'id': 'o3',
+      'orderNumber': 'WEB-ABCDEF',
+      'status': 'borrador',
+      'ivaEnabled': false,
+      'ivaPercent': 21,
+      'closedAt': null,
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+      'source': 'catalog',
+      'customer': customer.toMap(),
+      'lines': [
+        {
+          'quantity': 1,
+          'product': product.toMap(),
+          'variant': product.variants.first.toMap(),
+        },
+      ],
+    });
+    expect(order.isCatalog, isTrue);
+    expect(order.toMap()['source'], 'catalog');
   });
 }

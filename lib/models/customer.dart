@@ -1,4 +1,5 @@
 import 'map_value.dart';
+import 'record_source.dart';
 import 'sync_record.dart';
 
 enum TaxCondition {
@@ -31,6 +32,7 @@ class Customer {
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
+    this.source = RecordSource.staff,
   });
 
   final String id;
@@ -42,8 +44,10 @@ class Customer {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
+  final RecordSource source;
 
   bool get isDeleted => deletedAt != null;
+  bool get isCatalog => source == RecordSource.catalog;
 
   String get initials {
     final trimmed = name.trim();
@@ -63,6 +67,7 @@ class Customer {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
+    RecordSource? source,
   }) {
     return Customer(
       id: id ?? this.id,
@@ -74,6 +79,7 @@ class Customer {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
+      source: source ?? this.source,
     );
   }
 
@@ -101,6 +107,7 @@ class Customer {
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       deletedAt: record.deletedAt,
+      source: RecordSource.fromStorage(data['source'] as String?),
     );
   }
 
@@ -117,6 +124,7 @@ class Customer {
       'taxCondition': taxCondition?.name,
       'phone': phone?.trim(),
       'address': address?.trim(),
+      'source': source.name,
     };
   }
 }

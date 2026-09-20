@@ -40,7 +40,43 @@ class OrderShare {
   }
 
   static Future<bool> openWhatsApp(DraftOrder order) async {
-    final uri = whatsappUri(order);
+    return openUri(whatsappUri(order));
+  }
+
+  static String catalogMessage(DraftOrder order) {
+    final buffer = StringBuffer()
+      ..writeln('Hola, soy ${order.customer.name}.')
+      ..writeln('Quiero este pedido:')
+      ..writeln();
+    for (final line in order.lines) {
+      buffer.writeln(
+        '• ${line.quantity}× ${line.product.name} '
+        '(${line.variant.size} · ${line.variant.color}) — '
+        '${MoneyFormat.detailed(line.lineTotal)}',
+      );
+    }
+    buffer
+      ..writeln()
+      ..writeln('Total: ${MoneyFormat.detailed(order.total)}');
+    return buffer.toString();
+  }
+
+  static Uri? catalogWhatsAppUri(DraftOrder order, String? phone) {
+    if (order.lines.isEmpty) return null;
+    final digits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return null;
+    final text = Uri.encodeComponent(catalogMessage(order));
+    return Uri.parse('https://wa.me/$digits?text=$text');
+  }
+
+  static Future<bool> openCatalogWhatsApp(
+    DraftOrder order,
+    String? phone,
+  ) async {
+    return openUri(catalogWhatsAppUri(order, phone));
+  }
+
+  static Future<bool> openUri(Uri? uri) async {
     if (uri == null) return false;
     try {
       return await launchUrl(uri, mode: LaunchMode.externalApplication);

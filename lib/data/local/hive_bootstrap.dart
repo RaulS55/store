@@ -19,6 +19,7 @@ const catalogCustomersBox = 'catalog_customers';
 const catalogOrdersBox = 'catalog_orders';
 const catalogLotsBox = 'catalog_lots';
 const catalogMetaBox = 'catalog_sync_meta';
+const catalogGuestCartsBox = 'catalog_guest_carts';
 
 var _hiveFlutterReady = false;
 

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../../data/clipboard_copy.dart';
 import '../../data/formatters.dart';
 import '../../data/session_exception.dart';
 import '../../data/session_store.dart';
@@ -39,6 +40,8 @@ class SettingsPage extends StatelessWidget {
           const _RubroSettings(),
           const Divider(),
           const _PhoneSettings(),
+          const Divider(),
+          const _CatalogShareSettings(),
           const Divider(),
           const _IvaSettings(),
           const ListTile(
@@ -262,6 +265,63 @@ class _PhoneSettingsState extends State<_PhoneSettings> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CatalogShareSettings extends StatelessWidget {
+  const _CatalogShareSettings();
+
+  @override
+  Widget build(BuildContext context) {
+    SessionStore? session;
+    try {
+      session = context.watch<SessionStore>();
+    } on ProviderNotFoundException {
+      session = null;
+    }
+    final url = session?.catalogShareUrl();
+    final hasPhone = (session?.company?.whatsappDigits ?? '').isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          key: const ValueKey('catalog-share'),
+          title: const Text('Compartir catálogo'),
+          subtitle: Text(
+            url == null
+                ? 'Enlace para que tus clientes vean las prendas sin iniciar sesión.'
+                : hasPhone
+                ? 'Tus clientes arman un pedido y te lo envían por WhatsApp.'
+                : 'Cargá un teléfono para que puedan enviarte el pedido por WhatsApp.',
+          ),
+          trailing: url == null
+              ? null
+              : IconButton(
+                  tooltip: 'Copiar enlace',
+                  onPressed: () => _copy(context, url),
+                  icon: const Icon(Icons.copy_outlined),
+                ),
+        ),
+        if (url != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: SelectableText(
+              url,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _copy(BuildContext context, String url) async {
+    final ok = await copyToClipboard(url);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? 'Copiamos el enlace del catálogo.' : url)),
     );
   }
 }

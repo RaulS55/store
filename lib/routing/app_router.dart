@@ -6,6 +6,9 @@ import '../features/auth/join_company_page.dart';
 import '../features/auth/loading_page.dart';
 import '../features/auth/sign_in_page.dart';
 import '../features/auth/sign_up_page.dart';
+import '../features/catalog/catalog_cart_page.dart';
+import '../features/catalog/catalog_page.dart';
+import '../features/catalog/catalog_product_page.dart';
 import '../features/customers/customer_detail_page.dart';
 import '../features/customers/customers_page.dart';
 import '../features/lots/lots_page.dart';
@@ -24,42 +27,7 @@ GoRouter createRouter(SessionStore session) {
   return GoRouter(
     initialLocation: '/',
     refreshListenable: session,
-    redirect: (context, state) {
-      final path = state.uri.path;
-      final isLoading = path == '/cargando';
-      final isAuth =
-          path == '/ingresar' ||
-          path == '/registro' ||
-          path.startsWith('/invitar') ||
-          path == '/unirse';
-
-      if (!session.isReady) {
-        return isLoading ? null : '/cargando';
-      }
-      final needsCompany = session.needsCompany;
-      final isInvite = path.startsWith('/invitar');
-      final isJoin = path == '/unirse';
-      if (isLoading) {
-        if (session.isSignedIn) return '/';
-        if (needsCompany) return '/unirse';
-        return '/ingresar';
-      }
-      if (session.isSignedIn) {
-        if (path == '/ingresar' || path == '/registro' || isJoin || isInvite) {
-          return '/';
-        }
-        if (path == '/equipo' && !session.canViewTeam) return '/';
-        if (path == '/montones' && !session.canManageLots) return '/';
-        return null;
-      }
-      if (needsCompany) {
-        if (isJoin || isInvite) return null;
-        return '/unirse';
-      }
-      if (isJoin) return '/ingresar';
-      if (!isAuth) return '/ingresar';
-      return null;
-    },
+    redirect: (context, state) => sessionRedirect(session, state.uri.path),
     routes: [
       GoRoute(
         path: '/cargando',
@@ -83,6 +51,21 @@ GoRouter createRouter(SessionStore session) {
       GoRoute(
         path: '/unirse',
         builder: (context, state) => const JoinCompanyPage(),
+      ),
+      GoRoute(
+        path: '/catalogo/:companyId',
+        builder: (context, state) => const CatalogPage(),
+        routes: [
+          GoRoute(
+            path: 'producto/:id',
+            builder: (context, state) =>
+                CatalogProductPage(id: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: 'pedido',
+            builder: (context, state) => const CatalogCartPage(),
+          ),
+        ],
       ),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
@@ -173,4 +156,43 @@ GoRouter createRouter(SessionStore session) {
       ),
     ],
   );
+}
+
+String? sessionRedirect(SessionStore session, String path) {
+  final isLoading = path == '/cargando';
+  final isCatalog = path.startsWith('/catalogo');
+  final isAuth =
+      path == '/ingresar' ||
+      path == '/registro' ||
+      path.startsWith('/invitar') ||
+      path == '/unirse';
+
+  if (!session.isReady) {
+    if (isCatalog) return null;
+    return isLoading ? null : '/cargando';
+  }
+  if (isCatalog) return null;
+  final needsCompany = session.needsCompany;
+  final isInvite = path.startsWith('/invitar');
+  final isJoin = path == '/unirse';
+  if (isLoading) {
+    if (session.isSignedIn) return '/';
+    if (needsCompany) return '/unirse';
+    return '/ingresar';
+  }
+  if (session.isSignedIn) {
+    if (path == '/ingresar' || path == '/registro' || isJoin || isInvite) {
+      return '/';
+    }
+    if (path == '/equipo' && !session.canViewTeam) return '/';
+    if (path == '/montones' && !session.canManageLots) return '/';
+    return null;
+  }
+  if (needsCompany) {
+    if (isJoin || isInvite) return null;
+    return '/unirse';
+  }
+  if (isJoin) return '/ingresar';
+  if (!isAuth) return '/ingresar';
+  return null;
 }

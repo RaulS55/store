@@ -74,6 +74,7 @@ class OrderSummaryCard extends StatelessWidget {
                             [
                               if (showCustomer) order.orderNumber,
                               DateFormatters.short.format(date),
+                              if (order.isCatalog) 'Catálogo',
                             ].join(' · '),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: AppColors.slate),

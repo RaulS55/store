@@ -576,6 +576,7 @@ void main() {
     expect(session.company?.phone, '+54 9 11 5555-0101');
     await session.setCompanyPhone('  ');
     expect(session.company?.phone, isNull);
+    expect(session.catalogShareUrl(), '/catalogo/${session.companyId}');
   });
 
   test('a second sign in is ignored while the first is busy', () async {

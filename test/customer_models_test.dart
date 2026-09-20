@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/models/customer.dart';
+import 'package:store_app/models/record_source.dart';
 
 void main() {
   final stamp = DateTime.utc(2026, 9, 11, 12);
@@ -32,6 +33,8 @@ void main() {
     );
     expect(customer.toMap()['taxCondition'], 'responsableInscripto');
     expect(customer.toMap()['deletedAt'], isNull);
+    expect(customer.source, RecordSource.staff);
+    expect(customer.toMap()['source'], 'staff');
   });
 
   test('Customer.fromMap treats blank optional fields as null', () {
@@ -51,5 +54,18 @@ void main() {
     expect(customer.phone, isNull);
     expect(customer.address, isNull);
     expect(customer.toMap()['taxCondition'], isNull);
+  });
+
+  test('Customer.fromMap reads a catalog source', () {
+    final customer = Customer.fromMap('c3', {
+      'id': 'c3',
+      'name': 'Juan',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+      'source': 'catalog',
+    });
+    expect(customer.isCatalog, isTrue);
+    expect(customer.toMap()['source'], 'catalog');
   });
 }

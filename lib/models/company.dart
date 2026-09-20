@@ -46,6 +46,8 @@ class Company {
   final CompanyRubro rubro;
   final String? phone;
 
+  String get whatsappDigits => (phone ?? '').replaceAll(RegExp(r'\D'), '');
+
   factory Company.fromMap(String id, Map<String, dynamic> map) {
     return Company(
       id: id,

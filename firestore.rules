@@ -61,6 +61,39 @@ service cloud.firestore {
       return ('lotId' in data) ? data.lotId : '';
     }
 
+    function isPublicProduct() {
+      return resource.data.deletedAt == null;
+    }
+
+    function isCatalogCustomerCreate(customerId) {
+      return request.resource.data.source == 'catalog'
+        && hasSyncFields(customerId)
+        && request.resource.data.deletedAt == null
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 1
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.phone == null
+        && request.resource.data.cuit == null
+        && request.resource.data.address == null
+        && request.resource.data.taxCondition == null;
+    }
+
+    function isCatalogOrderCreate(orderId) {
+      return request.resource.data.source == 'catalog'
+        && hasSyncFields(orderId)
+        && request.resource.data.deletedAt == null
+        && request.resource.data.status == 'borrador'
+        && request.resource.data.ivaEnabled == false
+        && request.resource.data.closedAt == null
+        && request.resource.data.orderNumber is string
+        && request.resource.data.lines is list
+        && request.resource.data.lines.size() > 0
+        && request.resource.data.lines.size() <= 50
+        && request.resource.data.customer.name is string
+        && request.resource.data.customer.name.size() > 1
+        && request.resource.data.customer.source == 'catalog';
+    }
+
     function invitationPath(companyId, invitationId) {
       return /databases/$(database)/documents/companies/$(companyId)/invitations/$(invitationId);
     }
@@ -134,7 +167,8 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
-      allow read: if isMember(companyId)
+      allow get: if true;
+      allow list: if isMember(companyId)
         || (signedIn() && resource.data.ownerId == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.ownerId == request.auth.uid
@@ -204,7 +238,7 @@ service cloud.firestore {
       }
 
       match /products/{productId} {
-        allow read: if isMember(companyId);
+        allow read: if isMember(companyId) || isPublicProduct();
         allow create: if isMember(companyId)
           && hasSyncFields(productId)
           && (
@@ -228,7 +262,8 @@ service cloud.firestore {
 
       match /customers/{customerId} {
         allow read: if isMember(companyId);
-        allow create: if isMember(companyId) && hasSyncFields(customerId);
+        allow create: if (isMember(companyId) && hasSyncFields(customerId))
+          || isCatalogCustomerCreate(customerId);
         allow update: if isMember(companyId)
           && hasSyncFields(customerId)
           && request.resource.data.id == resource.data.id
@@ -242,7 +277,8 @@ service cloud.firestore {
 
       match /orders/{orderId} {
         allow read: if isMember(companyId);
-        allow create: if isMember(companyId) && hasSyncFields(orderId);
+        allow create: if (isMember(companyId) && hasSyncFields(orderId))
+          || isCatalogOrderCreate(orderId);
         allow update: if isMember(companyId)
           && hasSyncFields(orderId)
           && request.resource.data.id == resource.data.id
