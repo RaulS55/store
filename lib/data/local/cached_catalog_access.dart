@@ -52,10 +52,17 @@ class CachedCatalogAccess<T> {
 
     Future<void> emitLocal() async {
       final maps = await _cache.loadActive(companyId, _collection);
-      final items = [
-        for (final map in maps)
-          _fromMap((map['id'] as String?)?.trim() ?? '', map),
-      ];
+      final items = <T>[];
+      for (final map in maps) {
+        try {
+          final id = (map['id'] as String?)?.trim() ?? '';
+          if (id.isEmpty) continue;
+          items.add(_fromMap(id, map));
+        } catch (error, stack) {
+          _log('Catalog $_collection decode failed: $error');
+          _log('$stack');
+        }
+      }
       items.sort((a, b) => _createdAtOf(b).compareTo(_createdAtOf(a)));
       if (!controller.isClosed) controller.add(items);
     }

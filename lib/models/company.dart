@@ -1,5 +1,8 @@
 import 'map_date.dart';
 
+const maxCompanyNameLength = 80;
+const maxCompanySocialLength = 120;
+
 enum CompanyRubro {
   ropa('Ropa'),
   calzado('Calzado'),
@@ -37,6 +40,10 @@ class Company {
     required this.createdAt,
     this.rubro = CompanyRubro.ambos,
     this.phone,
+    this.logoUrl,
+    this.instagram,
+    this.tiktok,
+    this.facebook,
   });
 
   final String id;
@@ -45,8 +52,21 @@ class Company {
   final DateTime createdAt;
   final CompanyRubro rubro;
   final String? phone;
+  final String? logoUrl;
+  final String? instagram;
+  final String? tiktok;
+  final String? facebook;
 
   String get whatsappDigits => (phone ?? '').replaceAll(RegExp(r'\D'), '');
+
+  String? get instagramUrl =>
+      socialProfileUrl(instagram, host: 'www.instagram.com');
+
+  String? get tiktokUrl =>
+      socialProfileUrl(tiktok, host: 'www.tiktok.com', atHandle: true);
+
+  String? get facebookUrl =>
+      socialProfileUrl(facebook, host: 'www.facebook.com');
 
   factory Company.fromMap(String id, Map<String, dynamic> map) {
     return Company(
@@ -56,6 +76,10 @@ class Company {
       createdAt: parseMapDate(map['createdAt']),
       rubro: CompanyRubro.fromStorage(map['rubro'] as String?),
       phone: blankToNull(map['phone'] as String?),
+      logoUrl: blankToNull(map['logoUrl'] as String?),
+      instagram: blankToNull(map['instagram'] as String?),
+      tiktok: blankToNull(map['tiktok'] as String?),
+      facebook: blankToNull(map['facebook'] as String?),
     );
   }
 
@@ -66,6 +90,10 @@ class Company {
       'createdAt': createdAt.toIso8601String(),
       'rubro': rubro.name,
       'phone': phone?.trim(),
+      'logoUrl': logoUrl?.trim(),
+      'instagram': instagram?.trim(),
+      'tiktok': tiktok?.trim(),
+      'facebook': facebook?.trim(),
     };
   }
 
@@ -76,6 +104,10 @@ class Company {
     DateTime? createdAt,
     CompanyRubro? rubro,
     Object? phone = _unset,
+    Object? logoUrl = _unset,
+    Object? instagram = _unset,
+    Object? tiktok = _unset,
+    Object? facebook = _unset,
   }) {
     return Company(
       id: id ?? this.id,
@@ -84,6 +116,14 @@ class Company {
       createdAt: createdAt ?? this.createdAt,
       rubro: rubro ?? this.rubro,
       phone: identical(phone, _unset) ? this.phone : phone as String?,
+      logoUrl: identical(logoUrl, _unset) ? this.logoUrl : logoUrl as String?,
+      instagram: identical(instagram, _unset)
+          ? this.instagram
+          : instagram as String?,
+      tiktok: identical(tiktok, _unset) ? this.tiktok : tiktok as String?,
+      facebook: identical(facebook, _unset)
+          ? this.facebook
+          : facebook as String?,
     );
   }
 }
@@ -94,4 +134,33 @@ String? blankToNull(String? value) {
   final trimmed = value?.trim();
   if (trimmed == null || trimmed.isEmpty) return null;
   return trimmed;
+}
+
+String? socialProfileUrl(
+  String? raw, {
+  required String host,
+  bool atHandle = false,
+}) {
+  final value = blankToNull(raw);
+  if (value == null) return null;
+  final parsed = Uri.tryParse(value);
+  if (parsed != null &&
+      (parsed.scheme == 'http' || parsed.scheme == 'https') &&
+      parsed.host.isNotEmpty) {
+    return value;
+  }
+  var handle = value.replaceFirst(RegExp(r'^@+'), '').trim();
+  handle = handle.replaceFirst(
+    RegExp(
+      r'^(www\.)?(instagram\.com|tiktok\.com|facebook\.com|fb\.com)/',
+      caseSensitive: false,
+    ),
+    '',
+  );
+  handle = handle
+      .replaceFirst(RegExp(r'^@+'), '')
+      .replaceFirst(RegExp(r'^/+'), '');
+  if (handle.isEmpty) return null;
+  final path = atHandle ? '@$handle' : handle;
+  return 'https://$host/$path';
 }

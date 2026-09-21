@@ -28,6 +28,29 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   int _index = 0;
   VariantSelection _selection = const VariantSelection();
   int _qty = 1;
+  String? _prefetchedId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _prefetchGallery();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProductDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.id != widget.id) {
+      _prefetchedId = null;
+      _prefetchGallery();
+    }
+  }
+
+  void _prefetchGallery() {
+    final product = context.read<AppStore>().productById(widget.id);
+    if (product == null || _prefetchedId == product.id) return;
+    _prefetchedId = product.id;
+    prefetchProductGallery(context, product);
+  }
 
   VariantSelection _effective(Product product) {
     return VariantSelection(

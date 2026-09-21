@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -184,5 +185,29 @@ void main() {
     );
 
     expect(find.byKey(ValueKey('network:$url')), findsOneWidget);
+  });
+
+  testWidgets('empty cache still paints Image.network while persisting', (
+    tester,
+  ) async {
+    const url = 'https://example.com/pending.jpg';
+    final jpeg = _jpeg();
+    final fetched = Completer<Uint8List>();
+    final cache = ProductImageCache(fetch: (url) => fetched.future);
+
+    await tester.pumpWidget(
+      Provider.value(
+        value: cache,
+        child: const MaterialApp(
+          home: Scaffold(body: ProductImage(path: url)),
+        ),
+      ),
+    );
+
+    expect(find.byKey(ValueKey('network:$url')), findsOneWidget);
+    fetched.complete(jpeg);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(ValueKey('cached:$url:${jpeg.length}')), findsOneWidget);
   });
 }

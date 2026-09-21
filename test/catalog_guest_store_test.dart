@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/data/catalog_guest_store.dart';
 import 'package:store_app/data/local/catalog_cart_cache.dart';
+import 'package:store_app/data/local/hive_catalog_cache.dart';
 import 'package:store_app/data/order_share.dart';
 import 'package:store_app/data/product_access.dart';
 import 'package:store_app/data/session_exception.dart';
@@ -185,6 +186,32 @@ void main() {
     expect(result.whatsappUri, isNull);
     expect(orders.orders['co1'], isNotEmpty);
   });
+
+  test(
+    'cached company shows the catalog without waiting for the API',
+    () async {
+      final cache = await HiveCatalogCache.openInMemory();
+      addTearDown(cache.close);
+      await cache.saveCompany(_company());
+      final products = FakeProductAccess();
+      await products.saveProduct('co1', testProduct());
+      final store = CatalogGuestStore(
+        companyId: 'co1',
+        companies: _HangingCompanyAccess(),
+        products: products,
+        customers: FakeCustomerAccess(),
+        orders: FakeOrderAccess(),
+        local: cache,
+        loadTimeout: const Duration(milliseconds: 50),
+      );
+      addTearDown(store.dispose);
+      await store.ready;
+      expect(store.isLoading, isFalse);
+      expect(store.notFound, isFalse);
+      expect(store.company?.name, 'Moda Stock');
+      expect(store.visibleProducts.map((item) => item.id), ['p-test']);
+    },
+  );
 
   test('catalog stops loading if company and products never arrive', () async {
     final products = _HangingProductAccess();

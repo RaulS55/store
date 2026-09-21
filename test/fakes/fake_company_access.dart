@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:store_app/data/company_access.dart';
 import 'package:store_app/data/session_exception.dart';
 import 'package:store_app/models/app_user.dart';
@@ -15,13 +17,19 @@ class FakeCompanyAccess implements CompanyAccess {
   var listInvitationsCalls = 0;
   var _seq = 0;
   var _codeSeq = 0;
+  Duration getUserDelay = Duration.zero;
 
   String _id() => 'id-${++_seq}';
 
   DateTime get _now => DateTime.utc(2026, 9, 11);
 
   @override
-  Future<AppUser?> getUser(String uid) async => users[uid];
+  Future<AppUser?> getUser(String uid) async {
+    if (getUserDelay > Duration.zero) {
+      await Future<void>.delayed(getUserDelay);
+    }
+    return users[uid];
+  }
 
   @override
   Future<Company?> getCompany(String companyId) async => companies[companyId];
@@ -308,6 +316,43 @@ class FakeCompanyAccess implements CompanyAccess {
       );
     }
     companies[companyId] = company.copyWith(phone: blankToNull(phone));
+  }
+
+  @override
+  Future<void> updateCompanyName(String companyId, String name) async {
+    final company = _requireCompany(companyId);
+    companies[companyId] = company.copyWith(name: name.trim());
+  }
+
+  @override
+  Future<void> updateCompanyLogo(String companyId, String? logoUrl) async {
+    final company = _requireCompany(companyId);
+    companies[companyId] = company.copyWith(logoUrl: blankToNull(logoUrl));
+  }
+
+  @override
+  Future<void> updateCompanySocials(
+    String companyId, {
+    String? instagram,
+    String? tiktok,
+    String? facebook,
+  }) async {
+    final company = _requireCompany(companyId);
+    companies[companyId] = company.copyWith(
+      instagram: blankToNull(instagram),
+      tiktok: blankToNull(tiktok),
+      facebook: blankToNull(facebook),
+    );
+  }
+
+  Company _requireCompany(String companyId) {
+    final company = companies[companyId];
+    if (company == null) {
+      throw const SessionException(
+        'No se pudo cargar el contexto de la empresa.',
+      );
+    }
+    return company;
   }
 
   String _nextCode() {

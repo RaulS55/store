@@ -55,6 +55,7 @@ class _StockPageState extends State<StockPage> {
         child: CustomScrollView(
           key: StockPage.mobileScrollKey,
           controller: _scroll,
+          cacheExtent: 800,
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
@@ -147,6 +148,7 @@ class _StockPageState extends State<StockPage> {
       child: CustomScrollView(
         key: StockPage.webScrollKey,
         controller: _scroll,
+        cacheExtent: 800,
         slivers: [
           SliverToBoxAdapter(
             child: Padding(

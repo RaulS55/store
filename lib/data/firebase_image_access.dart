@@ -20,13 +20,65 @@ class FirebaseImageAccess implements ImageAccess {
     required Uint8List bytes,
     required String contentType,
   }) async {
-    final ref = _storage
-        .ref()
-        .child('companies')
-        .child(companyId)
-        .child('products')
-        .child(productId)
-        .child(fileName);
+    return _upload(
+      _storage
+          .ref()
+          .child('companies')
+          .child(companyId)
+          .child('products')
+          .child(productId)
+          .child(fileName),
+      bytes: bytes,
+      contentType: contentType,
+    );
+  }
+
+  @override
+  Future<void> deleteProductImages({
+    required String companyId,
+    required String productId,
+  }) {
+    return _deleteFolder(
+      _storage
+          .ref()
+          .child('companies')
+          .child(companyId)
+          .child('products')
+          .child(productId),
+    );
+  }
+
+  @override
+  Future<String> uploadCompanyLogo({
+    required String companyId,
+    required String fileName,
+    required Uint8List bytes,
+    required String contentType,
+  }) {
+    return _upload(
+      _storage
+          .ref()
+          .child('companies')
+          .child(companyId)
+          .child('branding')
+          .child(fileName),
+      bytes: bytes,
+      contentType: contentType,
+    );
+  }
+
+  @override
+  Future<void> deleteCompanyLogo({required String companyId}) {
+    return _deleteFolder(
+      _storage.ref().child('companies').child(companyId).child('branding'),
+    );
+  }
+
+  Future<String> _upload(
+    Reference ref, {
+    required Uint8List bytes,
+    required String contentType,
+  }) async {
     try {
       debugPrint(
         'Storage upload start path=${ref.fullPath} bytes=${bytes.lengthInBytes}',
@@ -49,17 +101,7 @@ class FirebaseImageAccess implements ImageAccess {
     }
   }
 
-  @override
-  Future<void> deleteProductImages({
-    required String companyId,
-    required String productId,
-  }) async {
-    final ref = _storage
-        .ref()
-        .child('companies')
-        .child(companyId)
-        .child('products')
-        .child(productId);
+  Future<void> _deleteFolder(Reference ref) async {
     try {
       debugPrint('Storage delete start path=${ref.fullPath}');
       final result = await ref.listAll().timeout(const Duration(seconds: 20));

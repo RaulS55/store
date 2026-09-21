@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../data/app_store.dart';
 import '../data/image_compress.dart';
 import '../data/product_image_cache.dart';
+import '../models/product.dart';
 import '../theme/tokens.dart';
 
 class ProductImage extends StatefulWidget {
@@ -66,17 +68,16 @@ class _ProductImageState extends State<ProductImage> {
       _loading = false;
       return;
     }
-    if (_cache == null ||
-        !_cache!.allowRemoteFetch ||
-        path.isEmpty ||
-        !isNetworkProductImageUrl(path)) {
-      return;
-    }
+    if (path.isEmpty || !isNetworkProductImageUrl(path)) return;
     if (_requested == path) return;
     _requested = path;
-    _loading = true;
-    _cache!.load(path).then((bytes) {
-      if (!mounted || _requested != path) return;
+    _loading = false;
+    final cache = _cache;
+    if (cache == null || !cache.allowRemoteFetch) return;
+    cache.load(path).then((bytes) {
+      if (!mounted || _requested != path || bytes == null || bytes.isEmpty) {
+        return;
+      }
       setState(() {
         _loading = false;
         _resolved = bytes;
@@ -110,9 +111,7 @@ class _ProductImageState extends State<ProductImage> {
         final dpr = MediaQuery.devicePixelRatioOf(context);
         final preview = widget.bytes;
         final cached = preview == null || preview.isEmpty ? _resolved : null;
-        // Keep one decode size for remote/cached JPEGs so the viewer reuses cache.
-        final layoutDecode = _decodeSize(width, height, dpr);
-        const sharedDecode = (width: maxProductImageEdge, height: null);
+        final decode = _decodeSize(width, height, dpr);
         final Widget image;
         if (preview != null && preview.isNotEmpty) {
           image = Image.memory(
@@ -121,8 +120,8 @@ class _ProductImageState extends State<ProductImage> {
             fit: widget.fit,
             width: width,
             height: height,
-            cacheWidth: layoutDecode.width,
-            cacheHeight: layoutDecode.height,
+            cacheWidth: decode.width,
+            cacheHeight: decode.height,
             gaplessPlayback: true,
             errorBuilder: (_, _, _) => fallback,
           );
@@ -133,8 +132,8 @@ class _ProductImageState extends State<ProductImage> {
             fit: widget.fit,
             width: width,
             height: height,
-            cacheWidth: sharedDecode.width,
-            cacheHeight: sharedDecode.height,
+            cacheWidth: decode.width,
+            cacheHeight: decode.height,
             gaplessPlayback: true,
             errorBuilder: (_, _, _) => fallback,
           );
@@ -149,8 +148,8 @@ class _ProductImageState extends State<ProductImage> {
             fit: widget.fit,
             width: width,
             height: height,
-            cacheWidth: sharedDecode.width,
-            cacheHeight: sharedDecode.height,
+            cacheWidth: decode.width,
+            cacheHeight: decode.height,
             gaplessPlayback: true,
             webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
             errorBuilder: (_, error, _) {
@@ -165,8 +164,8 @@ class _ProductImageState extends State<ProductImage> {
             fit: widget.fit,
             width: width,
             height: height,
-            cacheWidth: sharedDecode.width,
-            cacheHeight: sharedDecode.height,
+            cacheWidth: decode.width,
+            cacheHeight: decode.height,
             gaplessPlayback: true,
             errorBuilder: (_, _, _) => fallback,
           );
@@ -197,9 +196,20 @@ ProductImageCache? _imageCacheOf(BuildContext context) {
 
 bool _isNetworkPath(String path) => isNetworkProductImageUrl(path);
 
+void prefetchProductGallery(BuildContext context, Product product) {
+  try {
+    final cache = Provider.of<ProductImageCache>(context, listen: false);
+    unawaited(cache.prefetchProductImages([product], coversOnly: false));
+  } on ProviderNotFoundException {
+    return;
+  }
+}
+
+const _thumbLogical = 100.0;
+
 int? _cachePx(double? size, double dpr) {
   if (size == null || !size.isFinite || size <= 0) return null;
-  return (size * dpr).round().clamp(1, 4096);
+  return (size * dpr).round().clamp(1, maxProductImageEdge);
 }
 
 ({int? width, int? height}) _decodeSize(
@@ -207,13 +217,12 @@ int? _cachePx(double? size, double dpr) {
   double? height,
   double dpr,
 ) {
-  final cacheWidth = _cachePx(width, dpr);
-  final cacheHeight = _cachePx(height, dpr);
-  if (cacheWidth != null && cacheHeight != null) {
-    if (cacheWidth >= cacheHeight) {
-      return (width: cacheWidth, height: null);
-    }
-    return (width: null, height: cacheHeight);
+  final longest = [
+    if (width != null && width.isFinite && width > 0) width,
+    if (height != null && height.isFinite && height > 0) height,
+  ].fold<double>(0, (a, b) => a > b ? a : b);
+  if (longest > 0 && longest < _thumbLogical) {
+    return (width: _cachePx(_thumbLogical, dpr), height: null);
   }
-  return (width: cacheWidth, height: cacheHeight);
+  return (width: maxProductImageEdge, height: null);
 }

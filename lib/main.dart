@@ -27,6 +27,7 @@ import 'data/local/cached_order_access.dart';
 import 'data/local/cached_product_access.dart';
 import 'data/local/catalog_cart_cache.dart';
 import 'data/local/hive_bootstrap.dart';
+import 'data/session_cache.dart';
 import 'data/session_store.dart';
 import 'features/auth/loading_page.dart';
 import 'firebase_options.dart';
@@ -38,6 +39,9 @@ import 'widgets/brand_logo.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final imageCache = PaintingBinding.instance.imageCache;
+  imageCache.maximumSize = 250;
+  imageCache.maximumSizeBytes = 120 << 20;
   final entryLocation = appEntryLocation();
   usePathUrlStrategy();
   GoogleFonts.config.allowRuntimeFetching = false;
@@ -92,6 +96,9 @@ class _ModaStockAppState extends State<ModaStockApp> {
       await configureFirebaseForPlatform();
       step = 'cache';
       final cache = await openEncryptedCatalogCache();
+      if (!cache.persistent) {
+        debugPrint('Catalog cache is in-memory; reload will hit the API');
+      }
       final imageCache = await openProductImageCache();
       final cartCache = HiveCatalogCartCache();
       await cartCache.ensureOpen();
@@ -108,7 +115,11 @@ class _ModaStockAppState extends State<ModaStockApp> {
         images: FirebaseImageAccess(),
         imageCache: imageCache,
       );
-      session = SessionStore(auth: FirebaseAuthClient(), access: companyAccess);
+      session = SessionStore(
+        auth: FirebaseAuthClient(),
+        access: companyAccess,
+        cache: HiveSessionCache(cache),
+      );
       catalog = CatalogBindings(
         companies: companyAccess,
         products: CachedProductAccess(
@@ -120,6 +131,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
         orders: orderAccess,
         cart: cartCache,
         images: imageCache,
+        local: cache,
       );
       session.addListener(_bindCatalog);
       session.start();

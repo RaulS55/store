@@ -5,6 +5,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:store_app/data/local/cached_product_access.dart';
 import 'package:store_app/data/local/hive_bootstrap.dart';
 import 'package:store_app/data/local/hive_catalog_cache.dart';
+import 'package:store_app/models/company.dart';
 import 'package:store_app/models/product.dart';
 
 import 'fakes/catalog_harness.dart';
@@ -127,6 +128,37 @@ void main() {
       await cache.setLastSyncAt(companyId, CatalogCollection.products, late);
       expect(cache.lastSyncAt(companyId, CatalogCollection.products), late);
       expect(cache.lastSyncAt(companyId, CatalogCollection.customers), isNull);
+    });
+
+    test('schema stored as num or string keeps cached docs', () async {
+      await cache.upsertAll(companyId, CatalogCollection.products, [
+        testProduct(id: 'p1', createdAt: early).toMap(),
+      ]);
+      final meta = Hive.box<dynamic>('$catalogMetaBox${'_t$_boxSuffix'}');
+      await meta.put('$companyId|products|schema', 2.0);
+      expect(
+        await cache.loadActive(companyId, CatalogCollection.products),
+        hasLength(1),
+      );
+
+      await meta.put('$companyId|products|schema', '2');
+      expect(
+        await cache.loadActive(companyId, CatalogCollection.products),
+        hasLength(1),
+      );
+    });
+
+    test('company snapshot survives a second read', () async {
+      final company = Company(
+        id: companyId,
+        name: 'Moda Stock',
+        ownerId: 'u1',
+        createdAt: early,
+      );
+      await cache.saveCompany(company);
+      final loaded = cache.loadCompany(companyId);
+      expect(loaded?.id, companyId);
+      expect(loaded?.name, 'Moda Stock');
     });
 
     test('schema mismatch wipes the collection and cursor', () async {

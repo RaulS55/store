@@ -184,7 +184,9 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
                   for (final product in list)
                     if (!product.isDeleted) product,
                 ];
-                unawaited(_imageCache.prefetchProductImages(_products));
+                unawaited(
+                  _imageCache.prefetchProductImages(_products.take(24)),
+                );
                 notifyListeners();
               },
               onError: (Object error) {
@@ -715,6 +717,34 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     );
     unawaited(_imageCache.put(url, bytes));
     return url;
+  }
+
+  Future<String> uploadCompanyLogo({required Uint8List bytes}) async {
+    final companyId = _companyId;
+    final access = _imageAccess;
+    if (companyId == null || access == null) {
+      throw const ImageUploadException('No hay una empresa activa.');
+    }
+    final fileName = 'logo-${DateTime.now().microsecondsSinceEpoch}.jpg';
+    final url = await access.uploadCompanyLogo(
+      companyId: companyId,
+      fileName: fileName,
+      bytes: bytes,
+      contentType: 'image/jpeg',
+    );
+    unawaited(_imageCache.put(url, bytes));
+    return url;
+  }
+
+  Future<void> deleteCompanyLogo() async {
+    final companyId = _companyId;
+    final access = _imageAccess;
+    if (companyId == null || access == null) return;
+    try {
+      await access.deleteCompanyLogo(companyId: companyId);
+    } catch (error) {
+      _log('Company logo delete failed: $error');
+    }
   }
 
   Uint8List? cachedProductImage(String url) => _imageCache.peek(url);

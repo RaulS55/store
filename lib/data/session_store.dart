@@ -10,18 +10,21 @@ import '../models/invitation.dart';
 import '../models/membership.dart';
 import 'auth_client.dart';
 import 'company_access.dart';
+import 'session_cache.dart';
 import 'session_exception.dart';
 
 class SessionStore extends ChangeNotifier {
   SessionStore({
     required AuthClient auth,
     required CompanyAccess access,
+    this.cache,
     this.authReadyTimeout = const Duration(seconds: 8),
   }) : _auth = auth,
        _access = access;
 
   final AuthClient _auth;
   final CompanyAccess _access;
+  final SessionCache? cache;
   final Duration authReadyTimeout;
 
   StreamSubscription<AuthIdentity?>? _authSub;
@@ -31,6 +34,7 @@ class SessionStore extends ChangeNotifier {
 
   bool _ready = false;
   bool _busy = false;
+  bool _networkProfileLoaded = false;
   AuthIdentity? _identity;
   AppUser? _user;
   Company? _company;
@@ -154,8 +158,10 @@ class SessionStore extends ChangeNotifier {
 
   Future<void> signOut() {
     return _run(() async {
+      final uid = _user?.id ?? _identity?.uid;
       await _auth.signOut();
       _clearSession();
+      if (uid != null) await cache?.clear(uid);
     });
   }
 
@@ -257,6 +263,7 @@ class SessionStore extends ChangeNotifier {
     final current = _requireOwnerOrAdmin();
     await _access.updateCompanyRubro(current.company.id, rubro);
     _company = current.company.copyWith(rubro: rubro);
+    await _persistSessionCache();
     notifyListeners();
   }
 
@@ -265,6 +272,57 @@ class SessionStore extends ChangeNotifier {
     final next = blankToNull(phone);
     await _access.updateCompanyPhone(current.company.id, next);
     _company = current.company.copyWith(phone: next);
+    await _persistSessionCache();
+    notifyListeners();
+  }
+
+  Future<void> setCompanyName(String name) async {
+    final current = _requireCompanyOwner();
+    final next = name.trim();
+    if (next.isEmpty) {
+      throw const SessionException('Ingresá el nombre de la empresa.');
+    }
+    if (next.length > maxCompanyNameLength) {
+      throw const SessionException(
+        'El nombre de la empresa es demasiado largo.',
+      );
+    }
+    await _access.updateCompanyName(current.company.id, next);
+    _company = current.company.copyWith(name: next);
+    await _persistSessionCache();
+    notifyListeners();
+  }
+
+  Future<void> setCompanyLogo(String? logoUrl) async {
+    final current = _requireCompanyOwner();
+    final next = blankToNull(logoUrl);
+    await _access.updateCompanyLogo(current.company.id, next);
+    _company = current.company.copyWith(logoUrl: next);
+    await _persistSessionCache();
+    notifyListeners();
+  }
+
+  Future<void> setCompanySocials({
+    String? instagram,
+    String? tiktok,
+    String? facebook,
+  }) async {
+    final current = _requireCompanyOwner();
+    final nextInstagram = _normalizedSocial(instagram);
+    final nextTiktok = _normalizedSocial(tiktok);
+    final nextFacebook = _normalizedSocial(facebook);
+    await _access.updateCompanySocials(
+      current.company.id,
+      instagram: nextInstagram,
+      tiktok: nextTiktok,
+      facebook: nextFacebook,
+    );
+    _company = current.company.copyWith(
+      instagram: nextInstagram,
+      tiktok: nextTiktok,
+      facebook: nextFacebook,
+    );
+    await _persistSessionCache();
     notifyListeners();
   }
 
@@ -309,6 +367,7 @@ class SessionStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    _loadGen++;
     _readyTimeout?.cancel();
     _authSub?.cancel();
     super.dispose();
@@ -320,7 +379,7 @@ class SessionStore extends ChangeNotifier {
       if (identity == null) _clearSession();
       return;
     }
-    if (_hasLoadedProfile(identity)) {
+    if (_hasLoadedProfile(identity) && _networkProfileLoaded) {
       _markReady();
       notifyListeners();
       return;
@@ -332,9 +391,18 @@ class SessionStore extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    if (!_hasLoadedProfile(identity)) {
+      _hydrateFromCache(identity);
+      if (gen != _loadGen) return;
+      if (_hasLoadedProfile(identity)) {
+        _markReady();
+        notifyListeners();
+      }
+    }
     try {
       await _auth.waitForToken();
       await _loadProfile(identity);
+      _networkProfileLoaded = _hasLoadedProfile(identity);
     } catch (_) {
       if (!_hasLoadedProfile(identity)) {
         _user = null;
@@ -463,6 +531,7 @@ class SessionStore extends ChangeNotifier {
       _membership = null;
       _members = const [];
       _invitations = const [];
+      await cache?.clear(identity.uid);
       return;
     }
     if (user.companyId.isEmpty) {
@@ -471,6 +540,7 @@ class SessionStore extends ChangeNotifier {
       _membership = null;
       _members = const [];
       _invitations = const [];
+      await cache?.clear(identity.uid);
       return;
     }
     final membershipFuture = _access.getMembership(user.companyId, user.id);
@@ -493,6 +563,7 @@ class SessionStore extends ChangeNotifier {
       _membership = null;
       _members = const [];
       _invitations = const [];
+      await cache?.clear(identity.uid);
       return;
     }
     if (company == null) {
@@ -503,6 +574,29 @@ class SessionStore extends ChangeNotifier {
     _user = user;
     _company = company;
     _membership = membership;
+    await _persistSessionCache();
+  }
+
+  void _hydrateFromCache(AuthIdentity identity) {
+    final snapshot = cache?.read(identity.uid);
+    if (snapshot == null || snapshot.user.id != identity.uid) return;
+    _user = snapshot.user;
+    _company = snapshot.company;
+    _membership = snapshot.membership;
+  }
+
+  Future<void> _persistSessionCache() async {
+    final user = _user;
+    final company = _company;
+    final membership = _membership;
+    if (user == null || company == null || membership == null) return;
+    try {
+      await cache?.write(
+        SessionSnapshot(user: user, company: company, membership: membership),
+      );
+    } catch (error) {
+      debugPrint('Session cache write failed: $error');
+    }
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -535,6 +629,7 @@ class SessionStore extends ChangeNotifier {
     _membership = null;
     _members = const [];
     _invitations = const [];
+    _networkProfileLoaded = false;
   }
 
   void _markReady() {
@@ -553,6 +648,15 @@ class SessionStore extends ChangeNotifier {
   }
 
   ({AppUser user, Company company, Membership membership}) _requireOwner() {
+    return _requireCompanyOwner(
+      'Solo el propietario puede gestionar el equipo.',
+    );
+  }
+
+  ({AppUser user, Company company, Membership membership})
+  _requireCompanyOwner([
+    String message = 'Solo el propietario puede cambiar el perfil del negocio.',
+  ]) {
     final user = _user;
     final company = _company;
     final membership = _membership;
@@ -560,11 +664,20 @@ class SessionStore extends ChangeNotifier {
       throw const SessionException('Ingresá para continuar.');
     }
     if (membership.role != CompanyRole.owner) {
-      throw const SessionException(
-        'Solo el propietario puede gestionar el equipo.',
-      );
+      throw SessionException(message);
     }
     return (user: user, company: company, membership: membership);
+  }
+
+  String? _normalizedSocial(String? value) {
+    final next = blankToNull(value);
+    if (next == null) return null;
+    if (next.length > maxCompanySocialLength) {
+      throw const SessionException(
+        'Ese enlace de red social es demasiado largo.',
+      );
+    }
+    return next;
   }
 
   ({AppUser user, Company company, Membership membership})

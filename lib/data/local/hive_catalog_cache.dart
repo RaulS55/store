@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_ce/hive.dart';
 
+import '../../models/company.dart';
 import '../../models/map_date.dart';
 import '../../models/map_value.dart';
 import 'hive_bootstrap.dart';
@@ -19,6 +20,7 @@ class HiveCatalogCache {
     required Box<dynamic> orders,
     required Box<dynamic> lots,
     required Box<dynamic> meta,
+    this.persistent = true,
   }) : _products = products,
        _customers = customers,
        _orders = orders,
@@ -32,6 +34,7 @@ class HiveCatalogCache {
   final Box<dynamic> _orders;
   final Box<dynamic> _lots;
   final Box<dynamic> _meta;
+  final bool persistent;
 
   static var _memorySuffix = 0;
 
@@ -60,12 +63,19 @@ class HiveCatalogCache {
       }
     }
 
+    final boxes = await Future.wait([
+      openBox(catalogProductsBox),
+      openBox(catalogCustomersBox),
+      openBox(catalogOrdersBox),
+      openBox(catalogLotsBox),
+      openBox(catalogMetaBox),
+    ]);
     return HiveCatalogCache(
-      products: await openBox(catalogProductsBox),
-      customers: await openBox(catalogCustomersBox),
-      orders: await openBox(catalogOrdersBox),
-      lots: await openBox(catalogLotsBox),
-      meta: await openBox(catalogMetaBox),
+      products: boxes[0],
+      customers: boxes[1],
+      orders: boxes[2],
+      lots: boxes[3],
+      meta: boxes[4],
     );
   }
 
@@ -79,6 +89,7 @@ class HiveCatalogCache {
       orders: await _openMemoryBox('$catalogOrdersBox$suffix', cipher),
       lots: await _openMemoryBox('$catalogLotsBox$suffix', cipher),
       meta: await _openMemoryBox('$catalogMetaBox$suffix', cipher),
+      persistent: false,
     );
   }
 
@@ -119,9 +130,16 @@ class HiveCatalogCache {
     return '$companyId|$collection|schema';
   }
 
+  bool _isCurrentSchema(Object? raw) {
+    if (raw == schemaVersion) return true;
+    if (raw is num) return raw.toInt() == schemaVersion;
+    if (raw is String) return int.tryParse(raw) == schemaVersion;
+    return false;
+  }
+
   Future<void> ensureSchema(String companyId, String collection) async {
     final key = _schemaKey(companyId, collection);
-    if (_meta.get(key) == schemaVersion) return;
+    if (_isCurrentSchema(_meta.get(key))) return;
     await _deleteCompanyCollection(companyId, collection);
     await _meta.delete(_syncKey(companyId, collection));
     await _meta.delete(_publicSyncKey(companyId, collection));
@@ -152,6 +170,8 @@ class HiveCatalogCache {
   ) async {
     await ensureSchema(companyId, collection);
     final box = _box(collection);
+    final writes = <dynamic, dynamic>{};
+    final deletes = <dynamic>[];
     for (final raw in docs) {
       final map = coerceStringKeyMap(raw);
       final id = (map['id'] as String?)?.trim() ?? '';
@@ -168,11 +188,13 @@ class HiveCatalogCache {
         }
       }
       if (isDeletedMap(map)) {
-        await box.delete(key);
+        deletes.add(key);
       } else {
-        await box.put(key, encodeCatalogMap(map));
+        writes[key] = encodeCatalogMap(map);
       }
     }
+    if (writes.isNotEmpty) await box.putAll(writes);
+    if (deletes.isNotEmpty) await box.deleteAll(deletes);
   }
 
   Future<void> replaceActive(
@@ -184,20 +206,53 @@ class HiveCatalogCache {
     final box = _box(collection);
     final prefix = '$companyId|';
     final keep = <String>{};
+    final writes = <dynamic, dynamic>{};
     for (final raw in docs) {
       final map = coerceStringKeyMap(raw);
       final id = (map['id'] as String?)?.trim() ?? '';
       if (id.isEmpty || isDeletedMap(map)) continue;
       final key = _docKey(companyId, id);
       keep.add(key);
-      await box.put(key, encodeCatalogMap(map));
+      writes[key] = encodeCatalogMap(map);
     }
+    if (writes.isNotEmpty) await box.putAll(writes);
     final stale = [
       for (final key in box.keys)
         if (key is String && key.startsWith(prefix) && !keep.contains(key)) key,
     ];
     if (stale.isNotEmpty) await box.deleteAll(stale);
   }
+
+  String _companyKey(String id) => 'company|$id';
+
+  Company? loadCompany(String id) {
+    final map = readMetaMap(_companyKey(id));
+    if (map == null) return null;
+    final companyId = (map['id'] as String?)?.trim() ?? id;
+    if (companyId.isEmpty) return null;
+    try {
+      return Company.fromMap(companyId, map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveCompany(Company company) {
+    return writeMetaMap(_companyKey(company.id), {
+      'id': company.id,
+      ...company.toMap(),
+    });
+  }
+
+  Map<String, dynamic>? readMetaMap(String key) {
+    return decodeCatalogMap(_meta.get(key));
+  }
+
+  Future<void> writeMetaMap(String key, Map<String, dynamic> map) {
+    return _meta.put(key, encodeCatalogMap(map));
+  }
+
+  Future<void> deleteMetaKey(String key) => _meta.delete(key);
 
   DateTime? lastSyncAt(String companyId, String collection) {
     return _readMetaDate(_syncKey(companyId, collection));

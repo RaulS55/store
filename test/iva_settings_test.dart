@@ -26,7 +26,10 @@ void main() {
     expect(store.ivaEnabled, isFalse);
     expect(find.text('Porcentaje de IVA'), findsNothing);
 
-    await tester.tap(find.widgetWithText(SwitchListTile, 'IVA'));
+    final ivaSwitch = find.widgetWithText(SwitchListTile, 'IVA');
+    await tester.ensureVisible(ivaSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(ivaSwitch);
     await tester.pumpAndSettle();
 
     expect(store.ivaEnabled, isTrue);
@@ -108,13 +111,17 @@ void main() {
     );
 
     expect(find.text('Número de teléfono'), findsOneWidget);
+    expect(find.byKey(const ValueKey('save-company-phone')), findsOneWidget);
     expect(session.company?.phone, isNull);
 
+    await tester.ensureVisible(find.byKey(const ValueKey('company-phone')));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('company-phone')),
       ' +54 9 11 5555-0101 ',
     );
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('save-company-phone')));
     await tester.pumpAndSettle();
 
     expect(session.company?.phone, '+54 9 11 5555-0101');
@@ -154,11 +161,29 @@ void main() {
     expect(find.text('Compartir catálogo'), findsOneWidget);
     expect(find.byKey(const ValueKey('catalog-share')), findsOneWidget);
     expect(session.catalogShareUrl(), '/catalogo/${session.companyId}');
-    expect(find.text('/catalogo/${session.companyId}'), findsOneWidget);
+    expect(find.text('/catalogo/${session.companyId}'), findsNothing);
+    expect(find.byTooltip('Copiar enlace'), findsNothing);
     expect(
       find.text(
-        'Cargá un teléfono para que puedan enviarte el pedido por WhatsApp.',
+        'Configurá tu WhatsApp primero. Es necesario para que tus clientes puedan contactarte.',
       ),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(find.byKey(const ValueKey('company-phone')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('company-phone')),
+      '+54 9 11 5555-0101',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('save-company-phone')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('/catalogo/${session.companyId}'), findsOneWidget);
+    expect(find.byTooltip('Copiar enlace'), findsOneWidget);
+    expect(
+      find.text('Tus clientes arman un pedido y te lo envían por WhatsApp.'),
       findsOneWidget,
     );
   });

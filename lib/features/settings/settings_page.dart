@@ -7,54 +7,74 @@ import 'package:provider/provider.dart';
 import '../../data/app_store.dart';
 import '../../data/clipboard_copy.dart';
 import '../../data/formatters.dart';
+import '../../data/gallery_picker.dart';
+import '../../data/picked_image_file.dart';
 import '../../data/session_exception.dart';
 import '../../data/session_store.dart';
 import '../../models/company.dart';
 import '../../theme/tokens.dart';
+import 'company_brand_settings.dart';
 
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({super.key, this.pickLogo = pickGalleryImages});
+
+  final Future<List<PickedImageFile>> Function({required int limit}) pickLogo;
+
+  bool _isOwner(BuildContext context) {
+    try {
+      return context.watch<SessionStore>().isOwner;
+    } on ProviderNotFoundException {
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
     return SafeArea(
-      child: ListView(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        children: [
-          Text(
-            'Configuración',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 16),
-          SwitchListTile(
-            value: store.themeMode == ThemeMode.dark,
-            onChanged: (_) => store.toggleTheme(),
-            title: const Text('Modo oscuro'),
-            subtitle: const Text('Mismas superficies y acento terracota'),
-            activeTrackColor: AppColors.terracotta,
-          ),
-          const Divider(),
-          const _RubroSettings(),
-          const Divider(),
-          const _PhoneSettings(),
-          const Divider(),
-          const _CatalogShareSettings(),
-          const Divider(),
-          const _IvaSettings(),
-          const ListTile(
-            title: Text('Moneda'),
-            subtitle: Text('Pesos argentinos (ARS)'),
-          ),
-          const ListTile(
-            title: Text('Datos'),
-            subtitle: Text(
-              'Catálogo, clientes y pedidos se guardan en la empresa',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Configuración',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            if (_isOwner(context)) ...[
+              CompanyBrandSettings(pickLogo: pickLogo),
+              const Divider(),
+            ],
+            SwitchListTile(
+              value: store.themeMode == ThemeMode.dark,
+              onChanged: (_) => store.toggleTheme(),
+              title: const Text('Modo oscuro'),
+              subtitle: const Text('Mismas superficies y acento terracota'),
+              activeTrackColor: AppColors.terracotta,
+            ),
+            const Divider(),
+            const _RubroSettings(),
+            const Divider(),
+            const _PhoneSettings(),
+            const Divider(),
+            const _CatalogShareSettings(),
+            const Divider(),
+            const _IvaSettings(),
+            const ListTile(
+              title: Text('Moneda'),
+              subtitle: Text('Pesos argentinos (ARS)'),
+            ),
+            const ListTile(
+              title: Text('Datos'),
+              subtitle: Text(
+                'Catálogo, clientes y pedidos se guardan en la empresa',
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -166,21 +186,18 @@ class _PhoneSettings extends StatefulWidget {
 
 class _PhoneSettingsState extends State<_PhoneSettings> {
   late final TextEditingController _phone;
-  late final FocusNode _focus;
   String? _saved;
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     _saved = _sessionPhone();
     _phone = TextEditingController(text: _saved ?? '');
-    _focus = FocusNode()..addListener(_onFocusChange);
   }
 
   @override
   void dispose() {
-    _focus.removeListener(_onFocusChange);
-    _focus.dispose();
     _phone.dispose();
     super.dispose();
   }
@@ -201,29 +218,24 @@ class _PhoneSettingsState extends State<_PhoneSettings> {
     }
   }
 
-  void _onFocusChange() {
-    if (!_focus.hasFocus) {
-      unawaited(_commit());
-    }
-  }
+  bool get _dirty => blankToNull(_phone.text) != _saved;
 
   Future<void> _commit() async {
+    if (_saving) return;
     final next = blankToNull(_phone.text);
     if (next == _saved) {
       _phone.text = _saved ?? '';
       return;
     }
-    SessionStore? session;
+    final SessionStore session;
     try {
       session = context.read<SessionStore>();
     } on ProviderNotFoundException {
-      session = null;
-    }
-    if (session == null) {
       _saved = next;
       _phone.text = next ?? '';
       return;
     }
+    setState(() => _saving = true);
     try {
       await session.setCompanyPhone(next);
       if (!mounted) return;
@@ -235,33 +247,52 @@ class _PhoneSettingsState extends State<_PhoneSettings> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final canEdit = _canEdit(context);
+    final canSave = canEdit && _dirty && !_saving;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const ListTile(
-          title: Text('Teléfono'),
-          subtitle: Text('Opcional. Contacto de la empresa.'),
+          title: Text('WhatsApp'),
+          subtitle: Text(
+            'Número para que tus clientes te contacten desde el catálogo.',
+          ),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: TextField(
-            key: const ValueKey('company-phone'),
-            controller: _phone,
-            focusNode: _focus,
-            enabled: canEdit,
-            keyboardType: TextInputType.phone,
-            textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
-              labelText: 'Número de teléfono',
-              hintText: '+54 9 11 0000-0000',
-            ),
-            onSubmitted: (_) => unawaited(_commit()),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('company-phone'),
+                  controller: _phone,
+                  enabled: canEdit,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(
+                    labelText: 'Número de teléfono',
+                    hintText: '+54 9 11 0000-0000',
+                  ),
+                  onChanged: (_) => setState(() {}),
+                  onSubmitted: (_) => unawaited(_commit()),
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton(
+                key: const ValueKey('save-company-phone'),
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+                onPressed: canSave ? () => unawaited(_commit()) : null,
+                child: Text(_saving ? 'Guardando…' : 'Guardar'),
+              ),
+            ],
           ),
         ),
       ],
@@ -282,6 +313,7 @@ class _CatalogShareSettings extends StatelessWidget {
     }
     final url = session?.catalogShareUrl();
     final hasPhone = (session?.company?.whatsappDigits ?? '').isNotEmpty;
+    final canShare = url != null && hasPhone;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -291,19 +323,19 @@ class _CatalogShareSettings extends StatelessWidget {
           subtitle: Text(
             url == null
                 ? 'Enlace para que tus clientes vean las prendas sin iniciar sesión.'
-                : hasPhone
+                : canShare
                 ? 'Tus clientes arman un pedido y te lo envían por WhatsApp.'
-                : 'Cargá un teléfono para que puedan enviarte el pedido por WhatsApp.',
+                : 'Configurá tu WhatsApp primero. Es necesario para que tus clientes puedan contactarte.',
           ),
-          trailing: url == null
-              ? null
-              : IconButton(
+          trailing: canShare
+              ? IconButton(
                   tooltip: 'Copiar enlace',
                   onPressed: () => _copy(context, url),
                   icon: const Icon(Icons.copy_outlined),
-                ),
+                )
+              : null,
         ),
-        if (url != null)
+        if (canShare)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: SelectableText(

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:store_app/data/session_cache.dart';
 import 'package:store_app/data/session_exception.dart';
 import 'package:store_app/data/session_store.dart';
 import 'package:store_app/models/app_user.dart';
@@ -563,6 +564,39 @@ void main() {
     );
   });
 
+  test(
+    'reload hydrates the session from cache before the profile API',
+    () async {
+      final cache = MemorySessionCache();
+      final auth = FakeAuthClient();
+      final access = FakeCompanyAccess();
+      final first = SessionStore(auth: auth, access: access, cache: cache)
+        ..start();
+      await first.signUp(
+        email: 'owner@moda.stock',
+        password: 'secret12',
+        displayName: 'Valeria Soto',
+        companyName: 'Moda Stock',
+      );
+      expect(cache.read(first.user!.id), isNotNull);
+      first.dispose();
+
+      access.getUserDelay = const Duration(seconds: 2);
+      final second = SessionStore(auth: auth, access: access, cache: cache)
+        ..start();
+      addTearDown(second.dispose);
+
+      final started = DateTime.now();
+      await _pumpUntil(() => second.isSignedIn);
+      expect(
+        DateTime.now().difference(started) < const Duration(milliseconds: 400),
+        isTrue,
+      );
+      expect(second.company?.name, 'Moda Stock');
+      expect(second.isOwner, isTrue);
+    },
+  );
+
   test('owner can persist the company product line', () async {
     final session = await signedInOwnerSession();
     addTearDown(session.dispose);
@@ -577,6 +611,33 @@ void main() {
     await session.setCompanyPhone('  ');
     expect(session.company?.phone, isNull);
     expect(session.catalogShareUrl(), '/catalogo/${session.companyId}');
+  });
+
+  test('owner can persist the company profile', () async {
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+
+    await session.setCompanyName('  Taller Ana  ');
+    expect(session.company?.name, 'Taller Ana');
+
+    await session.setCompanyLogo(' https://cdn.moda.stock/logo.jpg ');
+    expect(session.company?.logoUrl, 'https://cdn.moda.stock/logo.jpg');
+    await session.setCompanyLogo('  ');
+    expect(session.company?.logoUrl, isNull);
+
+    await session.setCompanySocials(
+      instagram: ' @taller.ana ',
+      tiktok: 'taller.ana',
+      facebook: 'https://www.facebook.com/tallerana',
+    );
+    expect(session.company?.instagram, '@taller.ana');
+    expect(session.company?.tiktok, 'taller.ana');
+    expect(session.company?.facebook, 'https://www.facebook.com/tallerana');
+
+    await session.setCompanySocials();
+    expect(session.company?.instagram, isNull);
+    expect(session.company?.tiktok, isNull);
+    expect(session.company?.facebook, isNull);
   });
 
   test('a second sign in is ignored while the first is busy', () async {
@@ -655,7 +716,52 @@ void main() {
         ),
       ),
     );
+    await expectLater(
+      session.setCompanyName('Otra'),
+      throwsA(
+        isA<SessionException>().having(
+          (error) => error.message,
+          'message',
+          'Solo el propietario puede cambiar el perfil del negocio.',
+        ),
+      ),
+    );
   });
+
+  test('administrator cannot change the company profile', () async {
+    final session = await signedInMemberSession(
+      role: CompanyRole.administrator,
+    );
+    addTearDown(session.dispose);
+    expect(session.canEditCompanySettings, isTrue);
+    expect(session.isOwner, isFalse);
+    await expectLater(
+      session.setCompanyName('Otra'),
+      throwsA(
+        isA<SessionException>().having(
+          (error) => error.message,
+          'message',
+          'Solo el propietario puede cambiar el perfil del negocio.',
+        ),
+      ),
+    );
+    await expectLater(
+      session.setCompanyLogo('https://cdn.moda.stock/logo.jpg'),
+      throwsA(isA<SessionException>()),
+    );
+    await expectLater(
+      session.setCompanySocials(instagram: '@moda'),
+      throwsA(isA<SessionException>()),
+    );
+  });
+}
+
+Future<void> _pumpUntil(bool Function() done, {int maxTurns = 40}) async {
+  for (var i = 0; i < maxTurns; i++) {
+    if (done()) return;
+    await Future<void>.delayed(Duration.zero);
+  }
+  fail('condition not met');
 }
 
 class _FailingGetUserAccess extends FakeCompanyAccess {

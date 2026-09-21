@@ -116,6 +116,29 @@ void main() {
     expect(store.cachedProductImage(url), compressed.bytes);
   });
 
+  test('company logo upload stores a JPEG in branding', () async {
+    final original = _png();
+    final images = FakeImageAccess();
+    final store = AppStore(products: FakeProductAccess(), images: images);
+    addTearDown(store.dispose);
+    store.bindCompany('co1');
+
+    final compressed = await store.prepareProductImage(original);
+    final url = await store.uploadCompanyLogo(bytes: compressed.bytes);
+
+    expect(images.uploads, hasLength(1));
+    final upload = images.uploads.single;
+    expect(url, upload.url);
+    expect(upload.companyId, 'co1');
+    expect(upload.productId, isEmpty);
+    expect(upload.fileName, startsWith('logo-'));
+    expect(upload.contentType, 'image/jpeg');
+    expect(store.cachedProductImage(url), compressed.bytes);
+
+    await store.deleteCompanyLogo();
+    expect(images.uploads, isEmpty);
+  });
+
   test('upload fails when the catalog has no company', () async {
     final store = AppStore(
       products: FakeProductAccess(),

@@ -58,6 +58,7 @@ class _CatalogViewState extends State<_CatalogView> {
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         child: CustomScrollView(
+          cacheExtent: 800,
           slivers: [
             SliverToBoxAdapter(
               child: Padding(

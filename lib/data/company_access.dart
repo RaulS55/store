@@ -65,4 +65,15 @@ abstract class CompanyAccess {
   Future<void> updateCompanyRubro(String companyId, CompanyRubro rubro);
 
   Future<void> updateCompanyPhone(String companyId, String? phone);
+
+  Future<void> updateCompanyName(String companyId, String name);
+
+  Future<void> updateCompanyLogo(String companyId, String? logoUrl);
+
+  Future<void> updateCompanySocials(
+    String companyId, {
+    String? instagram,
+    String? tiktok,
+    String? facebook,
+  });
 }

@@ -12,6 +12,7 @@ import '../models/record_source.dart';
 import 'company_access.dart';
 import 'customer_access.dart';
 import 'local/catalog_cart_cache.dart';
+import 'local/hive_catalog_cache.dart';
 import 'order_access.dart';
 import 'order_share.dart';
 import 'product_access.dart';
@@ -40,13 +41,15 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
     required OrderAccess orders,
     CatalogCartCache? cart,
     ProductImageCache? images,
+    HiveCatalogCache? local,
     this.loadTimeout = const Duration(seconds: 8),
   }) : _companies = companies,
        _products = products,
        _customers = customers,
        _orders = orders,
        _cart = cart ?? MemoryCatalogCartCache(),
-       _images = images {
+       _images = images,
+       _local = local {
     ready = _start();
   }
 
@@ -58,6 +61,7 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
   final OrderAccess _orders;
   final CatalogCartCache _cart;
   final ProductImageCache? _images;
+  final HiveCatalogCache? _local;
 
   late final Future<void> ready;
   StreamSubscription<List<Product>>? _productSub;
@@ -298,11 +302,20 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
   }
 
   Future<void> _start() async {
+    await _hydrateLocal();
+    final hasLocalCompany = _company != null;
     try {
-      await Future.wait<void>([
-        _loadCompanyAndCart(),
-        _bindProducts(),
-      ]).timeout(loadTimeout);
+      if (hasLocalCompany) {
+        await _bindProducts().timeout(loadTimeout);
+        _booted = true;
+        notifyListeners();
+        unawaited(_refreshCompany());
+      } else {
+        await Future.wait<void>([
+          _refreshCompany(),
+          _bindProducts(),
+        ]).timeout(loadTimeout);
+      }
     } catch (error, stack) {
       debugPrint('Catalog load failed: $error');
       debugPrint('$stack');
@@ -312,14 +325,28 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
     }
   }
 
-  Future<void> _loadCompanyAndCart() async {
+  Future<void> _hydrateLocal() async {
     try {
       final cart = _cart;
       if (cart is HiveCatalogCartCache) {
         await cart.ensureOpen();
       }
-      _company = await _companies.getCompany(companyId);
       _lines = _cart.load(companyId);
+      _company = _local?.loadCompany(companyId);
+      if (_company != null || _lines.isNotEmpty) notifyListeners();
+    } catch (error, stack) {
+      debugPrint('Catalog local hydrate failed: $error');
+      debugPrint('$stack');
+    }
+  }
+
+  Future<void> _refreshCompany() async {
+    try {
+      final remote = await _companies.getCompany(companyId);
+      _company = remote;
+      if (remote != null) {
+        await _local?.saveCompany(remote);
+      }
       notifyListeners();
     } catch (error, stack) {
       debugPrint('Catalog company load failed: $error');
@@ -337,7 +364,10 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
               _allProducts = list;
               _pruneMissing();
               unawaited(
-                _images?.prefetchProductImages(products, coversOnly: true),
+                _images?.prefetchProductImages(
+                  products.take(24),
+                  coversOnly: true,
+                ),
               );
               notifyListeners();
               if (!productsReady.isCompleted) productsReady.complete();

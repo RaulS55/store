@@ -41,6 +41,42 @@ service cloud.firestore {
         && get(memberPath(companyId)).data.role in ['owner', 'administrator'];
     }
 
+    function isCreator() {
+      return signedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    function optionalStringField(data, field) {
+      return data.get(field, null) == null || data.get(field, null) is string;
+    }
+
+    function sameOptionalField(field) {
+      return request.resource.data.get(field, null)
+        == resource.data.get(field, null);
+    }
+
+    function companyUpdateShape() {
+      return request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.get('createdAt', null)
+          == resource.data.get('createdAt', null)
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.get('rubro', 'ambos')
+          in ['ropa', 'calzado', 'ambos']
+        && optionalStringField(request.resource.data, 'phone')
+        && optionalStringField(request.resource.data, 'logoUrl')
+        && optionalStringField(request.resource.data, 'instagram')
+        && optionalStringField(request.resource.data, 'tiktok')
+        && optionalStringField(request.resource.data, 'facebook');
+    }
+
+    function companyBrandingUnchanged() {
+      return request.resource.data.name == resource.data.name
+        && sameOptionalField('logoUrl')
+        && sameOptionalField('instagram')
+        && sameOptionalField('tiktok')
+        && sameOptionalField('facebook');
+    }
+
     function hasSyncFields(id) {
       return request.resource.data.keys().hasAll([
           'id',
@@ -174,16 +210,10 @@ service cloud.firestore {
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0;
-      allow update: if isOwnerOrAdmin(companyId)
-        && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.name == resource.data.name
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.rubro in ['ropa', 'calzado', 'ambos']
-        && (
-          !('phone' in request.resource.data)
-          || request.resource.data.phone == null
-          || request.resource.data.phone is string
-        );
+      allow update: if companyUpdateShape() && (
+        isCreator()
+        || (isOwnerOrAdmin(companyId) && companyBrandingUnchanged())
+      );
       allow delete: if false;
 
       match /members/{uid} {

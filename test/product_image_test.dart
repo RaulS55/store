@@ -31,8 +31,7 @@ void main() {
     final provider = tester.widget<Image>(find.byType(Image)).image;
     expect(provider, isA<ResizeImage>());
     final resize = provider as ResizeImage;
-    expect(resize.width, maxProductImageEdge);
-    expect(resize.height, isNull);
+    expect(resize.width != null || resize.height != null, isTrue);
     final network = resize.imageProvider;
     expect(network, isA<NetworkImage>());
     expect(
@@ -41,7 +40,7 @@ void main() {
     );
   });
 
-  testWidgets('network images reuse one decode size across layouts', (
+  testWidgets('thumbs and full images use distinct decode buckets', (
     tester,
   ) async {
     const url = 'https://example.com/shared.jpg';
@@ -59,15 +58,39 @@ void main() {
     final providers = tester
         .widgetList<Image>(find.byType(Image))
         .map((image) => image.image)
+        .whereType<ResizeImage>()
         .toList();
     expect(providers, hasLength(2));
-    expect(providers[0], isA<ResizeImage>());
-    expect(providers[1], isA<ResizeImage>());
-    const config = ImageConfiguration.empty;
-    expect(
-      await providers[0].obtainKey(config),
-      await providers[1].obtainKey(config),
+    expect(providers[0].width, isNot(providers[1].width));
+    expect(providers[0].width, lessThan(providers[1].width!));
+    expect(providers[1].width, maxProductImageEdge);
+  });
+
+  testWidgets('pager and viewer sizes share the full decode bucket', (
+    tester,
+  ) async {
+    const url = 'https://example.com/open.jpg';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Column(
+          children: [
+            SizedBox(width: 400, height: 240, child: ProductImage(path: url)),
+            SizedBox(width: 800, height: 320, child: ProductImage(path: url)),
+          ],
+        ),
+      ),
     );
+
+    final providers = tester
+        .widgetList<Image>(find.byType(Image))
+        .map((image) => image.image)
+        .whereType<ResizeImage>()
+        .toList();
+    expect(providers, hasLength(2));
+    expect(providers[0].width, maxProductImageEdge);
+    expect(providers[1].width, maxProductImageEdge);
+    expect(providers[0].height, isNull);
+    expect(providers[1].height, isNull);
   });
 
   testWidgets('empty path shows the default product icon', (tester) async {

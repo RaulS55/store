@@ -17,8 +17,12 @@ class FakeUploadedImage {
   final Uint8List bytes;
   final String contentType;
 
-  String get url =>
-      'https://example.com/companies/$companyId/products/$productId/$fileName';
+  String get url {
+    if (productId.isEmpty) {
+      return 'https://example.com/companies/$companyId/branding/$fileName';
+    }
+    return 'https://example.com/companies/$companyId/products/$productId/$fileName';
+  }
 }
 
 class FakeImageAccess implements ImageAccess {
@@ -52,5 +56,26 @@ class FakeImageAccess implements ImageAccess {
       (upload) =>
           upload.companyId == companyId && upload.productId == productId,
     );
+  }
+
+  @override
+  Future<String> uploadCompanyLogo({
+    required String companyId,
+    required String fileName,
+    required Uint8List bytes,
+    required String contentType,
+  }) {
+    return uploadProductImage(
+      companyId: companyId,
+      productId: '',
+      fileName: fileName,
+      bytes: bytes,
+      contentType: contentType,
+    );
+  }
+
+  @override
+  Future<void> deleteCompanyLogo({required String companyId}) {
+    return deleteProductImages(companyId: companyId, productId: '');
   }
 }

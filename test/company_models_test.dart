@@ -115,6 +115,25 @@ void main() {
     expect(withPhone.whatsappDigits, '5491145550101');
     expect(withPhone.copyWith(phone: null).phone, isNull);
 
+    final branded = Company.fromMap('co1', {
+      'name': 'Moda Stock',
+      'ownerId': 'u1',
+      'createdAt': createdAt,
+      'logoUrl': ' https://cdn.moda.stock/logo.jpg ',
+      'instagram': ' @moda.stock ',
+      'tiktok': 'moda.stock',
+      'facebook': 'https://www.facebook.com/modastock',
+    });
+    expect(branded.logoUrl, 'https://cdn.moda.stock/logo.jpg');
+    expect(branded.instagram, '@moda.stock');
+    expect(branded.tiktok, 'moda.stock');
+    expect(branded.facebook, 'https://www.facebook.com/modastock');
+    expect(branded.instagramUrl, 'https://www.instagram.com/moda.stock');
+    expect(branded.tiktokUrl, 'https://www.tiktok.com/@moda.stock');
+    expect(branded.facebookUrl, 'https://www.facebook.com/modastock');
+    expect(branded.copyWith(logoUrl: null).logoUrl, isNull);
+    expect(branded.toMap()['instagram'], '@moda.stock');
+
     final footwear = Company.fromMap('co2', {
       'name': 'Zapas',
       'ownerId': 'u1',
@@ -132,6 +151,22 @@ void main() {
     final code = generateInviteCode(Random(4));
     expect(code.length, inviteCodeLength);
     expect(code.split('').every(inviteCodeAlphabet.contains), isTrue);
-    expect(normalizeInviteCode(' ab cd '), 'ABCD');
+    expect(socialProfileUrl(null, host: 'www.instagram.com'), isNull);
+    expect(
+      socialProfileUrl('@moda', host: 'www.instagram.com'),
+      'https://www.instagram.com/moda',
+    );
+    expect(
+      socialProfileUrl('instagram.com/@moda', host: 'www.instagram.com'),
+      'https://www.instagram.com/moda',
+    );
+    expect(
+      socialProfileUrl('https://www.tiktok.com/@moda', host: 'www.tiktok.com'),
+      'https://www.tiktok.com/@moda',
+    );
+    expect(
+      socialProfileUrl('moda', host: 'www.tiktok.com', atHandle: true),
+      'https://www.tiktok.com/@moda',
+    );
   });
 }

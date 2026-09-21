@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/app_user.dart';
 import '../models/company.dart';
@@ -368,13 +369,62 @@ class FirestoreCompanyAccess implements CompanyAccess {
   }
 
   @override
-  Future<void> updateCompanyRubro(String companyId, CompanyRubro rubro) async {
-    await _companies.doc(companyId).update({'rubro': rubro.name});
+  Future<void> updateCompanyRubro(String companyId, CompanyRubro rubro) {
+    return _updateCompany(companyId, {'rubro': rubro.name});
   }
 
   @override
-  Future<void> updateCompanyPhone(String companyId, String? phone) async {
-    await _companies.doc(companyId).update({'phone': blankToNull(phone)});
+  Future<void> updateCompanyPhone(String companyId, String? phone) {
+    return _updateCompany(companyId, {'phone': blankToNull(phone)});
+  }
+
+  @override
+  Future<void> updateCompanyName(String companyId, String name) {
+    return _updateCompany(companyId, {'name': name.trim()});
+  }
+
+  @override
+  Future<void> updateCompanyLogo(String companyId, String? logoUrl) {
+    return _updateCompany(companyId, {'logoUrl': blankToNull(logoUrl)});
+  }
+
+  @override
+  Future<void> updateCompanySocials(
+    String companyId, {
+    String? instagram,
+    String? tiktok,
+    String? facebook,
+  }) {
+    return _updateCompany(companyId, {
+      'instagram': blankToNull(instagram),
+      'tiktok': blankToNull(tiktok),
+      'facebook': blankToNull(facebook),
+    });
+  }
+
+  Future<void> _updateCompany(
+    String companyId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      await _companies.doc(companyId).update(data);
+    } on FirebaseException catch (error) {
+      debugPrint('Company update failed code=${error.code} ${error.message}');
+      throw SessionException(_companyUpdateMessage(error));
+    }
+  }
+
+  String _companyUpdateMessage(FirebaseException error) {
+    final code = error.code.replaceFirst('firestore/', '');
+    switch (code) {
+      case 'permission-denied':
+        return 'No tenés permiso para cambiar el perfil del negocio.';
+      case 'unavailable':
+      case 'deadline-exceeded':
+        return 'No se pudo guardar. Revisá la conexión e intentá de nuevo.';
+      default:
+        return 'No se pudo guardar el perfil del negocio.';
+    }
   }
 
   Future<String> _uniqueInviteCode(String companyId) async {

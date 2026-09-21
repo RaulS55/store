@@ -105,6 +105,7 @@ class ProductImageCache {
   final int maxImageBytes;
   final _memory = <String, Uint8List>{};
   final _inflight = <String, Future<Uint8List?>>{};
+  final _failed = <String>{};
 
   Uint8List? peek(String url) {
     if (url.isEmpty) return null;
@@ -134,6 +135,7 @@ class ProductImageCache {
     final cached = peek(url);
     if (cached != null) return cached;
     if (!isNetworkProductImageUrl(url) || !allowRemoteFetch) return null;
+    if (_failed.contains(url)) return null;
     return _inflight.putIfAbsent(url, () async {
       try {
         final bytes = await _fetch(url);
@@ -141,6 +143,7 @@ class ProductImageCache {
         await put(url, bytes);
         return peek(url) ?? bytes;
       } catch (error) {
+        _failed.add(url);
         debugPrint('Product image cache fetch failed: $url $error');
         return null;
       } finally {

@@ -15,6 +15,13 @@ service firebase.storage {
         ).data.role in ['owner', 'administrator'];
     }
 
+    function isOwner(companyId) {
+      return request.auth != null
+        && firestore.get(
+          /databases/(default)/documents/companies/$(companyId)/members/$(request.auth.uid)
+        ).data.role == 'owner';
+    }
+
     match /companies/{companyId}/products/{productId}/{fileName} {
       // Image.network loads download URLs without Firebase Auth.
       allow get: if true;
@@ -23,6 +30,15 @@ service firebase.storage {
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType == 'image/jpeg';
       allow update, delete: if isOwnerOrAdmin(companyId);
+    }
+
+    match /companies/{companyId}/branding/{fileName} {
+      allow get: if true;
+      allow list: if isMember(companyId);
+      allow create: if isOwner(companyId)
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+      allow update, delete: if isOwner(companyId);
     }
   }
 }
