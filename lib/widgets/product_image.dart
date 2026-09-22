@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -148,10 +149,12 @@ class _ProductImageState extends State<ProductImage> {
             fit: widget.fit,
             width: width,
             height: height,
-            cacheWidth: decode.width,
-            cacheHeight: decode.height,
+            // On web, skip ResizeImage so stock, detail and the browser HTTP
+            // cache share one key. Native still decodes to the painted size.
+            cacheWidth: kIsWeb ? null : decode.width,
+            cacheHeight: kIsWeb ? null : decode.height,
             gaplessPlayback: true,
-            webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+            webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
             errorBuilder: (_, error, _) {
               debugPrint('Product image network failed: ${widget.path} $error');
               return fallback;
@@ -206,6 +209,7 @@ void prefetchProductGallery(BuildContext context, Product product) {
 }
 
 const _thumbLogical = 100.0;
+const _cardMaxLogical = 400.0;
 
 int? _cachePx(double? size, double dpr) {
   if (size == null || !size.isFinite || size <= 0) return null;
@@ -221,8 +225,11 @@ int? _cachePx(double? size, double dpr) {
     if (width != null && width.isFinite && width > 0) width,
     if (height != null && height.isFinite && height > 0) height,
   ].fold<double>(0, (a, b) => a > b ? a : b);
-  if (longest > 0 && longest < _thumbLogical) {
-    return (width: _cachePx(_thumbLogical, dpr), height: null);
+  // Cards stay at the painted size so a restart does not decode 1600px
+  // for every tile. Detail/viewer keep the full bucket.
+  if (longest > 0 && longest < _cardMaxLogical) {
+    final logical = longest < _thumbLogical ? _thumbLogical : longest;
+    return (width: _cachePx(logical, dpr), height: null);
   }
   return (width: maxProductImageEdge, height: null);
 }

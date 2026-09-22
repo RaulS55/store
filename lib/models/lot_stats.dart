@@ -1,75 +1,110 @@
-import 'dart:math' as math;
-
 import 'lot.dart';
 import 'order.dart';
 import 'product.dart';
 
 class LotStats {
   const LotStats({
-    required this.productCount,
-    required this.stockUnits,
+    required this.garmentUnits,
+    required this.availableUnits,
+    required this.reservedUnits,
     required this.soldUnits,
-    required this.retailStockValue,
-    required this.appSales,
-    required this.recovered,
-    required this.effectiveUnitCost,
-    required this.remainingToRecover,
-    required this.profit,
+    required this.unitPrice,
+    required this.soldValue,
+    required this.reservedValue,
+    required this.garmentValue,
+    required this.expectedValue,
+    required this.recoveryRemainingPercent,
+    required this.currentProfit,
+    required this.expectedProfit,
   });
 
-  final int productCount;
-  final int stockUnits;
+  final int garmentUnits;
+  final int availableUnits;
+  final int reservedUnits;
   final int soldUnits;
-  final double retailStockValue;
-  final double appSales;
-  final double recovered;
-  final double? effectiveUnitCost;
-  final double remainingToRecover;
-  final double profit;
+  final double? unitPrice;
+  final double soldValue;
+  final double reservedValue;
+  final double garmentValue;
+  final double expectedValue;
+  final double recoveryRemainingPercent;
+  final double currentProfit;
+  final double expectedProfit;
 }
 
 LotStats computeLotStats({
   required Lot lot,
   required List<Product> products,
+  required List<DraftOrder> openOrders,
   required List<DraftOrder> closedOrders,
 }) {
   final assigned = [
     for (final product in products)
-      if (product.lotId == lot.id) product,
+      if (!product.isDeleted && product.lotId == lot.id) product,
   ];
-  final productIds = {for (final product in assigned) product.id};
-  final stockUnits = assigned.fold(0, (sum, product) => sum + product.stock);
-  final retailStockValue = assigned.fold<double>(
+  final byId = {for (final product in assigned) product.id: product};
+
+  final availableUnits = assigned.fold(
+    0,
+    (sum, product) => sum + product.stock,
+  );
+  final availableValue = assigned.fold<double>(
     0,
     (sum, product) => sum + product.price * product.stock,
   );
 
-  var soldUnits = 0;
-  var appSales = 0.0;
-  for (final order in closedOrders) {
-    for (final line in order.lines) {
-      if (!productIds.contains(line.product.id)) continue;
-      soldUnits += line.quantity;
-      appSales += line.lineTotal;
+  var reservedUnits = 0;
+  var reservedValue = 0.0;
+  for (final order in openOrders) {
+    if (order.isDeleted || !order.isActive) continue;
+    for (final hold in order.stockReservations) {
+      final product = byId[hold.productId];
+      if (product == null || hold.quantity <= 0) continue;
+      reservedUnits += hold.quantity;
+      reservedValue += product.price * hold.quantity;
     }
   }
 
-  final recovered = appSales + lot.soldElsewhere;
-  var unitCost = lot.derivedUnitCost;
-  if (unitCost == null) {
-    final denom = stockUnits + soldUnits;
-    if (denom > 0) unitCost = lot.cost / denom;
+  var soldUnits = 0;
+  var soldValue = 0.0;
+  for (final order in closedOrders) {
+    if (order.isDeleted || !order.isClosed) continue;
+    for (final line in order.lines) {
+      if (!byId.containsKey(line.product.id)) continue;
+      soldUnits += line.quantity;
+      soldValue += line.lineTotal;
+    }
   }
 
+  final appSales = soldValue;
+  final recovered = appSales + lot.soldElsewhere;
+  final garmentValue = availableValue + reservedValue + appSales;
+  final expectedValue = garmentValue + lot.soldElsewhere;
+  final quantity = lot.quantity;
+  final unitPrice = quantity != null && quantity > 0
+      ? lot.derivedUnitCost
+      : null;
+
   return LotStats(
-    productCount: assigned.length,
-    stockUnits: stockUnits,
+    garmentUnits: availableUnits + reservedUnits + soldUnits,
+    availableUnits: availableUnits,
+    reservedUnits: reservedUnits,
     soldUnits: soldUnits,
-    retailStockValue: retailStockValue,
-    appSales: appSales,
-    recovered: recovered,
-    effectiveUnitCost: unitCost,
-    remainingToRecover: math.max(0.0, lot.cost - recovered),
-    profit: recovered - lot.cost,
+    unitPrice: unitPrice,
+    soldValue: recovered,
+    reservedValue: reservedValue,
+    garmentValue: garmentValue,
+    expectedValue: expectedValue,
+    recoveryRemainingPercent: _remainingPercent(lot.cost, recovered),
+    currentProfit: recovered > lot.cost ? recovered - lot.cost : 0,
+    expectedProfit: expectedValue > lot.cost ? expectedValue - lot.cost : 0,
   );
+}
+
+double _remainingPercent(double cost, double recovered) {
+  if (cost <= 0) return 0;
+  final remaining = (cost - recovered) / cost * 100;
+  if (remaining <= 0) return 0;
+  if (remaining >= 100) return 100;
+  return remaining;
 }

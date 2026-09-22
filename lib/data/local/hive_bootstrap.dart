@@ -202,7 +202,7 @@ Future<HiveCatalogCache> _openEncryptedCatalogCache({
 Future<ProductImageCache> openProductImageCache({
   bool initFlutter = true,
   String nameSuffix = '',
-  Duration timeout = const Duration(seconds: 4),
+  Duration timeout = const Duration(seconds: 15),
   ProductImageFetcher? fetch,
 }) async {
   try {

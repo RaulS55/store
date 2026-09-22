@@ -8,6 +8,7 @@ import '../models/email.dart';
 import '../models/invitation.dart';
 import '../models/membership.dart';
 import 'company_access.dart';
+import 'firestore_query.dart';
 import 'session_exception.dart';
 
 class FirestoreCompanyAccess implements CompanyAccess {
@@ -54,15 +55,15 @@ class FirestoreCompanyAccess implements CompanyAccess {
   @override
   Future<Company?> findCompanyByOwner(String uid) async {
     try {
-      final snap = await _companies
-          .where('ownerId', isEqualTo: uid)
-          .limit(1)
-          .get();
-      if (snap.docs.isEmpty) return null;
-      final doc = snap.docs.first;
-      return Company.fromMap(doc.id, doc.data());
-    } on FirebaseException catch (error) {
-      if (error.code == 'permission-denied') return null;
+      final docs = await getFirestoreDocs(
+        collection: _companies,
+        filters: [FirestoreFilter.equal('ownerId', uid)],
+        limit: 1,
+      );
+      if (docs.isEmpty) return null;
+      return Company.fromMap(docs.first.id, docs.first.data);
+    } catch (error) {
+      if (isFirestorePermissionDenied(error)) return null;
       rethrow;
     }
   }
@@ -76,10 +77,9 @@ class FirestoreCompanyAccess implements CompanyAccess {
 
   @override
   Future<List<Membership>> listMembers(String companyId) async {
-    final snap = await _members(companyId).get();
+    final docs = await getFirestoreDocs(collection: _members(companyId));
     final members = [
-      for (final doc in snap.docs)
-        Membership.fromMap(doc.id, companyId, doc.data()),
+      for (final doc in docs) Membership.fromMap(doc.id, companyId, doc.data),
     ];
     members.sort((a, b) => a.displayName.compareTo(b.displayName));
     return members;
@@ -87,10 +87,9 @@ class FirestoreCompanyAccess implements CompanyAccess {
 
   @override
   Future<List<Invitation>> listInvitations(String companyId) async {
-    final snap = await _invitations(companyId).get();
+    final docs = await getFirestoreDocs(collection: _invitations(companyId));
     final invitations = [
-      for (final doc in snap.docs)
-        Invitation.fromMap(doc.id, companyId, doc.data()),
+      for (final doc in docs) Invitation.fromMap(doc.id, companyId, doc.data),
     ];
     invitations.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return invitations;
@@ -109,19 +108,22 @@ class FirestoreCompanyAccess implements CompanyAccess {
   @override
   Future<Invitation?> findPendingInvitationByEmail(String email) async {
     try {
-      final snap = await _db
-          .collectionGroup('invitations')
-          .where('email', isEqualTo: normalizeEmail(email))
-          .where('status', isEqualTo: InvitationStatus.pending.name)
-          .limit(1)
-          .get();
-      if (snap.docs.isEmpty) return null;
-      final doc = snap.docs.first;
-      final companyId = doc.reference.parent.parent?.id;
+      final docs = await getFirestoreDocs(
+        firestore: _db,
+        collectionGroup: 'invitations',
+        filters: [
+          FirestoreFilter.equal('email', normalizeEmail(email)),
+          FirestoreFilter.equal('status', InvitationStatus.pending.name),
+        ],
+        limit: 1,
+      );
+      if (docs.isEmpty) return null;
+      final doc = docs.first;
+      final companyId = doc.parentDocumentId;
       if (companyId == null) return null;
-      return Invitation.fromMap(doc.id, companyId, doc.data());
-    } on FirebaseException catch (error) {
-      if (error.code == 'permission-denied') return null;
+      return Invitation.fromMap(doc.id, companyId, doc.data);
+    } catch (error) {
+      if (isFirestorePermissionDenied(error)) return null;
       rethrow;
     }
   }
@@ -134,20 +136,23 @@ class FirestoreCompanyAccess implements CompanyAccess {
     final normalizedCode = normalizeInviteCode(code);
     if (normalizedCode.length != inviteCodeLength) return null;
     try {
-      final snap = await _db
-          .collectionGroup('invitations')
-          .where('code', isEqualTo: normalizedCode)
-          .where('email', isEqualTo: normalizeEmail(email))
-          .where('status', isEqualTo: InvitationStatus.pending.name)
-          .limit(1)
-          .get();
-      if (snap.docs.isEmpty) return null;
-      final doc = snap.docs.first;
-      final companyId = doc.reference.parent.parent?.id;
+      final docs = await getFirestoreDocs(
+        firestore: _db,
+        collectionGroup: 'invitations',
+        filters: [
+          FirestoreFilter.equal('code', normalizedCode),
+          FirestoreFilter.equal('email', normalizeEmail(email)),
+          FirestoreFilter.equal('status', InvitationStatus.pending.name),
+        ],
+        limit: 1,
+      );
+      if (docs.isEmpty) return null;
+      final doc = docs.first;
+      final companyId = doc.parentDocumentId;
       if (companyId == null) return null;
-      return Invitation.fromMap(doc.id, companyId, doc.data());
-    } on FirebaseException catch (error) {
-      if (error.code == 'permission-denied') return null;
+      return Invitation.fromMap(doc.id, companyId, doc.data);
+    } catch (error) {
+      if (isFirestorePermissionDenied(error)) return null;
       rethrow;
     }
   }
@@ -231,20 +236,25 @@ class FirestoreCompanyAccess implements CompanyAccess {
       throw const SessionException('Elegí Administrador o Empleado.');
     }
     final normalized = normalizeEmail(email);
-    final memberQuery = _members(
-      companyId,
-    ).where('email', isEqualTo: normalized).limit(1).get();
-    final pendingQuery = _invitations(companyId)
-        .where('email', isEqualTo: normalized)
-        .where('status', isEqualTo: InvitationStatus.pending.name)
-        .limit(1)
-        .get();
-    final members = await memberQuery;
-    final pending = await pendingQuery;
-    if (members.docs.isNotEmpty) {
+    final members = getFirestoreDocs(
+      collection: _members(companyId),
+      filters: [FirestoreFilter.equal('email', normalized)],
+      limit: 1,
+    );
+    final pending = getFirestoreDocs(
+      collection: _invitations(companyId),
+      filters: [
+        FirestoreFilter.equal('email', normalized),
+        FirestoreFilter.equal('status', InvitationStatus.pending.name),
+      ],
+      limit: 1,
+    );
+    final memberDocs = await members;
+    final pendingDocs = await pending;
+    if (memberDocs.isNotEmpty) {
       throw const SessionException('Esa persona ya es miembro.');
     }
-    if (pending.docs.isNotEmpty) {
+    if (pendingDocs.isNotEmpty) {
       throw const SessionException(
         'Ya hay una invitación pendiente para ese email.',
       );
@@ -430,10 +440,12 @@ class FirestoreCompanyAccess implements CompanyAccess {
   Future<String> _uniqueInviteCode(String companyId) async {
     for (var attempt = 0; attempt < 8; attempt++) {
       final code = generateInviteCode();
-      final snap = await _invitations(
-        companyId,
-      ).where('code', isEqualTo: code).limit(1).get();
-      if (snap.docs.isEmpty) return code;
+      final docs = await getFirestoreDocs(
+        collection: _invitations(companyId),
+        filters: [FirestoreFilter.equal('code', code)],
+        limit: 1,
+      );
+      if (docs.isEmpty) return code;
     }
     throw const SessionException('No se pudo crear la invitación.');
   }

@@ -20,5 +20,10 @@ void main() {
     expect(isCatalogLocation('/catalogo/co1/pedido'), isTrue);
     expect(isCatalogLocation('/'), isFalse);
     expect(isCatalogLocation('/ingresar'), isFalse);
+    expect(catalogCompanyIdFromLocation('/catalogo/co1'), 'co1');
+    expect(catalogCompanyIdFromLocation('/catalogo/co1/pedido'), 'co1');
+    expect(catalogCompanyIdFromLocation('/catalogo/co1/producto/p1'), 'co1');
+    expect(catalogCompanyIdFromLocation('/catalogo'), isNull);
+    expect(catalogCompanyIdFromLocation('/ingresar'), isNull);
   });
 }

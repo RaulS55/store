@@ -458,7 +458,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
       ),
       if (context.watch<SessionStore?>()?.canManageLots ?? false)
         _LabeledField(
-          label: 'Montón',
+          label: 'Lote',
           child: Builder(
             builder: (context) {
               final lots = context.watch<AppStore>().lots;
@@ -467,9 +467,9 @@ class _ProductFormPageState extends State<ProductFormPage> {
                 key: const ValueKey('product-lot'),
                 initialValue: value,
                 isExpanded: true,
-                decoration: const InputDecoration(hintText: 'Sin montón'),
+                decoration: const InputDecoration(hintText: 'Sin lote'),
                 items: [
-                  const DropdownMenuItem(value: '', child: Text('Sin montón')),
+                  const DropdownMenuItem(value: '', child: Text('Sin lote')),
                   for (final lot in lots)
                     DropdownMenuItem(
                       value: lot.id,

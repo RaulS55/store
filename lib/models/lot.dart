@@ -1,5 +1,12 @@
+import 'map_date.dart';
 import 'map_value.dart';
 import 'sync_record.dart';
+
+String formatLotDay(DateTime value) {
+  final dd = value.day.toString().padLeft(2, '0');
+  final mm = value.month.toString().padLeft(2, '0');
+  return '$dd/$mm/${value.year}';
+}
 
 class Lot {
   const Lot({
@@ -9,6 +16,7 @@ class Lot {
     this.quantity,
     this.unitCost,
     this.soldElsewhere = 0,
+    this.date,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -20,6 +28,7 @@ class Lot {
   final int? quantity;
   final double? unitCost;
   final double soldElsewhere;
+  final DateTime? date;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -29,11 +38,15 @@ class Lot {
   String get displayName {
     final trimmed = name.trim();
     if (trimmed.isNotEmpty) return trimmed;
-    final date = createdAt.toUtc();
-    final dd = date.day.toString().padLeft(2, '0');
-    final mm = date.month.toString().padLeft(2, '0');
-    return 'Montón · $dd/$mm/${date.year}';
+    return 'Lote · $dateLabel';
   }
+
+  DateTime get calendarDate {
+    final source = date ?? createdAt.toUtc();
+    return DateTime(source.year, source.month, source.day);
+  }
+
+  String get dateLabel => formatLotDay(calendarDate);
 
   double? get derivedUnitCost {
     if (unitCost != null) return unitCost;
@@ -54,6 +67,7 @@ class Lot {
       quantity: quantity == null || quantity <= 0 ? null : quantity,
       unitCost: (data['unitCost'] as num?)?.toDouble(),
       soldElsewhere: (data['soldElsewhere'] as num?)?.toDouble() ?? 0,
+      date: parseOptionalMapDate(data['date']),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       deletedAt: record.deletedAt,
@@ -73,6 +87,7 @@ class Lot {
       'quantity': quantity,
       'unitCost': unitCost,
       'soldElsewhere': soldElsewhere,
+      'date': date?.toUtc().toIso8601String(),
     };
   }
 
@@ -83,6 +98,7 @@ class Lot {
     int? quantity,
     double? unitCost,
     double? soldElsewhere,
+    DateTime? date,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
@@ -94,6 +110,7 @@ class Lot {
       quantity: quantity ?? this.quantity,
       unitCost: unitCost ?? this.unitCost,
       soldElsewhere: soldElsewhere ?? this.soldElsewhere,
+      date: date ?? this.date,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,

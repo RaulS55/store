@@ -45,6 +45,7 @@ void main() {
     expect(find.text(closed.orderNumber), findsOneWidget);
     expect(find.text(closed.customer.name), findsOneWidget);
     expect(find.text('Cerrar pedido'), findsNothing);
+    expect(find.text('Reabrir pedido'), findsOneWidget);
     expect(find.text('Volver al cliente'), findsOneWidget);
     expect(find.textContaining('IVA ('), findsNothing);
   });
@@ -64,7 +65,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cerrar pedido'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cerrar'));
+    await tester.tap(find.text('Aceptar'));
     await tester.pumpAndSettle();
 
     expect(find.text('RESUMEN DE FACTURA'), findsOneWidget);

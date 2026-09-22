@@ -51,10 +51,10 @@ class MorePage extends StatelessWidget {
           if (session.canManageLots)
             ListTile(
               leading: const Icon(Icons.inventory_2_outlined),
-              title: const Text('Montones'),
+              title: const Text('Lotes'),
               subtitle: const Text('Costo de la ropa por lote'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.go('/montones'),
+              onTap: () => context.go('/lotes'),
             ),
           ListTile(
             leading: const Icon(Icons.settings_outlined),

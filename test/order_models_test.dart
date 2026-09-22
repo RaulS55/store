@@ -58,6 +58,37 @@ void main() {
     expect(order.toMap()['deletedAt'], isNull);
     expect(order.source, RecordSource.staff);
     expect(order.isCatalog, isFalse);
+    expect(order.stockReservations, isEmpty);
+    expect(order.stockNeedsSave, isTrue);
+  });
+
+  test('stock reservations round-trip and track unsaved edits', () {
+    final order = DraftOrder.fromMap('o1', {
+      'id': 'o1',
+      'orderNumber': 'PED-1',
+      'status': 'borrador',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'customer': customer.toMap(),
+      'lines': [
+        {
+          'quantity': 2,
+          'product': product.toMap(),
+          'variant': product.variants.first.toMap(),
+        },
+      ],
+      'stockReservations': [
+        {'productId': product.id, 'size': 'M', 'color': 'Negro', 'quantity': 2},
+      ],
+    });
+    expect(order.stockNeedsSave, isFalse);
+    expect(order.reservedQuantity(product.id, 'M', 'Negro'), 2);
+    expect(order.toMap()['stockReservations'], [
+      {'productId': product.id, 'size': 'M', 'color': 'Negro', 'quantity': 2},
+    ]);
+
+    order.lines.first = order.lines.first.copyWith(quantity: 3);
+    expect(order.stockNeedsSave, isTrue);
   });
 
   test('DraftOrder.fromMap reads a closed order snapshot', () {

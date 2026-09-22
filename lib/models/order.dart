@@ -27,6 +27,41 @@ class CategoryQty {
   final int quantity;
 }
 
+class StockReservation {
+  const StockReservation({
+    required this.productId,
+    required this.size,
+    required this.color,
+    required this.quantity,
+  });
+
+  final String productId;
+  final String size;
+  final String color;
+  final int quantity;
+
+  String get key => '$productId::$size|$color';
+
+  factory StockReservation.fromMap(Map<String, dynamic> map) {
+    final data = coerceStringKeyMap(map);
+    return StockReservation(
+      productId: (data['productId'] as String? ?? '').trim(),
+      size: data['size'] as String? ?? '',
+      color: data['color'] as String? ?? '',
+      quantity: (data['quantity'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'productId': productId,
+      'size': size,
+      'color': color,
+      'quantity': quantity,
+    };
+  }
+}
+
 class OrderLine {
   const OrderLine({
     required this.product,
@@ -85,6 +120,7 @@ class DraftOrder {
     required this.customer,
     List<OrderLine>? lines,
     this.status = OrderStatus.borrador,
+    List<StockReservation>? stockReservations,
     DateTime? createdAt,
     DateTime? updatedAt,
     this.closedAt,
@@ -93,6 +129,7 @@ class DraftOrder {
     this.ivaPercent = 21,
     this.source = RecordSource.staff,
   }) : lines = lines ?? <OrderLine>[],
+       stockReservations = stockReservations ?? <StockReservation>[],
        createdAt = createdAt ?? DateTime.now().toUtc(),
        updatedAt = updatedAt ?? createdAt ?? DateTime.now().toUtc();
 
@@ -100,6 +137,7 @@ class DraftOrder {
   final String orderNumber;
   Customer customer;
   final List<OrderLine> lines;
+  List<StockReservation> stockReservations;
   OrderStatus status;
   final DateTime createdAt;
   DateTime updatedAt;
@@ -116,6 +154,36 @@ class DraftOrder {
   bool get isDeleted => deletedAt != null;
 
   bool get isCatalog => source == RecordSource.catalog;
+
+  int reservedQuantity(String productId, String size, String color) {
+    var total = 0;
+    for (final hold in stockReservations) {
+      if (hold.productId == productId &&
+          hold.size == size &&
+          hold.color == color) {
+        total += hold.quantity;
+      }
+    }
+    return total;
+  }
+
+  bool get stockNeedsSave {
+    if (!isActive) return false;
+    final current = <String, int>{};
+    for (final line in lines) {
+      current[line.lineKey] = (current[line.lineKey] ?? 0) + line.quantity;
+    }
+    final reserved = <String, int>{};
+    for (final hold in stockReservations) {
+      if (hold.quantity <= 0) continue;
+      reserved[hold.key] = (reserved[hold.key] ?? 0) + hold.quantity;
+    }
+    if (current.length != reserved.length) return true;
+    for (final entry in current.entries) {
+      if (reserved[entry.key] != entry.value) return true;
+    }
+    return false;
+  }
 
   int get itemCount => lines.fold(0, (sum, line) => sum + line.quantity);
 
@@ -157,6 +225,7 @@ class DraftOrder {
     final customerMap = coerceStringKeyMap(data['customer']);
     final customerId = (customerMap['id'] as String?)?.trim() ?? '';
     final rawLines = data['lines'] as List<dynamic>? ?? const [];
+    final rawHolds = data['stockReservations'] as List<dynamic>? ?? const [];
     final rawStatus = data['status'] as String? ?? OrderStatus.borrador.name;
     return DraftOrder(
       id: record.id,
@@ -165,6 +234,10 @@ class DraftOrder {
       lines: [
         for (final line in rawLines)
           if (line is Map) OrderLine.fromMap(coerceStringKeyMap(line)),
+      ],
+      stockReservations: [
+        for (final hold in rawHolds)
+          if (hold is Map) StockReservation.fromMap(coerceStringKeyMap(hold)),
       ],
       status: OrderStatus.fromStorage(rawStatus),
       createdAt: record.createdAt,
@@ -188,6 +261,7 @@ class DraftOrder {
       'orderNumber': orderNumber.trim(),
       'customer': customer.toMap(),
       'lines': [for (final line in lines) line.toMap()],
+      'stockReservations': [for (final hold in stockReservations) hold.toMap()],
       'status': status.name,
       'closedAt': closedAt?.toUtc().toIso8601String(),
       'ivaEnabled': ivaEnabled,

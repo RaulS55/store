@@ -20,9 +20,9 @@ Future<void> deleteLotWithConfirm({
 }) async {
   final confirmed = await showAppConfirmDialog(
     context: context,
-    title: 'Eliminar montón',
+    title: 'Eliminar lote',
     message:
-        '¿Eliminar ${lot.displayName}? Las prendas asignadas quedan sin montón.',
+        '¿Eliminar ${lot.displayName}? Las prendas asignadas quedan sin lote.',
     confirmLabel: 'Eliminar',
   );
   if (!confirmed || !context.mounted) return;
@@ -33,12 +33,12 @@ Future<void> deleteLotWithConfirm({
     debugPrint('$stack');
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No se pudo eliminar el montón.')),
+      const SnackBar(content: Text('No se pudo eliminar el lote.')),
     );
     return;
   }
   if (!context.mounted) return;
   ScaffoldMessenger.of(
     context,
-  ).showSnackBar(const SnackBar(content: Text('Montón eliminado')));
+  ).showSnackBar(const SnackBar(content: Text('Lote eliminado')));
 }

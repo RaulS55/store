@@ -248,7 +248,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     if (product.brand.trim().isNotEmpty)
                       _Attr('Marca', product.brand, Icons.storefront_outlined),
                     if (lotLabel != null)
-                      _Attr('Montón', lotLabel, Icons.inventory_2_outlined),
+                      _Attr('Lote', lotLabel, Icons.inventory_2_outlined),
                     if (product.sizes.isNotEmpty) ...[
                       _Attr(
                         'Talle en prenda',
@@ -518,7 +518,7 @@ class _WideDetail extends StatelessWidget {
               ),
               if (lotLabel != null) ...[
                 const SizedBox(height: 8),
-                _Attr('Montón', lotLabel!, Icons.inventory_2_outlined),
+                _Attr('Lote', lotLabel!, Icons.inventory_2_outlined),
               ],
               const SizedBox(height: 16),
               if (product.sizes.isNotEmpty) ...[

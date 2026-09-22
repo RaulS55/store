@@ -288,4 +288,161 @@ void main() {
       );
     },
   );
+
+  test(
+    'saveOrderStock reserves stock and stays idle until the order changes',
+    () async {
+      final store = AppStore();
+      addTearDown(store.dispose);
+      final order = await seedTestOrder(store);
+      final line = order.lines.first;
+      expect(order.stockNeedsSave, isTrue);
+      expect(store.productById('p-test')!.variants.first.stock, 10);
+
+      expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+      expect(order.stockNeedsSave, isFalse);
+      expect(store.productById('p-test')!.variants.first.stock, 9);
+      expect(store.saveOrderStock(order.id), SaveStockResult.unchanged);
+      expect(store.productById('p-test')!.variants.first.stock, 9);
+
+      store.setLineQty(order.id, line.lineKey, 3);
+      expect(order.stockNeedsSave, isTrue);
+      expect(store.lineQuantityCap(order.id, order.lines.first), 10);
+      expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+      expect(order.stockNeedsSave, isFalse);
+      expect(store.productById('p-test')!.variants.first.stock, 7);
+
+      store.setLineQty(order.id, line.lineKey, 1);
+      expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+      expect(store.productById('p-test')!.variants.first.stock, 9);
+
+      store.removeLine(order.id, line.lineKey);
+      expect(order.stockNeedsSave, isTrue);
+      expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+      expect(order.stockReservations, isEmpty);
+      expect(store.productById('p-test')!.variants.first.stock, 10);
+    },
+  );
+
+  test('closeOrder does not deduct stock that was already reserved', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+    expect(store.closeOrder(order.id), isTrue);
+    expect(store.productById('p-test')!.variants.first.stock, 9);
+    expect(store.closedOrders.first.stockReservations, isNotEmpty);
+  });
+
+  test(
+    'closeOrder still deducts stock when the reservation was not saved',
+    () async {
+      final store = AppStore();
+      addTearDown(store.dispose);
+      final order = await seedTestOrder(store);
+      expect(store.closeOrder(order.id), isTrue);
+      expect(store.productById('p-test')!.variants.first.stock, 9);
+    },
+  );
+
+  test('saveOrderStock rejects a reservation without enough stock', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    store.updateVariantStock('p-test', 'M', 'Negro', stock: 0);
+    expect(store.saveOrderStock(order.id), SaveStockResult.insufficient);
+    expect(order.stockReservations, isEmpty);
+    expect(order.stockNeedsSave, isTrue);
+    expect(store.productById('p-test')!.variants.first.stock, 0);
+    expect(store.closeOrder(order.id), isFalse);
+    expect(order.isActive, isTrue);
+  });
+
+  test('deleteOrder returns stock reserved by the open order', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+    expect(await store.deleteOrder(order.id), isTrue);
+    expect(store.productById('p-test')!.variants.first.stock, 10);
+  });
+
+  test('reopenOrder keeps reserved stock and allows edits', () async {
+    final access = FakeOrderAccess();
+    final store = AppStore(
+      orderAccess: access,
+      customers: FakeCustomerAccess(),
+      products: FakeProductAccess(),
+    );
+    addTearDown(store.dispose);
+    store.bindCompany('co1');
+    await _flush();
+    final order = await seedTestOrder(store);
+    expect(store.closeOrder(order.id), isTrue);
+    await _flush();
+    final stockAfterClose = store.productById('p-test')!.variants.first.stock;
+    final holds = [...order.stockReservations];
+    expect(holds, isNotEmpty);
+
+    expect(store.reopenOrder(order.id), ReopenOrderResult.reopened);
+    await _flush();
+    expect(order.isActive, isTrue);
+    expect(order.closedAt, isNull);
+    expect(store.orders.any((item) => item.id == order.id), isTrue);
+    expect(store.closedOrders.any((item) => item.id == order.id), isFalse);
+    expect(store.activeOrderId, order.id);
+    expect(order.stockReservations, holds);
+    expect(order.stockNeedsSave, isFalse);
+    expect(store.productById('p-test')!.variants.first.stock, stockAfterClose);
+    final saved = access.orders['co1']![order.id]!;
+    expect(saved.status, OrderStatus.borrador);
+    expect(saved.closedAt, isNull);
+
+    store.setLineQty(order.id, order.lines.first.lineKey, 2);
+    expect(order.stockNeedsSave, isTrue);
+    expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+    expect(
+      store.productById('p-test')!.variants.first.stock,
+      stockAfterClose - 1,
+    );
+  });
+
+  test(
+    'reopenOrder rejects a customer who already has an open order',
+    () async {
+      final store = AppStore();
+      addTearDown(store.dispose);
+      final order = await seedTestOrder(store);
+      expect(store.closeOrder(order.id), isTrue);
+      final next = store.createOrder(order.customer);
+      expect(next.id, isNot(order.id));
+      expect(store.reopenOrder(order.id), ReopenOrderResult.customerBusy);
+      expect(order.isClosed, isTrue);
+      expect(store.closedOrders.any((item) => item.id == order.id), isTrue);
+      expect(store.productById('p-test')!.variants.first.stock, 9);
+    },
+  );
+
+  test('reserved units stay available to the same order', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct(stock: 2));
+    final product = store.productById('p-test')!;
+    final customer = await seedTestCustomer(store);
+    final order = store.createOrder(customer);
+    expect(
+      store.addToOrder(product, product.variants.first, quantity: 2),
+      isTrue,
+    );
+    expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+    expect(store.productById('p-test')!.variants.first.stock, 0);
+
+    final lineKey = order.lines.first.lineKey;
+    store.setLineQty(order.id, lineKey, 1);
+    expect(order.stockNeedsSave, isTrue);
+    store.setLineQty(order.id, lineKey, 2);
+    expect(order.lines.first.quantity, 2);
+    expect(order.stockNeedsSave, isFalse);
+    expect(store.productById('p-test')!.variants.first.stock, 0);
+  });
 }

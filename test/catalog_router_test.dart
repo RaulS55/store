@@ -39,6 +39,28 @@ void main() {
     );
   });
 
+  test('reload on pedidos resumes after the session is ready', () async {
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+
+    expect(sessionRedirect(session, '/cargando', resume: '/pedido'), '/pedido');
+    expect(
+      sessionRedirect(session, '/cargando', resume: '/pedido/o1'),
+      '/pedido/o1',
+    );
+    expect(
+      sessionRedirect(session, '/cargando', resume: '/pedido/o1/facturar'),
+      '/pedido/o1/facturar',
+    );
+    expect(sessionRedirect(session, '/cargando'), '/');
+    expect(sessionRedirect(session, '/cargando', resume: '/ingresar'), '/');
+    expect(
+      sessionRedirect(session, '/cargando', resume: 'https://evil.test'),
+      '/',
+    );
+    expect(sessionRedirect(session, '/pedido'), isNull);
+  });
+
   test('catalog is allowed before the session is ready', () {
     final session = createSessionStore();
     addTearDown(session.dispose);

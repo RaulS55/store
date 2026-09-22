@@ -36,7 +36,7 @@ void main() {
     expect(network, isA<NetworkImage>());
     expect(
       (network as NetworkImage).webHtmlElementStrategy,
-      WebHtmlElementStrategy.fallback,
+      WebHtmlElementStrategy.prefer,
     );
   });
 
@@ -64,6 +64,29 @@ void main() {
     expect(providers[0].width, isNot(providers[1].width));
     expect(providers[0].width, lessThan(providers[1].width!));
     expect(providers[1].width, maxProductImageEdge);
+  });
+
+  testWidgets('catalog cards decode at the painted size, not full resolution', (
+    tester,
+  ) async {
+    const url = 'https://example.com/card.jpg';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 180,
+            height: 220,
+            child: ProductImage(path: url),
+          ),
+        ),
+      ),
+    );
+
+    final provider = tester.widget<Image>(find.byType(Image)).image;
+    expect(provider, isA<ResizeImage>());
+    final resize = provider as ResizeImage;
+    expect(resize.width, lessThan(maxProductImageEdge));
+    expect(resize.width, greaterThan(100));
   });
 
   testWidgets('pager and viewer sizes share the full decode bucket', (

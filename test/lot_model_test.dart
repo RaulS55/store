@@ -12,6 +12,7 @@ void main() {
       'quantity': 30,
       'unitCost': 5000,
       'soldElsewhere': 20000,
+      'date': '2026-03-15T00:00:00.000Z',
       'createdAt': stamp.toIso8601String(),
       'updatedAt': stamp.toIso8601String(),
       'deletedAt': null,
@@ -24,13 +25,26 @@ void main() {
     expect(lot.unitCost, 5000);
     expect(lot.derivedUnitCost, 5000);
     expect(lot.soldElsewhere, 20000);
+    expect(lot.dateLabel, '15/03/2026');
+    expect(lot.toMap()['date'], '2026-03-15T00:00:00.000Z');
     expect(lot.toMap()['cost'], 150000);
     expect(lot.toMap()['quantity'], 30);
   });
 
+  test('unnamed lot uses its date instead of the created date', () {
+    final lot = Lot(
+      id: 'l1',
+      cost: 10000,
+      date: DateTime.utc(2026, 3, 2),
+      createdAt: stamp,
+      updatedAt: stamp,
+    );
+    expect(lot.displayName, 'Lote · 02/03/2026');
+  });
+
   test('unnamed lot uses the created date as display name', () {
     final lot = Lot(id: 'l1', cost: 10000, createdAt: stamp, updatedAt: stamp);
-    expect(lot.displayName, 'Montón · 11/09/2026');
+    expect(lot.displayName, 'Lote · 11/09/2026');
   });
 
   test(

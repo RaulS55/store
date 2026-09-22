@@ -20,6 +20,24 @@ import 'product_access.dart';
 import 'product_filter_host.dart';
 import 'product_image_cache.dart';
 
+enum SaveStockResult { saved, unchanged, insufficient }
+
+enum ReopenOrderResult { reopened, unchanged, customerBusy }
+
+class _StockChange {
+  const _StockChange({
+    required this.productId,
+    required this.size,
+    required this.color,
+    required this.stock,
+  });
+
+  final String productId;
+  final String size;
+  final String color;
+  final int stock;
+}
+
 class AppStore extends ChangeNotifier implements ProductFilterHost {
   AppStore({
     ProductAccess? products,
@@ -514,6 +532,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     return computeLotStats(
       lot: lot,
       products: _products,
+      openOrders: orders,
       closedOrders: closedOrders,
     );
   }
@@ -754,6 +773,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     String size,
     String color, {
     required int stock,
+    bool notify = true,
   }) {
     final index = _products.indexWhere((p) => p.id == productId);
     if (index < 0) return;
@@ -767,7 +787,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     ];
     final next = _stamp(product.copyWith(variants: variants));
     _products[index] = next;
-    notifyListeners();
+    if (notify) notifyListeners();
     unawaited(_persist(next));
   }
 
@@ -928,19 +948,47 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     return true;
   }
 
+  int sellableStock({
+    required String orderId,
+    required String productId,
+    required String size,
+    required String color,
+    int fallback = 0,
+  }) {
+    final live =
+        productById(productId)?.variantFor(size, color)?.stock ?? fallback;
+    final order = orderById(orderId);
+    if (order == null) return live;
+    return live + order.reservedQuantity(productId, size, color);
+  }
+
+  int lineQuantityCap(String orderId, OrderLine line) {
+    final room = sellableStock(
+      orderId: orderId,
+      productId: line.product.id,
+      size: line.variant.size,
+      color: line.variant.color,
+      fallback: line.variant.stock,
+    );
+    return room < line.quantity ? line.quantity : room;
+  }
+
   bool addToOrder(
     Product product,
     ProductVariant variant, {
     int quantity = 1,
     String? orderId,
   }) {
-    if (variant.stock <= 0) return false;
     final order = orderById(orderId ?? activeOrderId ?? '');
     if (order == null || order.isClosed) return false;
-    final live = productById(
-      product.id,
-    )?.variantFor(variant.size, variant.color);
-    final available = live?.stock ?? variant.stock;
+    final available = sellableStock(
+      orderId: order.id,
+      productId: product.id,
+      size: variant.size,
+      color: variant.color,
+      fallback: variant.stock,
+    );
+    if (available <= 0) return false;
     final index = order.lines.indexWhere(
       (l) => l.lineKey == '${product.id}::${variant.key}',
     );
@@ -976,10 +1024,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
       order.lines.removeAt(index);
     } else {
       final line = order.lines[index];
-      final live = productById(
-        line.product.id,
-      )?.variantFor(line.variant.size, line.variant.color);
-      final max = live?.stock ?? line.variant.stock;
+      final max = lineQuantityCap(orderId, line);
       order.lines[index] = line.copyWith(quantity: quantity.clamp(1, max));
     }
     notifyListeners();
@@ -994,23 +1039,59 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     unawaited(_persistOrder(order));
   }
 
+  SaveStockResult saveOrderStock(String orderId) {
+    final order = orderById(orderId);
+    if (order == null || !order.isActive) return SaveStockResult.unchanged;
+    final desired = _reservationsFromLines(order);
+    final reserved = _mergedReservations(order.stockReservations);
+    if (_sameReservations(desired, reserved)) {
+      return SaveStockResult.unchanged;
+    }
+
+    final changes = <_StockChange>[];
+    final keys = {...desired.keys, ...reserved.keys};
+    for (final key in keys) {
+      final next = desired[key];
+      final previous = reserved[key];
+      final delta = (next?.quantity ?? 0) - (previous?.quantity ?? 0);
+      if (delta == 0) continue;
+      final sample = next ?? previous!;
+      final product = productById(sample.productId);
+      final variant = product?.variantFor(sample.size, sample.color);
+      if (product == null || variant == null) {
+        if (delta > 0) return SaveStockResult.insufficient;
+        continue;
+      }
+      if (variant.stock - delta < 0) return SaveStockResult.insufficient;
+      changes.add(
+        _StockChange(
+          productId: product.id,
+          size: variant.size,
+          color: variant.color,
+          stock: variant.stock - delta,
+        ),
+      );
+    }
+
+    for (final change in changes) {
+      updateVariantStock(
+        change.productId,
+        change.size,
+        change.color,
+        stock: change.stock,
+        notify: false,
+      );
+    }
+    order.stockReservations = desired.values.toList();
+    notifyListeners();
+    unawaited(_persistOrder(order));
+    return SaveStockResult.saved;
+  }
+
   bool closeOrder(String orderId) {
     final order = orderById(orderId);
     if (order == null || order.isClosed || order.lines.isEmpty) return false;
-    for (final line in order.lines) {
-      final product = productById(line.product.id);
-      final variant = product?.variantFor(
-        line.variant.size,
-        line.variant.color,
-      );
-      if (product == null || variant == null) continue;
-      updateVariantStock(
-        product.id,
-        variant.size,
-        variant.color,
-        stock: (variant.stock - line.quantity).clamp(0, 999999),
-      );
-    }
+    if (saveOrderStock(orderId) == SaveStockResult.insufficient) return false;
     order.status = OrderStatus.cerrado;
     order.closedAt = DateTime.now().toUtc();
     orders.removeWhere((item) => item.id == orderId);
@@ -1026,15 +1107,41 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     return true;
   }
 
+  ReopenOrderResult reopenOrder(String orderId) {
+    final order = orderById(orderId);
+    if (order == null || !order.isClosed) return ReopenOrderResult.unchanged;
+    final existing = openOrderForCustomer(order.customer.id);
+    if (existing != null) return ReopenOrderResult.customerBusy;
+    order.status = OrderStatus.borrador;
+    order.closedAt = null;
+    closedOrders.removeWhere((item) => item.id == orderId);
+    orders.insert(0, order);
+    activeOrderId = order.id;
+    notifyListeners();
+    unawaited(_persistOrder(order));
+    return ReopenOrderResult.reopened;
+  }
+
   Future<bool> deleteOrder(String orderId) async {
     final order = orderById(orderId);
     if (order == null || order.isClosed || order.isDeleted) return false;
     final previousDeletedAt = order.deletedAt;
+    final previousHolds = [
+      for (final hold in order.stockReservations)
+        StockReservation(
+          productId: hold.productId,
+          size: hold.size,
+          color: hold.color,
+          quantity: hold.quantity,
+        ),
+    ];
     order.deletedAt = DateTime.now().toUtc();
+    _returnReservedStock(order);
     try {
       await _persistOrder(order);
     } catch (_) {
       order.deletedAt = previousDeletedAt;
+      _restoreReservedStock(order, previousHolds);
       rethrow;
     }
     orders.removeWhere((item) => item.id == orderId);
@@ -1046,6 +1153,82 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     }
     notifyListeners();
     return true;
+  }
+
+  Map<String, StockReservation> _reservationsFromLines(DraftOrder order) {
+    final grouped = <String, StockReservation>{};
+    for (final line in order.lines) {
+      if (line.quantity <= 0) continue;
+      final previous = grouped[line.lineKey];
+      grouped[line.lineKey] = StockReservation(
+        productId: line.product.id,
+        size: line.variant.size,
+        color: line.variant.color,
+        quantity: (previous?.quantity ?? 0) + line.quantity,
+      );
+    }
+    return grouped;
+  }
+
+  Map<String, StockReservation> _mergedReservations(
+    List<StockReservation> holds,
+  ) {
+    final grouped = <String, StockReservation>{};
+    for (final hold in holds) {
+      if (hold.quantity <= 0 || hold.productId.isEmpty) continue;
+      final previous = grouped[hold.key];
+      grouped[hold.key] = StockReservation(
+        productId: hold.productId,
+        size: hold.size,
+        color: hold.color,
+        quantity: (previous?.quantity ?? 0) + hold.quantity,
+      );
+    }
+    return grouped;
+  }
+
+  bool _sameReservations(
+    Map<String, StockReservation> left,
+    Map<String, StockReservation> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (final entry in left.entries) {
+      if (right[entry.key]?.quantity != entry.value.quantity) return false;
+    }
+    return true;
+  }
+
+  void _returnReservedStock(DraftOrder order) {
+    for (final hold in _mergedReservations(order.stockReservations).values) {
+      final product = productById(hold.productId);
+      final variant = product?.variantFor(hold.size, hold.color);
+      if (product == null || variant == null) continue;
+      updateVariantStock(
+        product.id,
+        variant.size,
+        variant.color,
+        stock: variant.stock + hold.quantity,
+        notify: false,
+      );
+    }
+    order.stockReservations = [];
+  }
+
+  void _restoreReservedStock(DraftOrder order, List<StockReservation> holds) {
+    order.stockReservations = holds;
+    for (final hold in _mergedReservations(holds).values) {
+      final product = productById(hold.productId);
+      final variant = product?.variantFor(hold.size, hold.color);
+      if (product == null || variant == null) continue;
+      updateVariantStock(
+        product.id,
+        variant.size,
+        variant.color,
+        stock: (variant.stock - hold.quantity).clamp(0, 999999),
+        notify: false,
+      );
+    }
+    notifyListeners();
   }
 
   String nextSku() {

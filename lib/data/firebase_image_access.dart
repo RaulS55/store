@@ -84,7 +84,13 @@ class FirebaseImageAccess implements ImageAccess {
         'Storage upload start path=${ref.fullPath} bytes=${bytes.lengthInBytes}',
       );
       await ref
-          .putData(bytes, SettableMetadata(contentType: contentType))
+          .putData(
+            bytes,
+            SettableMetadata(
+              contentType: contentType,
+              cacheControl: 'public, max-age=31536000, immutable',
+            ),
+          )
           .timeout(const Duration(seconds: 45));
       final url = await ref.getDownloadURL().timeout(
         const Duration(seconds: 20),

@@ -33,8 +33,8 @@ class AppShell extends StatelessWidget {
       Icons.people_alt_outlined,
     ),
     _Dest(
-      '/montones',
-      'Montones',
+      '/lotes',
+      'Lotes',
       Icons.inventory_2_rounded,
       Icons.inventory_2_outlined,
     ),
@@ -80,7 +80,7 @@ class AppShell extends StatelessWidget {
 
   static bool _canShow(SessionStore session, _Dest dest) {
     if (dest.path == '/equipo') return session.canViewTeam;
-    if (dest.path == '/montones') return session.canManageLots;
+    if (dest.path == '/lotes') return session.canManageLots;
     return true;
   }
 }
@@ -117,6 +117,9 @@ bool _hideMobileNav(String location) {
     return true;
   }
   if (location.startsWith('/clientes/') && location != '/clientes') {
+    return true;
+  }
+  if (location.startsWith('/lotes/') && location != '/lotes') {
     return true;
   }
   return false;

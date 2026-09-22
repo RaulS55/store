@@ -84,6 +84,8 @@ void main() {
     expect(find.text('Remera mujer'), findsOneWidget);
     expect(find.text('Jean hombre'), findsOneWidget);
     expect(find.byKey(const ValueKey('catalog-filters')), findsOneWidget);
+    expect(find.byKey(const ValueKey('catalog-logo')), findsNothing);
+    expect(find.byKey(const ValueKey('catalog-contacts')), findsNothing);
     expect(find.widgetWithText(ChoiceChip, 'Todo'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Remeras'));
@@ -109,5 +111,42 @@ void main() {
 
     expect(find.text('Filtros'), findsOneWidget);
     expect(find.text('Aplicar filtros'), findsOneWidget);
+  });
+
+  testWidgets('client catalog shows the business logo and contact links', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final companies = FakeCompanyAccess()
+      ..companies['co1'] = Company(
+        id: 'co1',
+        name: 'Casa Norte',
+        ownerId: 'u1',
+        createdAt: DateTime.utc(2026, 9, 11),
+        phone: '+54 9 11 5555-0000',
+        logoUrl: 'https://example.com/logo.jpg',
+        instagram: '@casanorte',
+        tiktok: 'https://www.tiktok.com/@casanorte',
+        facebook: 'casanorte',
+      );
+    final bindings = CatalogBindings(
+      companies: companies,
+      products: FakeProductAccess(),
+      customers: FakeCustomerAccess(),
+      orders: FakeOrderAccess(),
+    );
+    addTearDown(bindings.dispose);
+    await bindings.storeFor('co1').ready;
+    await tester.pumpWidget(_app(bindings));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('catalog-logo')), findsOneWidget);
+    expect(find.text('Casa Norte'), findsOneWidget);
+    expect(find.byKey(const ValueKey('catalog-contacts')), findsOneWidget);
+    expect(find.byKey(const ValueKey('catalog-whatsapp')), findsOneWidget);
+    expect(find.text('Instagram · @casanorte'), findsOneWidget);
+    expect(find.text('TikTok'), findsOneWidget);
+    expect(find.text('Facebook · @casanorte'), findsOneWidget);
+    expect(find.text('Contacto'), findsOneWidget);
   });
 }

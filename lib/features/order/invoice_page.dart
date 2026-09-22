@@ -274,6 +274,11 @@ class InvoicePage extends StatelessWidget {
                 icon: const Icon(Icons.lock_outline, size: 18),
                 label: const Text('Cerrar pedido'),
               ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: ReopenOrderButton(order: order, filled: true),
             ),
           TextButton(
             onPressed: () => _leave(context, order),

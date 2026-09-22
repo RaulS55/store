@@ -11,6 +11,7 @@ import '../features/catalog/catalog_page.dart';
 import '../features/catalog/catalog_product_page.dart';
 import '../features/customers/customer_detail_page.dart';
 import '../features/customers/customers_page.dart';
+import '../features/lots/lot_detail_page.dart';
 import '../features/lots/lots_page.dart';
 import '../features/more/more_page.dart';
 import '../features/order/invoice_page.dart';
@@ -28,11 +29,25 @@ GoRouter createRouter(
   String initialLocation = '/',
   bool overridePlatformDefaultLocation = false,
 }) {
+  var savedLocation = _resumeLocation(initialLocation);
   return GoRouter(
     initialLocation: initialLocation,
     overridePlatformDefaultLocation: overridePlatformDefaultLocation,
     refreshListenable: session,
-    redirect: (context, state) => sessionRedirect(session, state.uri.path),
+    redirect: (context, state) {
+      final path = state.uri.path.isEmpty ? '/' : state.uri.path;
+      if (!session.isReady) {
+        if (!path.startsWith('/catalogo') && path != '/cargando') {
+          savedLocation = _locationFromUri(state.uri);
+        }
+        return sessionRedirect(session, path);
+      }
+      if (path == '/cargando') {
+        return sessionRedirect(session, path, resume: savedLocation);
+      }
+      savedLocation = null;
+      return sessionRedirect(session, path);
+    },
     routes: [
       GoRoute(
         path: '/cargando',
@@ -138,9 +153,17 @@ GoRouter createRouter(
             ],
           ),
           GoRoute(
-            path: '/montones',
+            path: '/lotes',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: LotsPage()),
+            routes: [
+              GoRoute(
+                path: ':lotId',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: LotDetailPage(lotId: state.pathParameters['lotId']!),
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: '/equipo',
@@ -163,14 +186,10 @@ GoRouter createRouter(
   );
 }
 
-String? sessionRedirect(SessionStore session, String path) {
+String? sessionRedirect(SessionStore session, String path, {String? resume}) {
   final isLoading = path == '/cargando';
   final isCatalog = path.startsWith('/catalogo');
-  final isAuth =
-      path == '/ingresar' ||
-      path == '/registro' ||
-      path.startsWith('/invitar') ||
-      path == '/unirse';
+  final isAuth = _isAuthPath(path);
 
   if (!session.isReady) {
     if (isCatalog) return null;
@@ -181,7 +200,7 @@ String? sessionRedirect(SessionStore session, String path) {
   final isInvite = path.startsWith('/invitar');
   final isJoin = path == '/unirse';
   if (isLoading) {
-    if (session.isSignedIn) return '/';
+    if (session.isSignedIn) return _resumeLocation(resume) ?? '/';
     if (needsCompany) return '/unirse';
     return '/ingresar';
   }
@@ -190,7 +209,11 @@ String? sessionRedirect(SessionStore session, String path) {
       return '/';
     }
     if (path == '/equipo' && !session.canViewTeam) return '/';
-    if (path == '/montones' && !session.canManageLots) return '/';
+    if ((path == '/montones' || path.startsWith('/lotes')) &&
+        !session.canManageLots) {
+      return '/';
+    }
+    if (path == '/montones') return '/lotes';
     return null;
   }
   if (needsCompany) {
@@ -200,4 +223,29 @@ String? sessionRedirect(SessionStore session, String path) {
   if (isJoin) return '/ingresar';
   if (!isAuth) return '/ingresar';
   return null;
+}
+
+bool _isAuthPath(String path) {
+  return path == '/ingresar' ||
+      path == '/registro' ||
+      path == '/unirse' ||
+      path.startsWith('/invitar');
+}
+
+String _locationFromUri(Uri uri) {
+  final path = uri.path.isEmpty ? '/' : uri.path;
+  if (!uri.hasQuery) return path;
+  return '$path?${uri.query}';
+}
+
+String? _resumeLocation(String? resume) {
+  if (resume == null) return null;
+  final value = resume.trim();
+  if (value.isEmpty) return null;
+  final uri = Uri.tryParse(value);
+  if (uri == null || uri.hasScheme || uri.hasAuthority) return null;
+  final path = uri.path;
+  if (!path.startsWith('/') || path == '/' || path == '/cargando') return null;
+  if (_isAuthPath(path)) return null;
+  return value;
 }

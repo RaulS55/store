@@ -5,9 +5,11 @@ import 'package:provider/provider.dart';
 import '../../data/catalog_guest_store.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/company_logo.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/search_field.dart';
 import '../stock/filters_panel.dart';
+import 'catalog_contacts.dart';
 import 'catalog_routes.dart';
 
 class CatalogPage extends StatelessWidget {
@@ -50,9 +52,15 @@ class _CatalogViewState extends State<_CatalogView> {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<CatalogGuestStore>();
+    final company = store.company;
     final companyId = store.companyId;
     final products = store.visibleProducts;
     final wide = AppBreakpoints.isWide(context);
+    final logoUrl = company?.logoUrl;
+
+    if (store.isLoading) {
+      return _CatalogLoading(logoUrl: logoUrl, companyName: company?.name);
+    }
 
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -65,9 +73,17 @@ class _CatalogViewState extends State<_CatalogView> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
                 child: Row(
                   children: [
+                    if (logoUrl != null) ...[
+                      CompanyLogo(
+                        key: const ValueKey('catalog-logo'),
+                        url: logoUrl,
+                        size: 52,
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                     Expanded(
                       child: Text(
-                        store.company?.name ?? 'Catálogo',
+                        company?.name ?? 'Catálogo',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.headlineMedium
@@ -91,6 +107,13 @@ class _CatalogViewState extends State<_CatalogView> {
                 ),
               ),
             ),
+            if (company != null && catalogContactLinks(company).isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                  child: CatalogContacts(company: company),
+                ),
+              ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -111,22 +134,18 @@ class _CatalogViewState extends State<_CatalogView> {
                 ),
               ),
             ),
-            if (!wide && !store.isLoading && !store.notFound)
+            if (!wide && !store.notFound)
               SliverToBoxAdapter(
                 child: _CategoryChips(chips: store.visibleCategories),
               ),
-            if (wide && !store.isLoading && !store.notFound)
+            if (wide && !store.notFound)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: WebFilterBar(host: store),
                 ),
               ),
-            if (store.isLoading)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (store.notFound)
+            if (store.notFound)
               const SliverFillRemaining(
                 child: _Message(
                   icon: Icons.storefront_outlined,
@@ -178,6 +197,62 @@ class _CatalogViewState extends State<_CatalogView> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CatalogLoading extends StatelessWidget {
+  const _CatalogLoading({required this.logoUrl, required this.companyName});
+
+  final String? logoUrl;
+  final String? companyName;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = companyName?.trim();
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (logoUrl != null) ...[
+                CompanyLogo(
+                  key: const ValueKey('catalog-loading-logo'),
+                  url: logoUrl!,
+                  size: 88,
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (name != null && name.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    name,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: AppColors.terracotta,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

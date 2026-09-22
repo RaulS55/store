@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +28,7 @@ import 'data/local/cached_order_access.dart';
 import 'data/local/cached_product_access.dart';
 import 'data/local/catalog_cart_cache.dart';
 import 'data/local/hive_bootstrap.dart';
+import 'data/local/hive_catalog_cache.dart';
 import 'data/session_cache.dart';
 import 'data/session_store.dart';
 import 'features/auth/loading_page.dart';
@@ -52,6 +54,12 @@ Future<void> main() async {
   runApp(ModaStockApp(entryLocation: entryLocation));
 }
 
+const _localizationsDelegates = [
+  GlobalMaterialLocalizations.delegate,
+  GlobalWidgetsLocalizations.delegate,
+  GlobalCupertinoLocalizations.delegate,
+];
+
 class ModaStockApp extends StatefulWidget {
   const ModaStockApp({super.key, this.entryLocation = '/'});
 
@@ -66,9 +74,8 @@ class _ModaStockAppState extends State<ModaStockApp> {
   SessionStore? _session;
   CatalogBindings? _catalog;
   GoRouter? _router;
-  var _bootFailed = false;
   var _booting = false;
-  String? _bootError;
+  final _bootStatus = ValueNotifier<_BootStatus>(const _BootStatus.loading());
 
   @override
   void initState() {
@@ -87,6 +94,8 @@ class _ModaStockAppState extends State<ModaStockApp> {
       step = 'idioma';
       await initializeDateFormatting('es_AR');
       Intl.defaultLocale = 'es_AR';
+      final cacheFuture = openEncryptedCatalogCache();
+      unawaited(_showCachedCatalogBrand(cacheFuture));
       step = 'firebase';
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp(
@@ -95,7 +104,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
       }
       await configureFirebaseForPlatform();
       step = 'cache';
-      final cache = await openEncryptedCatalogCache();
+      final cache = await cacheFuture;
       if (!cache.persistent) {
         debugPrint('Catalog cache is in-memory; reload will hit the API');
       }
@@ -104,6 +113,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
       await cartCache.ensureOpen();
       step = 'tienda';
       final companyAccess = FirestoreCompanyAccess();
+      await _primeCatalogBrand(companyAccess, cache);
       final productAccess = FirestoreProductAccess();
       final customerAccess = FirestoreCustomerAccess();
       final orderAccess = FirestoreOrderAccess();
@@ -156,8 +166,6 @@ class _ModaStockAppState extends State<ModaStockApp> {
         _session = session;
         _catalog = catalog;
         _router = router;
-        _bootFailed = false;
-        _bootError = null;
       });
       try {
         _bindCatalog();
@@ -175,23 +183,69 @@ class _ModaStockAppState extends State<ModaStockApp> {
         store?.dispose();
       }
       if (mounted && _store == null) {
-        setState(() {
-          _bootFailed = true;
-          _bootError = '$step: $error';
-        });
+        _bootStatus.value = _BootStatus.failed('$step: $error');
       }
     } finally {
       _booting = false;
     }
   }
 
+  Future<void> _showCachedCatalogBrand(
+    Future<HiveCatalogCache> cacheFuture,
+  ) async {
+    final companyId = catalogCompanyIdFromLocation(widget.entryLocation);
+    if (companyId == null) return;
+    try {
+      final cache = await cacheFuture;
+      if (!mounted || _router != null) return;
+      _showCatalogBrand(cache.loadCompany(companyId));
+    } catch (error, stack) {
+      debugPrint('Catalog brand cache failed: $error');
+      debugPrint('$stack');
+    }
+  }
+
+  Future<void> _primeCatalogBrand(
+    FirestoreCompanyAccess companies,
+    HiveCatalogCache cache,
+  ) async {
+    final companyId = catalogCompanyIdFromLocation(widget.entryLocation);
+    if (companyId == null) return;
+    final cached = cache.loadCompany(companyId);
+    _showCatalogBrand(cached);
+    if (cached != null) return;
+    try {
+      final remote = await companies
+          .getCompany(companyId)
+          .timeout(const Duration(seconds: 8));
+      if (remote == null) return;
+      await cache.saveCompany(remote);
+      _showCatalogBrand(remote);
+    } catch (error, stack) {
+      debugPrint('Catalog brand prefetch failed: $error');
+      debugPrint('$stack');
+    }
+  }
+
+  void _showCatalogBrand(Company? company) {
+    if (company == null || !mounted || _router != null) return;
+    final logo = blankToNull(company.logoUrl);
+    final name = blankToNull(company.name);
+    if (logo == null && name == null) return;
+    _bootStatus.value = _BootStatus.loading(logoUrl: logo, companyName: name);
+  }
+
   void _retryBoot() {
     if (_booting) return;
-    setState(() {
-      _bootFailed = false;
-      _bootError = null;
-    });
+    _bootStatus.value = const _BootStatus.loading();
     unawaited(_boot());
+  }
+
+  Route<void> _bootRoute(String? name) {
+    return MaterialPageRoute<void>(
+      settings: RouteSettings(name: name),
+      builder: (_) => _BootScreen(status: _bootStatus, onRetry: _retryBoot),
+    );
   }
 
   void _bindCatalog() {
@@ -211,6 +265,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
     _session?.dispose();
     _catalog?.dispose();
     _store?.dispose();
+    _bootStatus.dispose();
     super.dispose();
   }
 
@@ -224,10 +279,12 @@ class _ModaStockAppState extends State<ModaStockApp> {
       return MaterialApp(
         title: 'Moda Stock',
         debugShowCheckedModeBanner: false,
+        locale: const Locale('es', 'AR'),
+        supportedLocales: const [Locale('es', 'AR'), Locale('es')],
+        localizationsDelegates: _localizationsDelegates,
         theme: AppTheme.light(),
-        home: _bootFailed
-            ? _BootErrorPage(detail: _bootError, onRetry: _retryBoot)
-            : const LoadingPage(),
+        onGenerateRoute: (settings) => _bootRoute(settings.name),
+        onGenerateInitialRoutes: (initialRoute) => [_bootRoute(initialRoute)],
       );
     }
     return MultiProvider(
@@ -243,6 +300,9 @@ class _ModaStockAppState extends State<ModaStockApp> {
           return MaterialApp.router(
             title: 'Moda Stock',
             debugShowCheckedModeBanner: false,
+            locale: const Locale('es', 'AR'),
+            supportedLocales: const [Locale('es', 'AR'), Locale('es')],
+            localizationsDelegates: _localizationsDelegates,
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
             themeMode: themeMode,
@@ -250,6 +310,45 @@ class _ModaStockAppState extends State<ModaStockApp> {
           );
         },
       ),
+    );
+  }
+}
+
+class _BootStatus {
+  const _BootStatus.loading({this.logoUrl, this.companyName})
+    : detail = null,
+      failed = false;
+
+  const _BootStatus.failed(this.detail)
+    : failed = true,
+      logoUrl = null,
+      companyName = null;
+
+  final bool failed;
+  final String? detail;
+  final String? logoUrl;
+  final String? companyName;
+}
+
+class _BootScreen extends StatelessWidget {
+  const _BootScreen({required this.status, required this.onRetry});
+
+  final ValueListenable<_BootStatus> status;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<_BootStatus>(
+      valueListenable: status,
+      builder: (context, view, _) {
+        if (!view.failed) {
+          return LoadingPage(
+            logoUrl: view.logoUrl,
+            companyName: view.companyName,
+          );
+        }
+        return _BootErrorPage(detail: view.detail, onRetry: onRetry);
+      },
     );
   }
 }

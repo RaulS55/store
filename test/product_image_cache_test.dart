@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
+import 'package:store_app/data/image_compress.dart';
 import 'package:store_app/data/product_image_cache.dart';
 import 'package:store_app/widgets/product_image.dart';
 
@@ -141,6 +142,45 @@ void main() {
     expect(fetches, 0);
     await cache.prefetch(['https://example.com/web.jpg']);
     expect(fetches, 0);
+  });
+
+  testWidgets('cached card bytes stay at painted size after a restart', (
+    tester,
+  ) async {
+    const url = 'https://example.com/restart.jpg';
+    final jpeg = _jpeg();
+    final store = MemoryProductImageStore();
+    final first = ProductImageCache(
+      store: store,
+      fetch: (url) async => throw StateError('should not fetch'),
+    );
+    await first.put(url, jpeg);
+
+    final restarted = ProductImageCache(
+      store: store,
+      fetch: (url) async => throw StateError('should not fetch'),
+    );
+
+    await tester.pumpWidget(
+      Provider.value(
+        value: restarted,
+        child: const MaterialApp(
+          home: Center(
+            child: SizedBox(
+              width: 180,
+              height: 220,
+              child: ProductImage(path: url),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(ValueKey('cached:$url:${jpeg.length}')), findsOneWidget);
+    expect(find.byKey(ValueKey('network:$url')), findsNothing);
+    final provider = tester.widget<Image>(find.byType(Image)).image;
+    expect(provider, isA<ResizeImage>());
+    expect((provider as ResizeImage).width, lessThan(maxProductImageEdge));
   });
 
   testWidgets('ProductImage paints cached bytes without hitting the network', (

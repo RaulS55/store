@@ -11,6 +11,8 @@ Map<String, dynamic> coerceStringKeyMap(Object? value) {
   if (value == null) {
     throw FormatException('Expected map, got null');
   }
+  final fromJs = plainJsMap(value);
+  if (fromJs != null) return fromJs;
   if (value is Map) {
     try {
       return _copyMap(value);
@@ -18,8 +20,6 @@ Map<String, dynamic> coerceStringKeyMap(Object? value) {
   }
   final viaJson = _tryJsonMap(value);
   if (viaJson != null) return viaJson;
-  final fromJs = plainJsMap(value);
-  if (fromJs != null) return fromJs;
   throw FormatException('Expected map, got ${value.runtimeType}');
 }
 
@@ -64,5 +64,7 @@ Map<String, dynamic> _copyMap(Map<dynamic, dynamic> map) {
 dynamic _copyValue(dynamic value) {
   if (value is Map) return _copyMap(value);
   if (value is List) return [for (final item in value) _copyValue(item)];
+  final fromJs = plainJsMap(value);
+  if (fromJs != null) return fromJs;
   return value;
 }

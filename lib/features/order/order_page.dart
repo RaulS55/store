@@ -168,7 +168,7 @@ class _MobileOrder extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: _OrderActions(order: order),
           ),
         ],
@@ -311,45 +311,123 @@ class _OrderActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = !AppBreakpoints.isWide(context);
+    final stockSaved =
+        !order.stockNeedsSave && order.stockReservations.isNotEmpty;
+    final String? stockHint;
+    if (compact) {
+      stockHint = null;
+    } else if (order.stockNeedsSave) {
+      stockHint = 'Confirmá la reserva para actualizar el stock disponible.';
+    } else if (stockSaved) {
+      stockHint =
+          'Reserva confirmada. Se vuelve a habilitar si modificás el pedido.';
+    } else {
+      stockHint = null;
+    }
+    final actionSize = compact ? const Size(0, 40) : const Size(0, 48);
+    final actionPadding = compact
+        ? const EdgeInsets.symmetric(horizontal: 8)
+        : const EdgeInsets.symmetric(horizontal: 10);
+    final actionStyle = Theme.of(
+      context,
+    ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600);
+
+    final stockButton = OutlinedButton(
+      key: const ValueKey('save-order-stock'),
+      onPressed: order.stockNeedsSave
+          ? () => saveOrderStockFlow(context, order)
+          : null,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.terracotta,
+        minimumSize: compact ? actionSize : const Size.fromHeight(48),
+        padding: actionPadding,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: compact ? VisualDensity.compact : null,
+        textStyle: actionStyle,
+        side: BorderSide(
+          color: order.stockNeedsSave
+              ? AppColors.terracotta
+              : AppColors.lightBorder,
+        ),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              stockSaved ? Icons.check : Icons.inventory_2_outlined,
+              size: 18,
+            ),
+            const SizedBox(width: 6),
+            Text(stockSaved ? 'Stock guardado' : 'Guardar stock'),
+          ],
+        ),
+      ),
+    );
+    final closeOrInvoice = order.isClosed
+        ? OutlinedButton.icon(
+            onPressed: () => openInvoice(context, order.id),
+            style: OutlinedButton.styleFrom(
+              minimumSize: actionSize,
+              padding: actionPadding,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: compact ? VisualDensity.compact : null,
+              textStyle: actionStyle,
+            ),
+            icon: const Icon(Icons.receipt_long_outlined, size: 18),
+            label: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('Ver factura'),
+            ),
+          )
+        : FilledButton(
+            onPressed: order.lines.isEmpty
+                ? null
+                : () => closeOrderFlow(context, order),
+            style: FilledButton.styleFrom(
+              minimumSize: actionSize,
+              padding: actionPadding,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: compact ? VisualDensity.compact : null,
+              textStyle: actionStyle,
+            ),
+            child: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('Cerrar pedido'),
+            ),
+          );
+
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            Expanded(child: WhatsAppButton(order: order, compact: true)),
-            const SizedBox(width: 8),
             Expanded(
               child: order.isClosed
-                  ? OutlinedButton.icon(
-                      onPressed: () => openInvoice(context, order.id),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 48),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        textStyle: Theme.of(context).textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      icon: const Icon(Icons.receipt_long_outlined, size: 18),
-                      label: const Text('Ver factura'),
-                    )
-                  : FilledButton(
-                      onPressed: order.lines.isEmpty
-                          ? null
-                          : () => closeOrderFlow(context, order),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 48),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        textStyle: Theme.of(context).textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      child: const FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text('Cerrar pedido'),
-                      ),
-                    ),
+                  ? WhatsAppButton(order: order, compact: true, dense: compact)
+                  : stockButton,
             ),
+            SizedBox(width: compact ? 6 : 8),
+            Expanded(child: closeOrInvoice),
           ],
         ),
-        if (!order.isClosed) CancelOrderButton(order: order),
+        if (stockHint != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            stockHint,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
+          ),
+        ],
+        if (order.isClosed) ...[
+          SizedBox(height: compact ? 6 : 8),
+          ReopenOrderButton(order: order, dense: compact),
+        ] else
+          CancelOrderButton(order: order),
       ],
     );
   }
@@ -566,7 +644,7 @@ class _LineTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final store = context.read<AppStore>();
+    final store = context.watch<AppStore>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -626,13 +704,7 @@ class _LineTile extends StatelessWidget {
                 QtyStepper(
                   value: line.quantity,
                   min: 1,
-                  max:
-                      context
-                          .watch<AppStore>()
-                          .productById(line.product.id)
-                          ?.variantFor(line.variant.size, line.variant.color)
-                          ?.stock ??
-                      line.variant.stock,
+                  max: store.lineQuantityCap(orderId, line),
                   onChanged: (q) => store.setLineQty(orderId, line.lineKey, q),
                 ),
               const SizedBox(height: 6),

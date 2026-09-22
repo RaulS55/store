@@ -112,9 +112,17 @@ void main() {
     await tester.pumpWidget(_app(store, order.id));
     await tester.pump();
 
-    expect(find.text('WhatsApp'), findsOneWidget);
+    expect(find.text('WhatsApp'), findsNothing);
+    expect(find.text('Guardar stock'), findsOneWidget);
     expect(find.text('Cerrar pedido'), findsOneWidget);
     expect(find.byKey(const ValueKey('cancel-order')), findsOneWidget);
+
+    final stock = tester.getRect(
+      find.byKey(const ValueKey('save-order-stock')),
+    );
+    final close = tester.getRect(find.text('Cerrar pedido'));
+    expect((stock.center.dy - close.center.dy).abs(), lessThan(8));
+    expect(stock.height, lessThan(48));
 
     await tester.ensureVisible(find.byKey(const ValueKey('cancel-order')));
     await tester.tap(find.byKey(const ValueKey('cancel-order')));
@@ -148,5 +156,90 @@ void main() {
 
     expect(find.byKey(const ValueKey('cancel-order')), findsNothing);
     expect(find.text('Cancelar pedido'), findsNothing);
+    expect(find.byKey(const ValueKey('save-order-stock')), findsNothing);
+    expect(find.text('WhatsApp'), findsOneWidget);
+    expect(find.byKey(const ValueKey('reopen-order')), findsOneWidget);
+  });
+
+  testWidgets('reopening a closed order keeps reserved stock and unlocks edits', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.closeOrder(order.id), isTrue);
+    final stockAfterClose = store.productById('p-test')!.variants.first.stock;
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    expect(find.text('Pedido cerrado'), findsOneWidget);
+    expect(find.text('Reabrir pedido'), findsOneWidget);
+    expect(find.text('Cambiar'), findsNothing);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('reopen-order')));
+    await tester.tap(find.byKey(const ValueKey('reopen-order')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'El pedido vuelve a estar activo. El stock reservado se mantiene y podés modificar las prendas.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Reabrir pedido').last);
+    await tester.pumpAndSettle();
+
+    expect(order.isActive, isTrue);
+    expect(store.productById('p-test')!.variants.first.stock, stockAfterClose);
+    expect(find.text('Armar pedido'), findsOneWidget);
+    expect(find.text('Stock guardado'), findsOneWidget);
+    expect(find.text('Cambiar'), findsOneWidget);
+    expect(
+      find.text('Pedido reabierto. El stock sigue reservado.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('save stock reserves units and re-enables after an edit', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    final button = find.byKey(const ValueKey('save-order-stock'));
+    expect(find.text('Guardar stock'), findsOneWidget);
+    expect(tester.widget<OutlinedButton>(button).onPressed, isNotNull);
+
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pump();
+
+    expect(store.productById('p-test')!.variants.first.stock, 9);
+    expect(find.text('Stock guardado'), findsOneWidget);
+    expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
+    expect(
+      find.text('Stock reservado. El disponible ya se actualizó.'),
+      findsOneWidget,
+    );
+
+    store.setLineQty(order.id, order.lines.first.lineKey, 2);
+    await tester.pump();
+
+    expect(find.text('Guardar stock'), findsOneWidget);
+    expect(tester.widget<OutlinedButton>(button).onPressed, isNotNull);
+
+    await tester.tap(button);
+    await tester.pump();
+
+    expect(store.productById('p-test')!.variants.first.stock, 8);
+    expect(order.stockNeedsSave, isFalse);
   });
 }

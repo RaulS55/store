@@ -437,8 +437,8 @@ class Product {
       images: [for (final image in rawImages) '$image'],
       variants: [
         for (final variant in rawVariants)
-          if (variant is Map)
-            ProductVariant.fromMap(coerceStringKeyMap(variant)),
+          if (tryCoerceStringKeyMap(variant) case final map?)
+            ProductVariant.fromMap(map),
       ],
       equivalentSizes: readEquivalentSizes(data['equivalentSizes']),
       createdAt: record.createdAt,

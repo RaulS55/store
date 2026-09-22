@@ -29,6 +29,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
   late final TextEditingController _quantity;
   late final TextEditingController _unitCost;
   late final TextEditingController _soldElsewhere;
+  late DateTime _date;
   var _saving = false;
   var _syncing = false;
 
@@ -52,6 +53,8 @@ class _LotFormSheetState extends State<_LotFormSheet> {
           ? ''
           : lot.soldElsewhere.round().toString(),
     );
+    final today = DateTime.now();
+    _date = lot?.calendarDate ?? DateTime(today.year, today.month, today.day);
     _cost.addListener(_onCostChanged);
     _quantity.addListener(_onQuantityChanged);
     _unitCost.addListener(_onUnitChanged);
@@ -136,7 +139,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              editing ? 'Editar montón' : 'Nuevo montón',
+              editing ? 'Editar lote' : 'Nuevo lote',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
@@ -149,6 +152,19 @@ class _LotFormSheetState extends State<_LotFormSheet> {
               ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
             ),
             const SizedBox(height: 16),
+            InkWell(
+              key: const ValueKey('lot-date'),
+              onTap: _pickDate,
+              borderRadius: BorderRadius.circular(AppRadii.md),
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Fecha',
+                  suffixIcon: Icon(Icons.calendar_today_outlined),
+                ),
+                child: Text(formatLotDay(_date)),
+              ),
+            ),
+            const SizedBox(height: 12),
             TextField(
               key: const ValueKey('lot-name'),
               controller: _name,
@@ -177,7 +193,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(
                 labelText: 'Cantidad (opcional)',
-                hintText: 'Unidades del montón',
+                hintText: 'Unidades del lote',
               ),
             ),
             const SizedBox(height: 12),
@@ -207,12 +223,26 @@ class _LotFormSheetState extends State<_LotFormSheet> {
             FilledButton(
               key: const ValueKey('save-lot'),
               onPressed: canSave ? _save : null,
-              child: const Text('Guardar montón'),
+              child: const Text('Guardar lote'),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(DateTime.now().year + 5, 12, 31),
+      helpText: 'Fecha del lote',
+      cancelText: 'Cancelar',
+      confirmText: 'Aceptar',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _date = DateTime(picked.year, picked.month, picked.day));
   }
 
   Future<void> _save() async {
@@ -233,6 +263,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
         quantity: quantity,
         unitCost: unit,
         soldElsewhere: _parseMoney(_soldElsewhere.text) ?? 0,
+        date: DateTime.utc(_date.year, _date.month, _date.day),
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
         deletedAt: existing?.deletedAt,
@@ -246,7 +277,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo guardar el montón.')),
+        const SnackBar(content: Text('No se pudo guardar el lote.')),
       );
     }
   }

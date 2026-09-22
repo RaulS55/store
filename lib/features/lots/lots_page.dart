@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
-import '../../data/formatters.dart';
-import '../../models/lot.dart';
-import '../../models/lot_stats.dart';
 import '../../theme/tokens.dart';
 import 'lot_actions.dart';
 import 'lot_sheets.dart';
@@ -29,15 +27,15 @@ class LotsPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Montones',
+                      'Lotes',
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       showStats
-                          ? 'Costo, suma de prendas, recuperación y ganancia de cada lote.'
-                          : 'Cargá el costo de la ropa por montones y asignalo a las prendas.',
+                          ? 'Precio, ventas y ganancia de cada lote.'
+                          : 'Cargá el costo de la ropa por lotes y asignalo a las prendas.',
                       style: Theme.of(
                         context,
                       ).textTheme.bodyMedium?.copyWith(color: AppColors.slate),
@@ -50,7 +48,7 @@ class LotsPage extends StatelessWidget {
                 onPressed: () => showLotForm(context),
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Nuevo montón'),
+                label: const Text('Nuevo lote'),
               ),
             ],
           ),
@@ -67,7 +65,7 @@ class LotsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Todavía no hay montones',
+                    'Todavía no hay lotes',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 6),
@@ -83,150 +81,18 @@ class LotsPage extends StatelessWidget {
             )
           else
             for (final lot in lots)
-              _LotCard(
-                lot: lot,
-                stats: store.statsForLot(lot),
-                showStats: showStats,
+              Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ListTile(
+                  title: Text(
+                    lot.name.trim().isEmpty ? 'Lote' : lot.name.trim(),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(lot.dateLabel),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.go('/lotes/${lot.id}'),
+                ),
               ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LotCard extends StatelessWidget {
-  const _LotCard({
-    required this.lot,
-    required this.stats,
-    required this.showStats,
-  });
-
-  final Lot lot;
-  final LotStats stats;
-  final bool showStats;
-
-  @override
-  Widget build(BuildContext context) {
-    final assigned = stats.productCount == 1
-        ? '1 prenda'
-        : '${stats.productCount} prendas';
-    final stock = stats.stockUnits == 1
-        ? '1 en stock'
-        : '${stats.stockUnits} en stock';
-    final quantityLabel = lot.quantity == null
-        ? 'Cantidad no cargada'
-        : '${lot.quantity} unidades';
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        lot.displayName,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$quantityLabel · $assigned · $stock',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Editar',
-                  onPressed: () => showLotForm(context, lot: lot),
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-                IconButton(
-                  key: ValueKey('delete-lot-${lot.id}'),
-                  tooltip: 'Eliminar',
-                  onPressed: () =>
-                      deleteLotWithConfirm(context: context, lot: lot),
-                  style: IconButton.styleFrom(
-                    foregroundColor: AppColors.stockLow,
-                  ),
-                  icon: const Icon(Icons.delete_outline),
-                ),
-              ],
-            ),
-            if (showStats) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 12,
-                runSpacing: 10,
-                children: [
-                  _StatChip('Costo', MoneyFormat.compact(lot.cost)),
-                  _StatChip(
-                    'Suma prendas',
-                    MoneyFormat.compact(stats.retailStockValue),
-                  ),
-                  _StatChip('Recuperado', MoneyFormat.compact(stats.recovered)),
-                  if (stats.profit >= 0)
-                    _StatChip(
-                      'Ganancia',
-                      MoneyFormat.compact(stats.profit),
-                      valueColor: AppColors.stockOk,
-                    )
-                  else
-                    _StatChip(
-                      'Falta recuperar',
-                      MoneyFormat.compact(stats.remainingToRecover),
-                      valueColor: AppColors.stockLow,
-                    ),
-                  if (lot.soldElsewhere > 0)
-                    _StatChip(
-                      'Otro medio',
-                      MoneyFormat.compact(lot.soldElsewhere),
-                    ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatChip extends StatelessWidget {
-  const _StatChip(this.label, this.value, {this.valueColor});
-
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 150,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelSmall?.copyWith(color: AppColors.mutedText),
-          ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: valueColor,
-            ),
-          ),
         ],
       ),
     );
