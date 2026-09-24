@@ -288,7 +288,13 @@ Future<void> saveOrderStockFlow(BuildContext context, DraftOrder order) async {
 
 Future<void> sendOrderWhatsApp(BuildContext context, DraftOrder order) async {
   if (order.lines.isEmpty) return;
-  final ok = await OrderShare.openWhatsApp(order);
+  final includeProductCode = context
+      .read<AppStore>()
+      .includeProductCodeInInvoice;
+  final ok = await OrderShare.openWhatsApp(
+    order,
+    includeProductCode: includeProductCode,
+  );
   if (!context.mounted) return;
   if (!ok) {
     ScaffoldMessenger.of(

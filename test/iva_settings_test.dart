@@ -187,4 +187,38 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('settings can include the product code on invoices', (
+    tester,
+  ) async {
+    final store = AppStore();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: const MaterialApp(home: Scaffold(body: SettingsPage())),
+      ),
+    );
+
+    expect(store.includeProductCodeInInvoice, isTrue);
+    expect(
+      find.text('El código aparece junto al nombre en la factura'),
+      findsOneWidget,
+    );
+
+    final skuSwitch = find.widgetWithText(
+      SwitchListTile,
+      'Código de producto en la factura',
+    );
+    await tester.ensureVisible(skuSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(skuSwitch);
+    await tester.pumpAndSettle();
+
+    expect(store.includeProductCodeInInvoice, isFalse);
+    expect(
+      find.text('Desactivado. La factura muestra solo el nombre.'),
+      findsOneWidget,
+    );
+  });
 }

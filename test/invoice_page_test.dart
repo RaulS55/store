@@ -48,6 +48,26 @@ void main() {
     expect(find.text('Reabrir pedido'), findsOneWidget);
     expect(find.text('Volver al cliente'), findsOneWidget);
     expect(find.textContaining('IVA ('), findsNothing);
+    expect(find.text('TST-0001 - REMERA TEST'), findsOneWidget);
+  });
+
+  testWidgets('invoice hides the product code when disabled', (tester) async {
+    final store = AppStore();
+    final order = await seedTestOrder(store);
+    expect(store.closeOrder(order.id), isTrue);
+    store.setIncludeProductCodeInInvoice(false);
+    final closed = store.closedOrders.first;
+    expect(closed.includeProductCodeInInvoice, isTrue);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp(home: InvoicePage(orderId: closed.id)),
+      ),
+    );
+
+    expect(find.text('REMERA TEST'), findsOneWidget);
+    expect(find.textContaining('TST-0001'), findsNothing);
   });
 
   testWidgets('closing an order opens the billing view', (tester) async {

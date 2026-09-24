@@ -173,7 +173,15 @@ class InvoicePage extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        line.product.name.toUpperCase(),
+                                        [
+                                          if (store
+                                                  .includeProductCodeInInvoice &&
+                                              line.product.sku
+                                                  .trim()
+                                                  .isNotEmpty)
+                                            line.product.sku.trim(),
+                                          line.product.name,
+                                        ].join(' - ').toUpperCase(),
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall

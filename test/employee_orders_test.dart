@@ -89,6 +89,31 @@ void main() {
   );
 
   test(
+    'product code is included by default and omitted when disabled',
+    () async {
+      final store = AppStore();
+      final order = await seedTestOrder(store);
+      expect(store.includeProductCodeInInvoice, isTrue);
+      expect(order.includeProductCodeInInvoice, isTrue);
+      expect(OrderShare.message(order), contains('TST-0001 - Remera test'));
+
+      store.setIncludeProductCodeInInvoice(false);
+      expect(order.includeProductCodeInInvoice, isFalse);
+      expect(OrderShare.message(order), isNot(contains('TST-0001 - ')));
+
+      final closedId = order.id;
+      expect(store.closeOrder(closedId), isTrue);
+      store.setIncludeProductCodeInInvoice(true);
+      final closed = store.orderById(closedId)!;
+      expect(closed.includeProductCodeInInvoice, isFalse);
+      expect(OrderShare.message(closed), isNot(contains('TST-0001 - ')));
+
+      final created = store.createOrder(store.customers.first);
+      expect(created.includeProductCodeInInvoice, isTrue);
+    },
+  );
+
+  test(
     'WhatsApp without a saved number shares text for the contact picker',
     () async {
       final store = AppStore();

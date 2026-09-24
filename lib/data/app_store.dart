@@ -97,6 +97,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
 
   bool ivaEnabled = false;
   double ivaPercent = 21;
+  bool includeProductCodeInInvoice = true;
   CompanyRubro rubro = CompanyRubro.ambos;
 
   ProductImageCache get imageCache => _imageCache;
@@ -574,7 +575,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   void setIvaEnabled(bool enabled) {
     if (ivaEnabled == enabled) return;
     ivaEnabled = enabled;
-    _applyIvaToActiveOrders();
+    _applyInvoiceSettingsToActiveOrders();
     notifyListeners();
   }
 
@@ -582,7 +583,14 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     final next = (percent.clamp(0, 100) * 100).round() / 100;
     if (ivaPercent == next) return;
     ivaPercent = next;
-    _applyIvaToActiveOrders();
+    _applyInvoiceSettingsToActiveOrders();
+    notifyListeners();
+  }
+
+  void setIncludeProductCodeInInvoice(bool enabled) {
+    if (includeProductCodeInInvoice == enabled) return;
+    includeProductCodeInInvoice = enabled;
+    _applyInvoiceSettingsToActiveOrders();
     notifyListeners();
   }
 
@@ -602,10 +610,11 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     notifyListeners();
   }
 
-  void _applyIvaToActiveOrders() {
+  void _applyInvoiceSettingsToActiveOrders() {
     for (final order in [...orders]) {
       order.ivaEnabled = ivaEnabled;
       order.ivaPercent = ivaPercent;
+      order.includeProductCodeInInvoice = includeProductCodeInInvoice;
       unawaited(_persistOrder(order));
     }
   }
@@ -816,6 +825,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
       updatedAt: now,
       ivaEnabled: ivaEnabled,
       ivaPercent: ivaPercent,
+      includeProductCodeInInvoice: includeProductCodeInInvoice,
     );
     orders.insert(0, order);
     activeOrderId = order.id;

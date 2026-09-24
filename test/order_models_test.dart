@@ -60,6 +60,7 @@ void main() {
     expect(order.isCatalog, isFalse);
     expect(order.stockReservations, isEmpty);
     expect(order.stockNeedsSave, isTrue);
+    expect(order.includeProductCodeInInvoice, isTrue);
   });
 
   test('stock reservations round-trip and track unsaved edits', () {

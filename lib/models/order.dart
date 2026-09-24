@@ -127,6 +127,7 @@ class DraftOrder {
     this.deletedAt,
     this.ivaEnabled = false,
     this.ivaPercent = 21,
+    this.includeProductCodeInInvoice = true,
     this.source = RecordSource.staff,
   }) : lines = lines ?? <OrderLine>[],
        stockReservations = stockReservations ?? <StockReservation>[],
@@ -145,6 +146,7 @@ class DraftOrder {
   DateTime? deletedAt;
   bool ivaEnabled;
   double ivaPercent;
+  bool includeProductCodeInInvoice;
   RecordSource source;
 
   bool get isClosed => status == OrderStatus.cerrado;
@@ -246,6 +248,8 @@ class DraftOrder {
       deletedAt: record.deletedAt,
       ivaEnabled: data['ivaEnabled'] as bool? ?? false,
       ivaPercent: (data['ivaPercent'] as num?)?.toDouble() ?? 21,
+      includeProductCodeInInvoice:
+          data['includeProductCodeInInvoice'] as bool? ?? true,
       source: RecordSource.fromStorage(data['source'] as String?),
     );
   }
@@ -266,6 +270,7 @@ class DraftOrder {
       'closedAt': closedAt?.toUtc().toIso8601String(),
       'ivaEnabled': ivaEnabled,
       'ivaPercent': ivaPercent,
+      'includeProductCodeInInvoice': includeProductCodeInInvoice,
       'source': source.name,
     };
   }

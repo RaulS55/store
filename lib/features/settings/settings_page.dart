@@ -63,6 +63,8 @@ class SettingsPage extends StatelessWidget {
             const _CatalogShareSettings(),
             const Divider(),
             const _IvaSettings(),
+            const Divider(),
+            const _InvoiceProductCodeSettings(),
             const ListTile(
               title: Text('Moneda'),
               subtitle: Text('Pesos argentinos (ARS)'),
@@ -439,6 +441,26 @@ class _IvaSettingsState extends State<_IvaSettings> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _InvoiceProductCodeSettings extends StatelessWidget {
+  const _InvoiceProductCodeSettings();
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<AppStore>();
+    return SwitchListTile(
+      value: store.includeProductCodeInInvoice,
+      onChanged: store.setIncludeProductCodeInInvoice,
+      title: const Text('Código de producto en la factura'),
+      subtitle: Text(
+        store.includeProductCodeInInvoice
+            ? 'El código aparece junto al nombre en la factura'
+            : 'Desactivado. La factura muestra solo el nombre.',
+      ),
+      activeTrackColor: AppColors.terracotta,
     );
   }
 }

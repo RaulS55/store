@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../data/app_store.dart';
 import '../../data/session_store.dart';
 import '../../theme/tokens.dart';
-import '../order/order_actions.dart';
 
 class MorePage extends StatelessWidget {
   const MorePage({super.key});
@@ -62,23 +61,6 @@ class MorePage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.go('/config'),
           ),
-          ListTile(
-            leading: const Icon(Icons.receipt_long_outlined),
-            title: const Text('Pedidos cerrados'),
-            subtitle: Text(
-              store.closedOrders.isEmpty
-                  ? 'Todavía no hay pedidos cerrados'
-                  : '${store.closedOrders.length} pedidos cerrados',
-            ),
-          ),
-          if (store.closedOrders.isNotEmpty)
-            for (final order in store.closedOrders)
-              ListTile(
-                dense: true,
-                title: Text(order.orderNumber),
-                subtitle: Text(order.customer.name),
-                onTap: () => context.go(invoiceRoute(order.id)),
-              ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout),

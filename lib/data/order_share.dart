@@ -4,14 +4,15 @@ import '../models/order.dart';
 import 'formatters.dart';
 
 class OrderShare {
-  static String message(DraftOrder order) {
+  static String message(DraftOrder order, {bool? includeProductCode}) {
+    final showCode = includeProductCode ?? order.includeProductCodeInInvoice;
     final buffer = StringBuffer()
       ..writeln('Hola ${order.customer.name},')
       ..writeln('te envío el resumen de tu pedido ${order.orderNumber}:')
       ..writeln();
     for (final line in order.lines) {
       buffer.writeln(
-        '• ${line.quantity}× ${line.product.name} '
+        '• ${line.quantity}× ${_itemName(line, showCode)} '
         '(${line.variant.size} · ${line.variant.color}) — '
         '${MoneyFormat.detailed(line.lineTotal)}',
       );
@@ -29,18 +30,29 @@ class OrderShare {
     return buffer.toString();
   }
 
-  static Uri? whatsappUri(DraftOrder order) {
+  static String _itemName(OrderLine line, bool includeProductCode) {
+    final sku = line.product.sku.trim();
+    if (!includeProductCode || sku.isEmpty) return line.product.name;
+    return '$sku - ${line.product.name}';
+  }
+
+  static Uri? whatsappUri(DraftOrder order, {bool? includeProductCode}) {
     if (order.lines.isEmpty) return null;
     final digits = order.customer.whatsappDigits;
-    final text = Uri.encodeComponent(message(order));
+    final text = Uri.encodeComponent(
+      message(order, includeProductCode: includeProductCode),
+    );
     if (digits.isEmpty) {
       return Uri.parse('https://wa.me/?text=$text');
     }
     return Uri.parse('https://wa.me/$digits?text=$text');
   }
 
-  static Future<bool> openWhatsApp(DraftOrder order) async {
-    return openUri(whatsappUri(order));
+  static Future<bool> openWhatsApp(
+    DraftOrder order, {
+    bool? includeProductCode,
+  }) async {
+    return openUri(whatsappUri(order, includeProductCode: includeProductCode));
   }
 
   static String catalogMessage(DraftOrder order) {
