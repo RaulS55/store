@@ -78,12 +78,9 @@ List<String> brandsOf(Iterable<Product> products) {
 }
 
 List<String> sizesOf(Iterable<Product> products) {
-  const preferred = ApparelSizes.all;
-  final extra = <String>{for (final product in products) ...product.sizes};
-  return [
-    ...preferred.where(extra.contains),
-    ...extra.where((s) => !preferred.contains(s)).toList()..sort(),
-  ];
+  return ApparelSizes.sorted({
+    for (final product in products) ...product.sizes,
+  });
 }
 
 List<SwatchColor> colorsOf(Iterable<Product> products) {

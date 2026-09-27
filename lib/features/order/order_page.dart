@@ -514,9 +514,13 @@ class _HitTile extends StatelessWidget {
   }
 
   Future<void> _pickAndAdd(BuildContext context, Product product) async {
-    final variant = await showVariantPickerSheet(context, product);
-    if (variant == null || !context.mounted) return;
-    context.read<AppStore>().addToOrder(product, variant, orderId: orderId);
+    final store = context.read<AppStore>();
+    final live = store.productById(product.id) ?? product;
+    final variants = await showVariantPickerSheet(context, live);
+    if (variants == null || variants.isEmpty || !context.mounted) return;
+    for (final variant in variants) {
+      store.addToOrder(live, variant, orderId: orderId);
+    }
   }
 }
 

@@ -77,6 +77,14 @@ void main() {
     expect(draft.variants.single.size, '44');
   });
 
+  test('added garment sizes stay in ascending order', () {
+    final draft = VariantDraft();
+    draft.addSize('L');
+    draft.addSize('XXS');
+    draft.addSize('M');
+    expect(draft.sizes, ['XXS', 'M', 'L']);
+  });
+
   test('addCombination only creates that size and color pair', () {
     final draft = VariantDraft();
     draft.addSize('M');

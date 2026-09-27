@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:store_app/data/catalog_bindings.dart';
 import 'package:store_app/features/catalog/catalog_product_page.dart';
 import 'package:store_app/models/company.dart';
+import 'package:store_app/models/product.dart';
 import 'package:store_app/widgets/product_image.dart';
 
 import 'fakes/catalog_harness.dart';
@@ -178,5 +179,70 @@ void main() {
     );
     expect(find.text('Agregamos Remera test al pedido.'), findsOneWidget);
     expect(bindings.storeFor('co1').cartCount, 1);
+  });
+
+  testWidgets('client catalog can add several sizes of the same color', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final stamp = DateTime.utc(2026, 9, 11);
+    final companies = FakeCompanyAccess()
+      ..companies['co1'] = Company(
+        id: 'co1',
+        name: 'Moda Stock',
+        ownerId: 'u1',
+        createdAt: stamp,
+      );
+    final products = FakeProductAccess();
+    await products.saveProduct(
+      'co1',
+      testProduct().copyWith(
+        variants: const [
+          ProductVariant(
+            size: 'L',
+            color: 'Negro',
+            colorHex: '#1E1E1E',
+            stock: 4,
+          ),
+          ProductVariant(
+            size: 'S',
+            color: 'Negro',
+            colorHex: '#1E1E1E',
+            stock: 5,
+          ),
+          ProductVariant(
+            size: 'M',
+            color: 'Negro',
+            colorHex: '#1E1E1E',
+            stock: 3,
+          ),
+        ],
+      ),
+    );
+    final bindings = CatalogBindings(
+      companies: companies,
+      products: products,
+      customers: FakeCustomerAccess(),
+      orders: FakeOrderAccess(),
+    );
+    addTearDown(bindings.dispose);
+    await bindings.storeFor('co1').ready;
+    await tester.pumpWidget(_app(bindings));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sin stock'), findsNothing);
+    expect(find.text('Agregar al pedido'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'S'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilterChip, 'L'));
+    await tester.pump();
+    await tester.tap(find.text('Agregar al pedido'));
+    await tester.pump();
+
+    final store = bindings.storeFor('co1');
+    expect(find.text('Sin stock'), findsNothing);
+    expect(store.cartCount, 2);
+    expect([for (final line in store.cartLines) line.variant.size], ['S', 'L']);
   });
 }

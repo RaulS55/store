@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../../data/formatters.dart';
 import '../../models/lot.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_snack_bar.dart';
@@ -40,7 +41,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
     final lot = widget.lot;
     _name = TextEditingController(text: lot?.name ?? '');
     _cost = TextEditingController(
-      text: lot == null ? '' : lot.cost.round().toString(),
+      text: lot == null ? '' : MoneyFormat.grouped(lot.cost),
     );
     _quantity = TextEditingController(
       text: lot?.quantity == null ? '' : '${lot!.quantity}',
@@ -51,7 +52,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
     _soldElsewhere = TextEditingController(
       text: lot == null || lot.soldElsewhere <= 0
           ? ''
-          : lot.soldElsewhere.round().toString(),
+          : MoneyFormat.grouped(lot.soldElsewhere),
     );
     final today = DateTime.now();
     _date = lot?.calendarDate ?? DateTime(today.year, today.month, today.day);
@@ -71,15 +72,11 @@ class _LotFormSheetState extends State<_LotFormSheet> {
     super.dispose();
   }
 
-  double? _parseMoney(String raw) {
-    final digits = raw.trim();
-    if (digits.isEmpty) return null;
-    return double.tryParse(digits);
-  }
+  double? _parseMoney(String raw) => MoneyFormat.parse(raw);
 
   String _unitFrom(double? cost, int? quantity) {
     if (cost == null || quantity == null || quantity <= 0) return '';
-    return (cost / quantity).round().toString();
+    return MoneyFormat.grouped(cost / quantity);
   }
 
   void _setText(TextEditingController controller, String value) {
@@ -152,10 +149,10 @@ class _LotFormSheetState extends State<_LotFormSheet> {
               key: const ValueKey('lot-cost'),
               controller: _cost,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [MoneyFormat.inputFormatter],
               decoration: const InputDecoration(
                 labelText: 'Precio de lote',
-                hintText: 'Ej. 150000',
+                hintText: 'Ej. 150.000',
               ),
             ),
             const SizedBox(height: 12),
@@ -185,7 +182,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
               key: const ValueKey('lot-sold-elsewhere'),
               controller: _soldElsewhere,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [MoneyFormat.inputFormatter],
               decoration: const InputDecoration(
                 labelText: 'Vendido por otro medio (opcional)',
                 hintText: 'Plata ya cobrada afuera',

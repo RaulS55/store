@@ -4,16 +4,84 @@ import '../models/product.dart';
 import '../theme/tokens.dart';
 
 class VariantSelection {
-  const VariantSelection({this.size, this.color});
+  const VariantSelection({this.sizes = const {}, this.color});
 
-  final String? size;
+  final Set<String> sizes;
   final String? color;
 
-  VariantSelection copyWith({String? size, String? color}) {
+  bool get hasColor => color != null;
+
+  bool get hasSizes => sizes.isNotEmpty;
+
+  VariantSelection copyWith({Set<String>? sizes, String? color}) {
     return VariantSelection(
-      size: size ?? this.size,
+      sizes: sizes ?? this.sizes,
       color: color ?? this.color,
     );
+  }
+
+  VariantSelection toggleSize(String size) {
+    final next = {...sizes};
+    if (!next.add(size)) next.remove(size);
+    return copyWith(sizes: next);
+  }
+
+  static VariantSelection effective(
+    Product product,
+    VariantSelection selection,
+  ) {
+    final color =
+        selection.color ??
+        (product.colors.length == 1 ? product.colors.first.name : null);
+    final available = product.sizesForColor(color);
+    final requested = selection.sizes.isNotEmpty
+        ? selection.sizes
+        : (available.length == 1 ? {available.first} : const <String>{});
+    return VariantSelection(
+      color: color,
+      sizes: {
+        for (final size in requested)
+          if (available.contains(size) &&
+              (product.variantFor(size, color)?.stock ?? 0) > 0)
+            size,
+      },
+    );
+  }
+
+  VariantSelection selectColor(Product product, String colorName) {
+    final available = product.sizesForColor(colorName);
+    return VariantSelection(
+      color: colorName,
+      sizes: {
+        for (final size in sizes)
+          if (available.contains(size) &&
+              (product.variantFor(size, colorName)?.stock ?? 0) > 0)
+            size,
+      },
+    );
+  }
+
+  List<ProductVariant> selectedVariants(Product product) {
+    if (color == null) return const [];
+    return [
+      for (final size in product.sizes)
+        if (sizes.contains(size)) product.variantFor(size, color),
+    ].whereType<ProductVariant>().toList();
+  }
+
+  List<ProductVariant> addableVariants(Product product) {
+    return [
+      for (final variant in selectedVariants(product))
+        if (variant.stock > 0) variant,
+    ];
+  }
+
+  int quantityCap(Product product) {
+    final variants = addableVariants(product);
+    if (variants.isEmpty) return 1;
+    return variants
+        .map((variant) => variant.stock)
+        .reduce((a, b) => a < b ? a : b);
   }
 }
 
@@ -29,9 +97,6 @@ class VariantPicker extends StatelessWidget {
   final VariantSelection selection;
   final ValueChanged<VariantSelection> onChanged;
 
-  ProductVariant? get selected =>
-      product.variantFor(selection.size, selection.color);
-
   String _sizeChipLabel(Product product, String size) {
     final equivalent = product.equivalentSizeFor(size);
     if (equivalent == size) return size;
@@ -41,32 +106,17 @@ class VariantPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final variants = selection.addableVariants(product);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Elegí variante',
+          'Elegí color y talles',
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 10),
-        Text('Talle en prenda', style: theme.textTheme.labelLarge),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final size in product.sizes)
-              _SizeChip(
-                label: _sizeChipLabel(product, size),
-                stock: product.stockForSize(size, colorName: selection.color),
-                selected: selection.size == size,
-                onTap: () => onChanged(selection.copyWith(size: size)),
-              ),
-          ],
-        ),
-        const SizedBox(height: 14),
         Text('Color', style: theme.textTheme.labelLarge),
         const SizedBox(height: 8),
         Wrap(
@@ -76,14 +126,46 @@ class VariantPicker extends StatelessWidget {
             for (final color in product.colors)
               _ColorChoice(
                 color: color,
-                stock: product.stockForColor(color.name, size: selection.size),
+                stock: product.stockForColor(color.name),
                 selected: selection.color == color.name,
-                onTap: () => onChanged(selection.copyWith(color: color.name)),
+                onTap: () =>
+                    onChanged(selection.selectColor(product, color.name)),
               ),
           ],
         ),
         const SizedBox(height: 14),
-        _StockLine(variant: selected, hasSelection: selected != null),
+        Text('Talle en prenda', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 4),
+        Text(
+          'Podés elegir varios talles del mismo color.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: AppColors.mutedText,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final size
+                in selection.hasColor
+                    ? product.sizesForColor(selection.color)
+                    : product.sizes)
+              _SizeChip(
+                label: _sizeChipLabel(product, size),
+                stock: product.stockForSize(size, colorName: selection.color),
+                selected: selection.sizes.contains(size),
+                locked: !selection.hasColor,
+                onTap: () => onChanged(selection.toggleSize(size)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _StockLine(
+          variants: variants,
+          hasColor: selection.hasColor,
+          hasSizes: selection.hasSizes,
+        ),
       ],
     );
   }
@@ -94,18 +176,27 @@ class _SizeChip extends StatelessWidget {
     required this.label,
     required this.stock,
     required this.selected,
+    required this.locked,
     required this.onTap,
   });
 
   final String label;
   final int stock;
   final bool selected;
+  final bool locked;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final out = stock <= 0;
-    return ChoiceChip(
+    final out = !locked && stock <= 0;
+    if (locked) {
+      return Chip(
+        label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        side: BorderSide(color: Theme.of(context).dividerColor),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+      );
+    }
+    return FilterChip(
       label: Text(
         out ? '$label  ·  0' : label,
         style: TextStyle(
@@ -115,6 +206,7 @@ class _SizeChip extends StatelessWidget {
         ),
       ),
       selected: selected && !out,
+      showCheckmark: false,
       onSelected: out ? null : (_) => onTap(),
       selectedColor: AppColors.terracottaChip,
       side: BorderSide(
@@ -246,14 +338,28 @@ class _ColorChoice extends StatelessWidget {
 }
 
 class _StockLine extends StatelessWidget {
-  const _StockLine({required this.variant, required this.hasSelection});
+  const _StockLine({
+    required this.variants,
+    required this.hasColor,
+    required this.hasSizes,
+  });
 
-  final ProductVariant? variant;
-  final bool hasSelection;
+  final List<ProductVariant> variants;
+  final bool hasColor;
+  final bool hasSizes;
 
   @override
   Widget build(BuildContext context) {
-    final available = variant != null && variant!.stock > 0;
+    final available = variants.isNotEmpty;
+    final message = !hasColor
+        ? 'Elegí un color para ver los talles'
+        : !hasSizes
+        ? 'Elegí uno o más talles'
+        : !available
+        ? 'Esos talles no tienen stock en este color'
+        : variants.length == 1
+        ? 'Stock disponible: ${variants.first.stock} u.'
+        : '${variants.length} talles · stock mínimo: ${variants.map((v) => v.stock).reduce((a, b) => a < b ? a : b)} u.';
     return Row(
       children: [
         Icon(
@@ -264,11 +370,7 @@ class _StockLine extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            !hasSelection
-                ? 'Elegí talle y color para ver el stock'
-                : available
-                ? 'Stock disponible: ${variant!.stock} u.'
-                : 'Sin stock en esta combinación',
+            message,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: available ? null : AppColors.slate,
@@ -280,15 +382,12 @@ class _StockLine extends StatelessWidget {
   }
 }
 
-Future<ProductVariant?> showVariantPickerSheet(
+Future<List<ProductVariant>?> showVariantPickerSheet(
   BuildContext context,
   Product product,
 ) {
-  var selection = VariantSelection(
-    size: product.sizes.length == 1 ? product.sizes.first : null,
-    color: product.colors.length == 1 ? product.colors.first.name : null,
-  );
-  return showModalBottomSheet<ProductVariant>(
+  var selection = VariantSelection.effective(product, const VariantSelection());
+  return showModalBottomSheet<List<ProductVariant>>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
@@ -297,8 +396,8 @@ Future<ProductVariant?> showVariantPickerSheet(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         child: StatefulBuilder(
           builder: (context, setState) {
-            final variant = product.variantFor(selection.size, selection.color);
-            final canAdd = variant != null && variant.stock > 0;
+            final variants = selection.addableVariants(product);
+            final canAdd = variants.isNotEmpty;
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -317,15 +416,23 @@ Future<ProductVariant?> showVariantPickerSheet(
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: canAdd
-                      ? () => Navigator.pop(context, variant)
+                      ? () => Navigator.pop(context, variants)
                       : null,
-                  child: const Text('Agregar al pedido'),
+                  child: Text(
+                    variants.length > 1
+                        ? 'Agregar ${variants.length} al pedido'
+                        : 'Agregar al pedido',
+                  ),
                 ),
                 if (!canAdd)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      'Si no hay selección, el botón se desactiva.',
+                      product.stock <= 0
+                          ? 'No hay stock disponible.'
+                          : !selection.hasColor
+                          ? 'Elegí un color para ver los talles.'
+                          : 'Elegí uno o más talles.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.mutedText,
                       ),

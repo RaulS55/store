@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../../data/formatters.dart';
 import '../../data/gallery_picker.dart';
 import '../../data/image_compress.dart';
 import '../../data/session_store.dart';
@@ -55,7 +56,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
     _name = TextEditingController(text: existing?.name ?? '');
     _sku = TextEditingController(text: existing?.sku ?? store.suggestedSku());
     _price = TextEditingController(
-      text: existing == null ? '' : existing.price.toStringAsFixed(0),
+      text: existing == null ? '' : MoneyFormat.grouped(existing.price),
     );
     _category = existing?.category;
     _categoryQuery = existing?.categoryLabel ?? '';
@@ -186,7 +187,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
         category: _category ?? ApparelCategory.match(_categoryQuery),
         audience: _audience,
         brand: store.resolveBrand(_brandQuery),
-        price: double.parse(_price.text.trim().replaceAll('.', '')),
+        price: MoneyFormat.parse(_price.text)!,
         images: urls,
         variants: List.of(_draft.variants),
         equivalentSizes: _draft.storedEquivalentSizes,
@@ -470,8 +471,8 @@ class _ProductFormPageState extends State<ProductFormPage> {
         child: TextFormField(
           controller: _price,
           keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(hintText: 'Ej. 12500'),
+          inputFormatters: [MoneyFormat.inputFormatter],
+          decoration: const InputDecoration(hintText: 'Ej. 12.500'),
           validator: _priceValidator,
         ),
       ),
@@ -522,7 +523,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
   String? _priceValidator(String? value) {
     final required = _required(value);
     if (required != null) return required;
-    if (int.tryParse(value!.trim()) == null) {
+    if (MoneyFormat.parse(value!) == null) {
       return 'Ingresá un número';
     }
     return null;

@@ -198,7 +198,21 @@ class Swatches {
 }
 
 class ApparelSizes {
+  static const letterOrder = [
+    'XXXS',
+    'XXS',
+    'XS',
+    'S',
+    'M',
+    'L',
+    'XL',
+    'XXL',
+    'XXXL',
+    'XXXXL',
+  ];
+
   static const all = [
+    'XXS',
     'XS',
     'S',
     'M',
@@ -222,6 +236,30 @@ class ApparelSizes {
       if (item == size) return item;
     }
     return size;
+  }
+
+  static int compare(String a, String b) {
+    final ka = _sortKey(a);
+    final kb = _sortKey(b);
+    final byGroup = ka.$1.compareTo(kb.$1);
+    if (byGroup != 0) return byGroup;
+    final byValue = ka.$2.compareTo(kb.$2);
+    if (byValue != 0) return byValue;
+    return a.toLowerCase().compareTo(b.toLowerCase());
+  }
+
+  static List<String> sorted(Iterable<String> sizes) {
+    return [...sizes]..sort(compare);
+  }
+
+  static (int, double) _sortKey(String size) {
+    final normalized = size.trim().toUpperCase();
+    final letterIndex = letterOrder.indexOf(normalized);
+    if (letterIndex >= 0) return (0, letterIndex.toDouble());
+    if (normalized == 'ÚNICO' || normalized == 'UNICO') return (1, 0);
+    final numeric = double.tryParse(size.trim().replaceAll(',', '.'));
+    if (numeric != null) return (2, numeric);
+    return (3, 0);
   }
 }
 
@@ -353,10 +391,19 @@ class Product {
 
   List<String> get sizes {
     final seen = <String>{};
-    return [
+    return ApparelSizes.sorted([
       for (final variant in variants)
         if (seen.add(variant.size)) variant.size,
-    ];
+    ]);
+  }
+
+  List<String> sizesForColor(String? colorName) {
+    if (colorName == null) return sizes;
+    final seen = <String>{};
+    return ApparelSizes.sorted([
+      for (final variant in variants)
+        if (variant.color == colorName && seen.add(variant.size)) variant.size,
+    ]);
   }
 
   List<SwatchColor> get colors {

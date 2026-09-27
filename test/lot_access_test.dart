@@ -233,15 +233,15 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('lot-cost')), '40000');
     await tester.enterText(find.byKey(const ValueKey('lot-quantity')), '10');
     await tester.pump();
-    expect(unitField.controller?.text, '4000');
+    expect(unitField.controller?.text, '4.000');
 
     await tester.enterText(find.byKey(const ValueKey('lot-quantity')), '8');
     await tester.pump();
     final costField = tester.widget<TextField>(
       find.byKey(const ValueKey('lot-cost')),
     );
-    expect(costField.controller?.text, '40000');
-    expect(unitField.controller?.text, '5000');
+    expect(costField.controller?.text, '40.000');
+    expect(unitField.controller?.text, '5.000');
 
     await tester.ensureVisible(find.byKey(const ValueKey('save-lot')));
     await tester.tap(find.byKey(const ValueKey('save-lot')));

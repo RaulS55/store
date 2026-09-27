@@ -156,17 +156,24 @@ void main() {
     expect(find.byKey(const ValueKey('clear-sku')), findsNothing);
   });
 
-  testWidgets('price field keeps digits only', (tester) async {
+  testWidgets('price field groups thousands with a dot', (tester) async {
     _setTallView(tester);
     await tester.pumpWidget(_formApp(AppStore()));
 
-    final price = _fieldWithHint('Ej. 12500');
+    final price = _fieldWithHint('Ej. 12.500');
     final field = tester.widget<TextField>(price);
-    expect(field.inputFormatters, contains(isA<FilteringTextInputFormatter>()));
 
     await tester.enterText(price, '12a3b');
     await tester.pump();
     expect(field.controller!.text, '123');
+
+    await tester.enterText(price, '1000');
+    await tester.pump();
+    expect(field.controller!.text, '1.000');
+
+    await tester.enterText(price, '12500');
+    await tester.pump();
+    expect(field.controller!.text, '12.500');
   });
 
   testWidgets('SKU field indicates when the value is already in use', (

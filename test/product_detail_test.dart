@@ -45,19 +45,25 @@ void main() {
       testProduct().copyWith(
         variants: const [
           ProductVariant(
-            size: 'M',
-            color: 'Negro',
-            colorHex: '#1E1E1E',
-            stock: 10,
-          ),
-          ProductVariant(
             size: 'L',
             color: 'Negro',
             colorHex: '#1E1E1E',
             stock: 4,
           ),
+          ProductVariant(
+            size: 'XXS',
+            color: 'Negro',
+            colorHex: '#1E1E1E',
+            stock: 2,
+          ),
+          ProductVariant(
+            size: 'M',
+            color: 'Negro',
+            colorHex: '#1E1E1E',
+            stock: 10,
+          ),
         ],
-        equivalentSizes: const {'M': '38'},
+        equivalentSizes: const {'M': '38', 'L': '42', 'XXS': '34'},
       ),
     );
     await tester.pumpWidget(_app(store));
@@ -66,8 +72,8 @@ void main() {
     expect(find.text('Talle en prenda'), findsOneWidget);
     expect(find.text('TALLE EN PRENDA'), findsOneWidget);
     expect(find.text('TALLE EQUIVALENTE'), findsOneWidget);
-    expect(find.text('M / L'), findsOneWidget);
-    expect(find.text('38 / L'), findsOneWidget);
+    expect(find.text('XXS / M / L'), findsOneWidget);
+    expect(find.text('34 / 38 / 42'), findsOneWidget);
   });
 
   testWidgets('swipe shows the next product image', (tester) async {

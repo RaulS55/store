@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../../data/formatters.dart';
 import '../../data/product_filter_host.dart';
 import '../../models/filters.dart';
 import '../../models/product.dart';
@@ -65,10 +66,14 @@ class _FiltersEditorState extends State<FiltersEditor> {
     final store = widget.host;
     _draft = store.filters;
     _min = TextEditingController(
-      text: _draft.minPrice?.toStringAsFixed(0) ?? '',
+      text: _draft.minPrice == null
+          ? ''
+          : MoneyFormat.grouped(_draft.minPrice!),
     );
     _max = TextEditingController(
-      text: _draft.maxPrice?.toStringAsFixed(0) ?? '',
+      text: _draft.maxPrice == null
+          ? ''
+          : MoneyFormat.grouped(_draft.maxPrice!),
     );
   }
 
@@ -111,8 +116,8 @@ class _FiltersEditorState extends State<FiltersEditor> {
 
   ProductFilters _withPrices() {
     return _draft.copyWith(
-      minPrice: double.tryParse(_min.text.replaceAll('.', '')),
-      maxPrice: double.tryParse(_max.text.replaceAll('.', '')),
+      minPrice: MoneyFormat.parse(_min.text),
+      maxPrice: MoneyFormat.parse(_max.text),
       clearPrices: _min.text.isEmpty && _max.text.isEmpty,
     );
   }
@@ -277,6 +282,7 @@ class _FiltersEditorState extends State<FiltersEditor> {
                         child: TextField(
                           controller: _min,
                           keyboardType: TextInputType.number,
+                          inputFormatters: [MoneyFormat.inputFormatter],
                           decoration: const InputDecoration(
                             prefixText: r'$ ',
                             hintText: 'Mínimo',
@@ -288,6 +294,7 @@ class _FiltersEditorState extends State<FiltersEditor> {
                         child: TextField(
                           controller: _max,
                           keyboardType: TextInputType.number,
+                          inputFormatters: [MoneyFormat.inputFormatter],
                           decoration: const InputDecoration(
                             prefixText: r'$ ',
                             hintText: 'Máximo',

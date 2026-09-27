@@ -67,19 +67,15 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
   }
 
   VariantSelection _effective(Product product) {
-    return VariantSelection(
-      size:
-          _selection.size ??
-          (product.sizes.length == 1 ? product.sizes.first : null),
-      color:
-          _selection.color ??
-          (product.colors.length == 1 ? product.colors.first.name : null),
-    );
+    return VariantSelection.effective(product, _selection);
   }
 
-  void _add(CatalogGuestStore store, Product product, ProductVariant? variant) {
-    if (variant == null || variant.stock <= 0) return;
-    store.addToCart(product, variant, quantity: _qty);
+  void _add(CatalogGuestStore store, Product product) {
+    final variants = _effective(product).addableVariants(product);
+    if (variants.isEmpty) return;
+    for (final variant in variants) {
+      store.addToCart(product, variant, quantity: _qty);
+    }
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
@@ -120,8 +116,9 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
 
     final selection = _effective(product);
     final images = product.images.isEmpty ? [''] : product.images;
-    final variant = product.variantFor(selection.size, selection.color);
-    final canAdd = variant != null && variant.stock > 0;
+    final variants = selection.addableVariants(product);
+    final canAdd = variants.isNotEmpty;
+    final qtyMax = selection.quantityCap(product);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -289,7 +286,7 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
                       QtyStepper(
                         value: _qty,
                         min: 1,
-                        max: variant?.stock ?? 1,
+                        max: qtyMax,
                         onChanged: (q) => setState(() => _qty = q),
                       ),
                     ],
@@ -304,9 +301,9 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: FilledButton.icon(
-            onPressed: canAdd ? () => _add(store, product, variant) : null,
+            onPressed: canAdd ? () => _add(store, product) : null,
             icon: const Icon(Icons.add_shopping_cart_outlined),
-            label: Text(canAdd ? 'Agregar al pedido' : 'Sin stock'),
+            label: Text(product.stock <= 0 ? 'Sin stock' : 'Agregar al pedido'),
           ),
         ),
       ),

@@ -209,13 +209,88 @@ void main() {
     expect(product.toMap()['equivalentSizes'], {'M': '38'});
   });
 
+  test('garment sizes sort ascending and keep equivalent pairs', () {
+    final product = Product.fromMap('p1', {
+      'id': 'p1',
+      'name': 'Remera',
+      'sku': 'RM-1',
+      'category': 'remeras',
+      'brand': 'Test',
+      'price': 10000,
+      'images': <String>[],
+      'equivalentSizes': {'L': '42', 'XXS': '34', 'M': '38', 'XL': '44'},
+      'variants': [
+        {'size': 'L', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 2},
+        {'size': 'XXS', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 1},
+        {'size': 'XL', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 3},
+        {'size': 'M', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 4},
+      ],
+      'status': 'activo',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+    });
+    expect(product.sizes, ['XXS', 'M', 'L', 'XL']);
+    expect(product.sizeLabel, 'XXS / M / L / XL');
+    expect(product.equivalentSizeLabel, '34 / 38 / 42 / 44');
+  });
+
+  test('equivalent sizes follow the garment pair, not their own order', () {
+    final product = Product.fromMap('p1', {
+      'id': 'p1',
+      'name': 'Remera',
+      'sku': 'RM-1',
+      'category': 'remeras',
+      'brand': 'Test',
+      'price': 10000,
+      'images': <String>[],
+      'equivalentSizes': {'S': '40', 'M': '36', 'L': '38'},
+      'variants': [
+        {'size': 'L', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 2},
+        {'size': 'S', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 1},
+        {'size': 'M', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 4},
+      ],
+      'status': 'activo',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+    });
+    expect(product.sizeLabel, 'S / M / L');
+    expect(product.equivalentSizeLabel, '40 / 36 / 38');
+  });
+
+  test('numeric garment sizes sort ascending', () {
+    final product = Product.fromMap('p1', {
+      'id': 'p1',
+      'name': 'Zapatilla',
+      'sku': 'ZP-1',
+      'category': 'zapatillas',
+      'brand': 'Test',
+      'price': 10000,
+      'images': <String>[],
+      'equivalentSizes': {'42': '10', '36': '6', '38': '8'},
+      'variants': [
+        {'size': '42', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 2},
+        {'size': '36', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 1},
+        {'size': '38', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 4},
+      ],
+      'status': 'activo',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+    });
+    expect(product.sizes, ['36', '38', '42']);
+    expect(product.equivalentSizeLabel, '6 / 8 / 10');
+  });
+
   test('garment sizes are common distinct values', () {
     expect(ApparelSizes.all.length, greaterThanOrEqualTo(12));
     expect(ApparelSizes.all.toSet().length, ApparelSizes.all.length);
     expect(
       ApparelSizes.all,
-      containsAll(['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Único']),
+      containsAll(['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'Único']),
     );
+    expect(ApparelSizes.all.take(6).toList(), ['XXS', 'XS', 'S', 'M', 'L', 'XL']);
     expect(ApparelSizes.isCustom('M'), isFalse);
     expect(ApparelSizes.isCustom('44'), isTrue);
     expect(ApparelSizes.resolve('M'), 'M');

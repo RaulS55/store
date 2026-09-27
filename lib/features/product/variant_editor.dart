@@ -67,7 +67,9 @@ class VariantDraft {
   }
 
   void _includeSize(String size) {
-    if (!sizes.contains(size)) sizes.add(size);
+    if (sizes.contains(size)) return;
+    sizes.add(size);
+    sizes.sort(ApparelSizes.compare);
   }
 
   void _includeColor(SwatchColor color) {

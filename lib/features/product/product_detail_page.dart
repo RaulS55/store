@@ -54,14 +54,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   }
 
   VariantSelection _effective(Product product) {
-    return VariantSelection(
-      size:
-          _selection.size ??
-          (product.sizes.length == 1 ? product.sizes.first : null),
-      color:
-          _selection.color ??
-          (product.colors.length == 1 ? product.colors.first.name : null),
-    );
+    return VariantSelection.effective(product, _selection);
   }
 
   @override
@@ -74,8 +67,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final selection = _effective(product);
 
     final images = product.images.isEmpty ? [''] : product.images;
-    final variant = product.variantFor(selection.size, selection.color);
-    final canAdd = variant != null && variant.stock > 0;
+    final variants = selection.addableVariants(product);
+    final canAdd = variants.isNotEmpty;
+    final qtyMax = selection.quantityCap(product);
+    final variant = variants.length == 1 ? variants.first : null;
     final wide = AppBreakpoints.isWide(context);
     final canDelete = canDeleteProduct(context);
     final canSeeLot = context.watch<SessionStore?>()?.canManageLots ?? false;
@@ -153,10 +148,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         _qty = 1;
                       }),
                       qty: _qty,
+                      qtyMax: qtyMax,
                       onQty: (q) => setState(() => _qty = q),
                       canAdd: canAdd,
                       variant: variant,
-                      onAdd: () => _add(store, product, variant),
+                      onAdd: () => _add(store, product),
                       onEdit: () =>
                           context.go('/producto/${product.id}/editar'),
                       onDelete: canDelete
@@ -282,7 +278,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         QtyStepper(
                           value: _qty,
                           min: 1,
-                          max: variant?.stock ?? 1,
+                          max: qtyMax,
                           onChanged: (q) => setState(() => _qty = q),
                         ),
                       ],
@@ -346,9 +342,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: canAdd
-                              ? () => _add(store, product, variant)
-                              : null,
+                          onPressed: canAdd ? () => _add(store, product) : null,
                           icon: const Icon(
                             Icons.shopping_bag_outlined,
                             size: 18,
@@ -360,7 +354,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            'Si no hay selección, el botón se desactiva.',
+                            product.stock <= 0
+                                ? 'No hay stock disponible.'
+                                : !selection.hasColor
+                                ? 'Elegí un color para ver los talles.'
+                                : 'Elegí uno o más talles.',
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: AppColors.mutedText),
                           ),
@@ -375,25 +373,28 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
-  Future<void> _add(
-    AppStore store,
-    Product product,
-    ProductVariant? variant,
-  ) async {
-    if (variant == null) return;
+  Future<void> _add(AppStore store, Product product) async {
+    final variants = _effective(product).addableVariants(product);
+    if (variants.isEmpty) return;
     final order = await showOrderTargetSheet(context);
     if (order == null || !mounted) return;
-    final ok = store.addToOrder(
-      product,
-      variant,
-      quantity: _qty,
-      orderId: order.id,
-    );
-    if (!ok || !mounted) return;
+    final added = <ProductVariant>[];
+    for (final variant in variants) {
+      if (store.addToOrder(
+        product,
+        variant,
+        quantity: _qty,
+        orderId: order.id,
+      )) {
+        added.add(variant);
+      }
+    }
+    if (added.isEmpty || !mounted) return;
+    final sizes = [for (final variant in added) variant.size].join(', ');
     ScaffoldMessenger.of(context).showSnackBar(
       AppSnackBar(
         content: Text(
-          'Agregada a ${order.customer.name}: ${product.name} · ${variant.size} · ${variant.color}',
+          'Agregada a ${order.customer.name}: ${product.name} · $sizes · ${added.first.color}',
         ),
       ),
     );
@@ -410,6 +411,7 @@ class _WideDetail extends StatelessWidget {
     required this.selection,
     required this.onSelection,
     required this.qty,
+    required this.qtyMax,
     required this.onQty,
     required this.canAdd,
     required this.variant,
@@ -426,6 +428,7 @@ class _WideDetail extends StatelessWidget {
   final VariantSelection selection;
   final ValueChanged<VariantSelection> onSelection;
   final int qty;
+  final int qtyMax;
   final ValueChanged<int> onQty;
   final bool canAdd;
   final ProductVariant? variant;
@@ -539,12 +542,7 @@ class _WideDetail extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  QtyStepper(
-                    value: qty,
-                    min: 1,
-                    max: variant?.stock ?? 1,
-                    onChanged: onQty,
-                  ),
+                  QtyStepper(value: qty, min: 1, max: qtyMax, onChanged: onQty),
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton.icon(
