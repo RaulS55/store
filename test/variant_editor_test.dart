@@ -10,10 +10,12 @@ Widget _app(VariantDraft draft) {
     home: Scaffold(
       body: StatefulBuilder(
         builder: (context, setState) {
-          return VariantEditor(
-            draft: draft,
-            wide: true,
-            onChanged: () => setState(() {}),
+          return SingleChildScrollView(
+            child: VariantEditor(
+              draft: draft,
+              wide: true,
+              onChanged: () => setState(() {}),
+            ),
           );
         },
       ),
@@ -73,6 +75,26 @@ void main() {
     expect(ApparelSizes.isCustom('44'), isTrue);
     expect(draft.sizes.single, '44');
     expect(draft.variants.single.size, '44');
+  });
+
+  test('addCombination only creates that size and color pair', () {
+    final draft = VariantDraft();
+    draft.addSize('M');
+    draft.addColor(Swatches.negro);
+    draft.addColor(Swatches.rojo);
+    expect([
+      for (final variant in draft.variants) variant.key,
+    ], unorderedEquals(['M|Negro', 'M|Rojo']));
+
+    draft.addCombination('L', Swatches.blanco);
+    expect([
+      for (final variant in draft.variants) variant.key,
+    ], unorderedEquals(['M|Negro', 'M|Rojo', 'L|Blanco']));
+    expect(draft.sizes, ['M', 'L']);
+    expect(
+      [for (final color in draft.colors) color.name],
+      ['Negro', 'Rojo', 'Blanco'],
+    );
   });
 
   test('custom colors skip the swatch hex', () {
@@ -187,6 +209,49 @@ void main() {
     await tester.enterText(field, '38');
     await tester.pump();
     expect(tester.widget<TextField>(field).controller!.text, '38');
+  });
+
+  testWidgets('combination dialog can pick a custom size and color', (
+    tester,
+  ) async {
+    final draft = VariantDraft();
+    await tester.pumpWidget(_app(draft));
+
+    final addCombination = find.byKey(const ValueKey('add-combination'));
+    await tester.ensureVisible(addCombination);
+    await tester.tap(addCombination);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('combination-custom-size-toggle')),
+    );
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('combination-custom-size')),
+      '44',
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('combination-custom-color-toggle')),
+    );
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('combination-custom-color')),
+      'Lila',
+    );
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Agregar'));
+    await tester.pumpAndSettle();
+
+    expect(draft.sizes, ['44']);
+    expect(draft.colors.single.name, 'Lila');
+    expect(draft.colors.single.isCustom, isTrue);
+    expect(draft.variants, hasLength(1));
+    expect(draft.variants.single.size, '44');
+    expect(draft.variants.single.color, 'Lila');
+    expect(draft.variants.single.colorHex, isNull);
   });
 
   testWidgets('add size dialog keeps Cancelar beside Agregar', (tester) async {

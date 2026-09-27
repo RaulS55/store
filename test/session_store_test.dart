@@ -319,6 +319,27 @@ void main() {
     expect(access.listInvitationsCalls, 0);
   });
 
+  test('owner still sees members if invitations fail to load', () async {
+    final auth = FakeAuthClient();
+    final access = FakeCompanyAccess();
+    final session = SessionStore(auth: auth, access: access)..start();
+    addTearDown(session.dispose);
+
+    await session.signUp(
+      email: 'owner@moda.stock',
+      password: 'secret12',
+      displayName: 'Valeria Soto',
+      companyName: 'Moda Stock',
+    );
+    await session.inviteEmployee('emp@moda.stock');
+    access.listInvitationsError = Exception('permission-denied');
+
+    await session.loadTeam();
+
+    expect(session.members, isNotEmpty);
+    expect(session.invitations, isEmpty);
+  });
+
   test(
     'owner can remove an employee and that account needs a company',
     () async {

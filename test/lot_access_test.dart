@@ -203,6 +203,56 @@ void main() {
     expect(find.text(label), findsOneWidget);
   });
 
+  testWidgets('new lot form derives unit price from lot price and quantity', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/lotes');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('new-lot')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Precio de lote'), findsOneWidget);
+    expect(find.text('Precio de costo'), findsNothing);
+    final unitField = tester.widget<TextField>(
+      find.byKey(const ValueKey('lot-unit-cost')),
+    );
+    expect(unitField.readOnly, isTrue);
+
+    await tester.enterText(find.byKey(const ValueKey('lot-cost')), '40000');
+    await tester.enterText(find.byKey(const ValueKey('lot-quantity')), '10');
+    await tester.pump();
+    expect(unitField.controller?.text, '4000');
+
+    await tester.enterText(find.byKey(const ValueKey('lot-quantity')), '8');
+    await tester.pump();
+    final costField = tester.widget<TextField>(
+      find.byKey(const ValueKey('lot-cost')),
+    );
+    expect(costField.controller?.text, '40000');
+    expect(unitField.controller?.text, '5000');
+
+    await tester.ensureVisible(find.byKey(const ValueKey('save-lot')));
+    await tester.tap(find.byKey(const ValueKey('save-lot')));
+    await tester.pumpAndSettle();
+
+    expect(store.lots, hasLength(1));
+    expect(store.lots.single.cost, 40000);
+    expect(store.lots.single.quantity, 8);
+    expect(store.lots.single.unitCost, 5000);
+  });
+
   testWidgets('administrator lots page hides money stats', (tester) async {
     _setPhoneView(tester);
     final store = AppStore();

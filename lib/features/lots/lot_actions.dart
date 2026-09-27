@@ -5,6 +5,7 @@ import '../../data/app_store.dart';
 import '../../data/session_store.dart';
 import '../../models/lot.dart';
 import '../../widgets/app_confirm_dialog.dart';
+import '../../widgets/app_snack_bar.dart';
 
 bool canManageLots(BuildContext context) {
   return context.watch<SessionStore?>()?.canManageLots ?? false;
@@ -33,12 +34,12 @@ Future<void> deleteLotWithConfirm({
     debugPrint('$stack');
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No se pudo eliminar el lote.')),
+      const AppSnackBar(content: Text('No se pudo eliminar el lote.')),
     );
     return;
   }
   if (!context.mounted) return;
   ScaffoldMessenger.of(
     context,
-  ).showSnackBar(const SnackBar(content: Text('Lote eliminado')));
+  ).showSnackBar(const AppSnackBar(content: Text('Lote eliminado')));
 }

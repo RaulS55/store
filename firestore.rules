@@ -217,8 +217,9 @@ service cloud.firestore {
       allow delete: if false;
 
       match /members/{uid} {
-        allow read: if isMember(companyId)
+        allow get: if isMember(companyId)
           || (signedIn() && request.auth.uid == uid);
+        allow list: if isMember(companyId);
         allow create: if signedIn()
           && request.auth.uid == uid
           && request.resource.data.email == email()
@@ -240,8 +241,9 @@ service cloud.firestore {
       }
 
       match /invitations/{invitationId} {
-        allow read: if isOwner(companyId)
+        allow get: if isOwner(companyId)
           || (signedIn() && resource.data.email == email());
+        allow list: if isOwner(companyId);
         allow create: if isOwner(companyId)
           && request.resource.data.role in ['employee', 'administrator']
           && request.resource.data.status == 'pending'

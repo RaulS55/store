@@ -8,6 +8,7 @@ import '../../models/order.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_confirm_dialog.dart';
+import '../../widgets/app_snack_bar.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/qty_stepper.dart';
 import '../../widgets/search_field.dart';
@@ -624,7 +625,7 @@ class _CustomerTile extends StatelessWidget {
     final ok = context.read<AppStore>().selectCustomer(order.id, selected);
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        const AppSnackBar(
           content: Text('Este cliente ya tiene un pedido abierto.'),
         ),
       );

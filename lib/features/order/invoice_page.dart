@@ -4,14 +4,25 @@ import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
 import '../../data/formatters.dart';
+import '../../data/invoice_document.dart';
+import '../../data/invoice_pdf.dart';
 import '../../models/order.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_snack_bar.dart';
 import 'order_actions.dart';
 
+typedef InvoiceDownloader =
+    Future<bool> Function(DraftOrder order, {bool? includeProductCode});
+
 class InvoicePage extends StatelessWidget {
-  const InvoicePage({super.key, required this.orderId});
+  const InvoicePage({
+    super.key,
+    required this.orderId,
+    this.downloadInvoice = downloadInvoicePdf,
+  });
 
   final String orderId;
+  final InvoiceDownloader downloadInvoice;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +48,7 @@ class InvoicePage extends StatelessWidget {
     final customer = order.customer;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final wide = AppBreakpoints.isWide(context);
-    final issuedAt = order.closedAt ?? order.createdAt;
+    final includeProductCode = store.includeProductCodeInInvoice;
 
     return SafeArea(
       child: Column(
@@ -59,6 +70,11 @@ class InvoicePage extends StatelessWidget {
                     ),
                   ),
                 ),
+                _DownloadInvoiceButton(
+                  order: order,
+                  includeProductCode: includeProductCode,
+                  downloadInvoice: downloadInvoice,
+                ),
                 if (!order.isClosed)
                   IconButton(
                     onPressed: () => context.go('/pedido'),
@@ -67,9 +83,7 @@ class InvoicePage extends StatelessWidget {
                       label: Text('${store.cartCount}'),
                       child: const Icon(Icons.assignment_outlined),
                     ),
-                  )
-                else
-                  const SizedBox(width: 48),
+                  ),
               ],
             ),
           ),
@@ -107,7 +121,7 @@ class InvoicePage extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'MODA STOCK',
+                            InvoiceDocument.brand,
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(
                                   letterSpacing: 1.2,
@@ -115,7 +129,7 @@ class InvoicePage extends StatelessWidget {
                                 ),
                           ),
                           Text(
-                            'RESUMEN DE FACTURA',
+                            InvoiceDocument.subtitle,
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
                                   color: AppColors.mutedText,
@@ -128,27 +142,18 @@ class InvoicePage extends StatelessWidget {
                           _kv(
                             context,
                             'WhatsApp',
-                            (customer.phone == null || customer.phone!.isEmpty)
-                                ? '—'
-                                : customer.phone!,
+                            InvoiceDocument.phone(customer),
                           ),
                           _kv(
                             context,
                             'Fecha',
-                            DateFormatters.invoice.format(issuedAt),
+                            InvoiceDocument.issuedAtLabel(order),
                           ),
-                          _kv(
-                            context,
-                            'CUIT',
-                            (customer.cuit == null || customer.cuit!.isEmpty)
-                                ? '—'
-                                : customer.cuit!,
-                          ),
-                          _kv(
-                            context,
-                            'Condición',
-                            customer.taxCondition?.label ?? '—',
-                          ),
+                          if (InvoiceDocument.cuit(customer) case final cuit?)
+                            _kv(context, 'CUIT', cuit),
+                          if (InvoiceDocument.condition(customer)
+                              case final condition?)
+                            _kv(context, 'Condición', condition),
                           const Divider(height: 24),
                           Row(
                             children: [
@@ -173,15 +178,11 @@ class InvoicePage extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        [
-                                          if (store
-                                                  .includeProductCodeInInvoice &&
-                                              line.product.sku
-                                                  .trim()
-                                                  .isNotEmpty)
-                                            line.product.sku.trim(),
-                                          line.product.name,
-                                        ].join(' - ').toUpperCase(),
+                                        InvoiceDocument.lineTitle(
+                                          line,
+                                          includeProductCode:
+                                              includeProductCode,
+                                        ),
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall
@@ -190,15 +191,7 @@ class InvoicePage extends StatelessWidget {
                                             ),
                                       ),
                                       Text(
-                                        [
-                                          if (line
-                                              .product
-                                              .categoryLabel
-                                              .isNotEmpty)
-                                            line.product.categoryLabel,
-                                          'Talle ${line.variant.size}',
-                                          line.variant.color,
-                                        ].join(' · '),
+                                        InvoiceDocument.lineDetail(line),
                                         style: Theme.of(context)
                                             .textTheme
                                             .labelSmall
@@ -243,17 +236,18 @@ class InvoicePage extends StatelessWidget {
                             const SizedBox(height: 10),
                           ],
                           const Divider(),
-                          _kv(
-                            context,
-                            'Subtotal',
-                            MoneyFormat.detailed(order.subtotal),
-                          ),
-                          if (order.ivaEnabled)
+                          if (order.ivaEnabled) ...[
+                            _kv(
+                              context,
+                              'Subtotal',
+                              MoneyFormat.detailed(order.subtotal),
+                            ),
                             _kv(
                               context,
                               order.ivaLabel,
                               MoneyFormat.detailed(order.iva),
                             ),
+                          ],
                           _kv(
                             context,
                             'Total a facturar',
@@ -268,11 +262,11 @@ class InvoicePage extends StatelessWidget {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: WhatsAppButton(order: order),
-          ),
-          if (!order.isClosed)
+          if (!order.isClosed) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: WhatsAppButton(order: order),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: FilledButton.icon(
@@ -282,11 +276,29 @@ class InvoicePage extends StatelessWidget {
                 icon: const Icon(Icons.lock_outline, size: 18),
                 label: const Text('Cerrar pedido'),
               ),
-            )
-          else
+            ),
+          ] else
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: ReopenOrderButton(order: order, filled: true),
+              child: wide
+                  ? Column(
+                      children: [
+                        WhatsAppButton(order: order),
+                        const SizedBox(height: 8),
+                        ReopenOrderButton(order: order, filled: true),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: ReopenOrderButton(order: order, filled: true),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: WhatsAppButton(order: order, compact: true),
+                        ),
+                      ],
+                    ),
             ),
           TextButton(
             onPressed: () => _leave(context, order),
@@ -343,6 +355,66 @@ class InvoicePage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DownloadInvoiceButton extends StatefulWidget {
+  const _DownloadInvoiceButton({
+    required this.order,
+    required this.includeProductCode,
+    required this.downloadInvoice,
+  });
+
+  final DraftOrder order;
+  final bool includeProductCode;
+  final InvoiceDownloader downloadInvoice;
+
+  @override
+  State<_DownloadInvoiceButton> createState() => _DownloadInvoiceButtonState();
+}
+
+class _DownloadInvoiceButtonState extends State<_DownloadInvoiceButton> {
+  var _busy = false;
+
+  Future<void> _download() async {
+    if (_busy || widget.order.lines.isEmpty) return;
+    setState(() => _busy = true);
+    var ok = false;
+    try {
+      ok = await widget.downloadInvoice(
+        widget.order,
+        includeProductCode: widget.includeProductCode,
+      );
+    } catch (error, stack) {
+      debugPrint('Invoice download failed: $error');
+      debugPrint('$stack');
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      AppSnackBar(
+        content: Text(
+          ok ? 'Factura descargada.' : 'No se pudo descargar la factura.',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.order.lines.isNotEmpty && !_busy;
+    return IconButton(
+      key: const ValueKey('download-invoice'),
+      tooltip: 'Descargar factura',
+      onPressed: enabled ? _download : null,
+      icon: _busy
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.download_outlined),
     );
   }
 }

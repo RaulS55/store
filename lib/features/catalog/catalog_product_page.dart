@@ -6,6 +6,7 @@ import '../../data/catalog_guest_store.dart';
 import '../../data/formatters.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_snack_bar.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/product_image_pager.dart';
 import '../../widgets/qty_stepper.dart';
@@ -83,7 +84,7 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
-      SnackBar(
+      AppSnackBar(
         key: const ValueKey('catalog-added-snackbar'),
         behavior: SnackBarBehavior.floating,
         content: Text('Agregamos ${product.name} al pedido.'),

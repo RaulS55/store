@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/order_share.dart';
 import '../../models/company.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_snack_bar.dart';
 
 class CatalogContactLink {
   const CatalogContactLink({
@@ -119,8 +120,8 @@ class CatalogContacts extends StatelessWidget {
   Future<void> _open(BuildContext context, CatalogContactLink link) async {
     final ok = await OrderShare.openUri(link.uri);
     if (!context.mounted || ok) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('No se pudo abrir ${link.label}.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      AppSnackBar(content: Text('No se pudo abrir ${link.label}.')),
+    );
   }
 }

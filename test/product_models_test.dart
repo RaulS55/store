@@ -127,6 +127,8 @@ void main() {
     expect(Swatches.all.length, greaterThanOrEqualTo(12));
     expect(names.toSet().length, Swatches.all.length);
     expect(names, containsAll(['Negro', 'Blanco', 'Gris', 'Beige', 'Marrón']));
+    expect(names, contains('Celeste'));
+    expect(Swatches.celeste.isCustom, isFalse);
     expect(names, isNot(contains('Óxido')));
     expect(names, isNot(contains('Terracota')));
     expect(Swatches.marron.isCustom, isFalse);

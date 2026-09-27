@@ -7,6 +7,7 @@ import '../../data/formatters.dart';
 import '../../data/session_store.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_snack_bar.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/product_image_pager.dart';
 import '../../widgets/qty_stepper.dart';
@@ -390,7 +391,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
     if (!ok || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      AppSnackBar(
         content: Text(
           'Agregada a ${order.customer.name}: ${product.name} · ${variant.size} · ${variant.color}',
         ),

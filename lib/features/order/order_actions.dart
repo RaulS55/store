@@ -7,6 +7,7 @@ import '../../data/order_share.dart';
 import '../../models/order.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_confirm_dialog.dart';
+import '../../widgets/app_snack_bar.dart';
 import '../customers/customer_sheets.dart';
 
 export '../customers/customer_sheets.dart' show showCustomerPicker;
@@ -111,7 +112,7 @@ Future<void> cancelOrderWithConfirm({
     final ok = await store.deleteOrder(order.id);
     if (!ok) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('No se pudo cancelar el pedido.')),
+        const AppSnackBar(content: Text('No se pudo cancelar el pedido.')),
       );
       return;
     }
@@ -119,11 +120,11 @@ Future<void> cancelOrderWithConfirm({
     debugPrint('Order cancel failed: $error');
     debugPrint('$stack');
     messenger.showSnackBar(
-      const SnackBar(content: Text('No se pudo cancelar el pedido.')),
+      const AppSnackBar(content: Text('No se pudo cancelar el pedido.')),
     );
     return;
   }
-  messenger.showSnackBar(const SnackBar(content: Text('Pedido cancelado')));
+  messenger.showSnackBar(const AppSnackBar(content: Text('Pedido cancelado')));
 }
 
 class CancelOrderButton extends StatelessWidget {
@@ -179,7 +180,7 @@ Future<void> closeOrderFlow(BuildContext context, DraftOrder order) async {
   if (!context.mounted) return;
   if (!ok) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      const AppSnackBar(
         content: Text('No hay stock suficiente para cerrar el pedido.'),
       ),
     );
@@ -208,14 +209,14 @@ Future<void> reopenOrderFlow(BuildContext context, DraftOrder order) async {
   switch (result) {
     case ReopenOrderResult.reopened:
       messenger.showSnackBar(
-        const SnackBar(
+        const AppSnackBar(
           content: Text('Pedido reabierto. El stock sigue reservado.'),
         ),
       );
       router?.go('/pedido/$orderId');
     case ReopenOrderResult.customerBusy:
       messenger.showSnackBar(
-        const SnackBar(
+        const AppSnackBar(
           content: Text(
             'Este cliente ya tiene un pedido abierto. Cerralo o cancelalo para reabrir este.',
           ),
@@ -241,7 +242,10 @@ class ReopenOrderButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     void onPressed() => reopenOrderFlow(context, order);
-    const child = Text('Reabrir pedido');
+    const child = FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text('Reabrir pedido'),
+    );
     final minSize = dense ? const Size(0, 40) : const Size.fromHeight(48);
     final tapTarget = dense
         ? MaterialTapTargetSize.shrinkWrap
@@ -283,7 +287,9 @@ Future<void> saveOrderStockFlow(BuildContext context, DraftOrder order) async {
     SaveStockResult.insufficient =>
       'No hay stock suficiente para reservar estas cantidades.',
   };
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(AppSnackBar(content: Text(message)));
 }
 
 Future<void> sendOrderWhatsApp(BuildContext context, DraftOrder order) async {
@@ -297,9 +303,9 @@ Future<void> sendOrderWhatsApp(BuildContext context, DraftOrder order) async {
   );
   if (!context.mounted) return;
   if (!ok) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('No se pudo abrir WhatsApp.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const AppSnackBar(content: Text('No se pudo abrir WhatsApp.')),
+    );
   }
 }
 

@@ -7,6 +7,7 @@ import '../../data/session_store.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_confirm_dialog.dart';
+import '../../widgets/app_snack_bar.dart';
 
 bool canDeleteProduct(BuildContext context) {
   return context.watch<SessionStore?>()?.canDeleteProduct ?? false;
@@ -31,14 +32,14 @@ Future<void> deleteProductWithConfirm({
     debugPrint('$stack');
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No se pudo eliminar la prenda.')),
+      const AppSnackBar(content: Text('No se pudo eliminar la prenda.')),
     );
     return;
   }
   if (!context.mounted) return;
   ScaffoldMessenger.of(
     context,
-  ).showSnackBar(const SnackBar(content: Text('Prenda eliminada')));
+  ).showSnackBar(const AppSnackBar(content: Text('Prenda eliminada')));
   context.go('/');
 }
 

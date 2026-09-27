@@ -1241,9 +1241,59 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     notifyListeners();
   }
 
+  static final _generatedSku = RegExp(r'^MS-\d+$', caseSensitive: false);
+  static final _trailingDigits = RegExp(r'^(.*?)(\d+)$');
+
+  bool isGeneratedSku(String sku) => _generatedSku.hasMatch(sku.trim());
+
   String nextSku() {
-    final n = _products.length + 1;
-    return 'MS-${n.toString().padLeft(4, '0')}';
+    var n = 1;
+    String candidate;
+    do {
+      candidate = 'MS-${n.toString().padLeft(4, '0')}';
+      n += 1;
+    } while (isSkuInUse(candidate));
+    return candidate;
+  }
+
+  String suggestedSku() {
+    Product? latest;
+    for (final product in _products) {
+      if (product.isDeleted) continue;
+      if (latest == null || product.createdAt.isAfter(latest.createdAt)) {
+        latest = product;
+      }
+    }
+    final sku = latest?.sku.trim() ?? '';
+    if (sku.isEmpty || isGeneratedSku(sku)) return nextSku();
+    return nextSkuAfter(sku);
+  }
+
+  String nextSkuAfter(String sku) {
+    final trimmed = sku.trim();
+    final match = _trailingDigits.firstMatch(trimmed);
+    if (match == null) {
+      return _firstUnusedSku('$trimmed-');
+    }
+    final prefix = match.group(1)!;
+    final digits = match.group(2)!;
+    var n = int.parse(digits) + 1;
+    String candidate;
+    do {
+      candidate = '$prefix${n.toString().padLeft(digits.length, '0')}';
+      n += 1;
+    } while (isSkuInUse(candidate));
+    return candidate;
+  }
+
+  String _firstUnusedSku(String prefix) {
+    var n = 1;
+    String candidate;
+    do {
+      candidate = '$prefix$n';
+      n += 1;
+    } while (isSkuInUse(candidate));
+    return candidate;
   }
 
   String nextProductId() {

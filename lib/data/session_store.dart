@@ -336,15 +336,22 @@ class SessionStore extends ChangeNotifier {
       return;
     }
     try {
-      final membersFuture = _access.listMembers(company.id);
-      final invitationsFuture = isOwner
-          ? _access.listInvitations(company.id)
-          : Future<List<Invitation>>.value(const []);
-      _members = await membersFuture;
-      _invitations = await invitationsFuture;
+      await _auth.waitForToken();
+      _members = await _access.listMembers(company.id);
+      if (isOwner) {
+        try {
+          _invitations = await _access.listInvitations(company.id);
+        } catch (error) {
+          debugPrint('Team invitations failed: $error');
+          _invitations = const [];
+        }
+      } else {
+        _invitations = const [];
+      }
     } on SessionException {
       rethrow;
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Team members failed: $error');
       throw const SessionException('No se pudo cargar el equipo.');
     }
     notifyListeners();

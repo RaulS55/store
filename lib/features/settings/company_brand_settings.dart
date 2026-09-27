@@ -13,6 +13,7 @@ import '../../data/session_exception.dart';
 import '../../data/session_store.dart';
 import '../../models/company.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_snack_bar.dart';
 import '../../widgets/product_image.dart';
 
 class CompanyBrandSettings extends StatefulWidget {
@@ -78,14 +79,14 @@ class _CompanyBrandSettingsState extends State<CompanyBrandSettings> {
         : 'No se pudo guardar el perfil del negocio.';
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(AppSnackBar(content: Text(message)));
   }
 
   void _showSaved() {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Guardado exitosamente')));
+    ).showSnackBar(const AppSnackBar(content: Text('Guardado exitosamente')));
   }
 
   Future<void> _saveName() async {

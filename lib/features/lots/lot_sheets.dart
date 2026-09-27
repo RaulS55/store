@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../data/app_store.dart';
 import '../../models/lot.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_snack_bar.dart';
 import '../customers/customer_sheets.dart';
 
 Future<Lot?> showLotForm(BuildContext context, {Lot? lot}) {
@@ -44,9 +45,8 @@ class _LotFormSheetState extends State<_LotFormSheet> {
     _quantity = TextEditingController(
       text: lot?.quantity == null ? '' : '${lot!.quantity}',
     );
-    final unit = lot?.derivedUnitCost;
     _unitCost = TextEditingController(
-      text: unit == null ? '' : unit.round().toString(),
+      text: _unitFrom(lot?.cost, lot?.quantity),
     );
     _soldElsewhere = TextEditingController(
       text: lot == null || lot.soldElsewhere <= 0
@@ -55,16 +55,14 @@ class _LotFormSheetState extends State<_LotFormSheet> {
     );
     final today = DateTime.now();
     _date = lot?.calendarDate ?? DateTime(today.year, today.month, today.day);
-    _cost.addListener(_onCostChanged);
-    _quantity.addListener(_onQuantityChanged);
-    _unitCost.addListener(_onUnitChanged);
+    _cost.addListener(_recalculateUnit);
+    _quantity.addListener(_recalculateUnit);
   }
 
   @override
   void dispose() {
-    _cost.removeListener(_onCostChanged);
-    _quantity.removeListener(_onQuantityChanged);
-    _unitCost.removeListener(_onUnitChanged);
+    _cost.removeListener(_recalculateUnit);
+    _quantity.removeListener(_recalculateUnit);
     _name.dispose();
     _cost.dispose();
     _quantity.dispose();
@@ -73,15 +71,15 @@ class _LotFormSheetState extends State<_LotFormSheet> {
     super.dispose();
   }
 
-  bool get _hasQuantity {
-    final qty = int.tryParse(_quantity.text.trim());
-    return qty != null && qty > 0;
-  }
-
   double? _parseMoney(String raw) {
     final digits = raw.trim();
     if (digits.isEmpty) return null;
     return double.tryParse(digits);
+  }
+
+  String _unitFrom(double? cost, int? quantity) {
+    if (cost == null || quantity == null || quantity <= 0) return '';
+    return (cost / quantity).round().toString();
   }
 
   void _setText(TextEditingController controller, String value) {
@@ -93,38 +91,13 @@ class _LotFormSheetState extends State<_LotFormSheet> {
     _syncing = false;
   }
 
-  void _onQuantityChanged() {
-    if (_syncing) return;
-    setState(() {});
-    final qty = int.tryParse(_quantity.text.trim());
-    if (qty == null || qty <= 0) return;
-    final unit = _parseMoney(_unitCost.text);
-    if (unit != null) {
-      _setText(_cost, (unit * qty).round().toString());
-      return;
-    }
-    final cost = _parseMoney(_cost.text);
-    if (cost != null) {
-      _setText(_unitCost, (cost / qty).round().toString());
-    }
-  }
-
-  void _onCostChanged() {
+  void _recalculateUnit() {
     if (_syncing) return;
     setState(() {});
     final qty = int.tryParse(_quantity.text.trim());
     final cost = _parseMoney(_cost.text);
-    if (qty == null || qty <= 0 || cost == null) return;
-    _setText(_unitCost, (cost / qty).round().toString());
-  }
-
-  void _onUnitChanged() {
-    if (_syncing) return;
-    final qty = int.tryParse(_quantity.text.trim());
-    final unit = _parseMoney(_unitCost.text);
-    if (qty == null || qty <= 0 || unit == null) return;
-    _setText(_cost, (unit * qty).round().toString());
-    setState(() {});
+    final next = _unitFrom(cost, qty != null && qty > 0 ? qty : null);
+    if (_unitCost.text != next) _setText(_unitCost, next);
   }
 
   @override
@@ -146,7 +119,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              'El precio de costo es obligatorio. La cantidad habilita el precio unitario.',
+              'El precio de lote es obligatorio. El precio unitario se calcula solo.',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
@@ -181,7 +154,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(
-                labelText: 'Precio de costo',
+                labelText: 'Precio de lote',
                 hintText: 'Ej. 150000',
               ),
             ),
@@ -200,12 +173,11 @@ class _LotFormSheetState extends State<_LotFormSheet> {
             TextField(
               key: const ValueKey('lot-unit-cost'),
               controller: _unitCost,
-              enabled: _hasQuantity,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              readOnly: true,
+              enableInteractiveSelection: false,
               decoration: const InputDecoration(
-                labelText: 'Precio unitario (opcional)',
-                hintText: 'Si cargás cantidad',
+                labelText: 'Precio unitario',
+                hintText: 'Precio de lote / cantidad',
               ),
             ),
             const SizedBox(height: 12),
@@ -253,7 +225,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
     final existing = widget.lot;
     final qty = int.tryParse(_quantity.text.trim());
     final quantity = qty != null && qty > 0 ? qty : null;
-    final unit = quantity == null ? null : _parseMoney(_unitCost.text);
+    final unit = quantity == null ? null : cost / quantity;
     try {
       final now = DateTime.now().toUtc();
       final lot = Lot(
@@ -277,7 +249,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo guardar el lote.')),
+        const AppSnackBar(content: Text('No se pudo guardar el lote.')),
       );
     }
   }

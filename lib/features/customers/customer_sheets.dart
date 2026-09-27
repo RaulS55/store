@@ -5,6 +5,7 @@ import '../../data/app_store.dart';
 import '../../models/customer.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_snack_bar.dart';
 
 Future<T?> showWhiteSheet<T>({
   required BuildContext context,
@@ -201,7 +202,7 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo guardar el cliente.')),
+        const AppSnackBar(content: Text('No se pudo guardar el cliente.')),
       );
     }
   }
@@ -374,7 +375,7 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo guardar el cliente.')),
+        const AppSnackBar(content: Text('No se pudo guardar el cliente.')),
       );
     }
   }

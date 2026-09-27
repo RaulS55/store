@@ -1,7 +1,11 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../data/image_download.dart';
+import '../data/product_image_cache.dart';
+import '../theme/tokens.dart';
 import 'product_image.dart';
 
 class ProductImageEntry {
@@ -18,6 +22,26 @@ class ProductImageEntry {
 
 List<ProductImageEntry> productImageEntries(Iterable<String> paths) {
   return [for (final path in paths) ProductImageEntry(path: path)];
+}
+
+Future<bool> downloadVisibleProductImage({
+  required BuildContext context,
+  required String path,
+  Uint8List? bytes,
+  int index = 0,
+}) {
+  ProductImageCache? cache;
+  try {
+    cache = Provider.of<ProductImageCache>(context, listen: false);
+  } on ProviderNotFoundException {
+    cache = null;
+  }
+  return downloadProductImage(
+    path: path,
+    bytes: bytes,
+    cache: cache,
+    index: index,
+  );
 }
 
 Future<void> showProductImageViewer({
@@ -60,6 +84,8 @@ class ProductImageViewer extends StatefulWidget {
 class _ProductImageViewerState extends State<ProductImageViewer> {
   late final PageController _controller;
   late int _index;
+  var _downloading = false;
+  String? _feedback;
 
   @override
   void initState() {
@@ -72,6 +98,27 @@ class _ProductImageViewerState extends State<ProductImageViewer> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _download() async {
+    if (_downloading) return;
+    final image = widget.images[_index];
+    setState(() => _downloading = true);
+    final ok = await downloadVisibleProductImage(
+      context: context,
+      path: image.path,
+      bytes: image.bytes,
+      index: _index,
+    );
+    if (!mounted) return;
+    setState(() {
+      _downloading = false;
+      _feedback = ok ? 'Imagen descargada.' : 'No se pudo descargar la imagen.';
+    });
+    Future<void>.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() => _feedback = null);
+    });
   }
 
   @override
@@ -126,11 +173,51 @@ class _ProductImageViewerState extends State<ProductImageViewer> {
                           context,
                         ).textTheme.labelLarge?.copyWith(color: Colors.white),
                       ),
-                    const SizedBox(width: 12),
+                    IconButton(
+                      key: const ValueKey('product-image-viewer-download'),
+                      tooltip: 'Descargar',
+                      onPressed: _downloading ? null : _download,
+                      color: Colors.white,
+                      icon: _downloading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.download_outlined),
+                    ),
                   ],
                 ),
               ),
             ),
+            if (_feedback != null)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                    child: Material(
+                      color: Colors.black.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(AppRadii.md),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        child: Text(
+                          _feedback!,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

@@ -52,3 +52,7 @@ class AppSpacing {
   static const lg = 16.0;
   static const xl = 24.0;
 }
+
+class AppDurations {
+  static const snackBar = Duration(milliseconds: 2000);
+}

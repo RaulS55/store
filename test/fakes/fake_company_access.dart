@@ -15,6 +15,7 @@ class FakeCompanyAccess implements CompanyAccess {
   final members = <String, Map<String, Membership>>{};
   final invitations = <String, Map<String, Invitation>>{};
   var listInvitationsCalls = 0;
+  Object? listInvitationsError;
   var _seq = 0;
   var _codeSeq = 0;
   Duration getUserDelay = Duration.zero;
@@ -57,6 +58,8 @@ class FakeCompanyAccess implements CompanyAccess {
   @override
   Future<List<Invitation>> listInvitations(String companyId) async {
     listInvitationsCalls++;
+    final error = listInvitationsError;
+    if (error != null) throw error;
     final list = [...?invitations[companyId]?.values];
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;

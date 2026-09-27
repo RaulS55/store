@@ -167,6 +167,7 @@ class Swatches {
   static const rosa = SwatchColor(name: 'Rosa', hex: 0xFFE091A8);
   static const amarillo = SwatchColor(name: 'Amarillo', hex: 0xFFE6C200);
   static const bordo = SwatchColor(name: 'Bordó', hex: 0xFF7A1F32);
+  static const celeste = SwatchColor(name: 'Celeste', hex: 0xFF6EC8F0);
 
   static const all = [
     negro,
@@ -176,6 +177,7 @@ class Swatches {
     marron,
     azul,
     azulMarino,
+    celeste,
     rojo,
     verde,
     rosa,

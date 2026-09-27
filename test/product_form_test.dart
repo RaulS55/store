@@ -58,6 +58,104 @@ void main() {
     expect(store.isSkuInUse('OTRO-1'), isFalse);
   });
 
+  test('nextSku skips codes already assigned', () async {
+    final store = AppStore();
+    await store.upsertProduct(testProduct(id: 'p1', sku: 'MS-0001'));
+    await store.upsertProduct(testProduct(id: 'p2', sku: 'MS-0002'));
+
+    expect(store.nextSku(), 'MS-0003');
+  });
+
+  test('suggestedSku continues the last custom code', () async {
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct(
+        id: 'p1',
+        sku: 'CJL-0255',
+        createdAt: DateTime.utc(2026, 9, 11),
+      ),
+    );
+
+    expect(store.suggestedSku(), 'CJL-0256');
+    expect(store.isSkuInUse(store.suggestedSku()), isFalse);
+  });
+
+  test('suggestedSku skips a custom code that is already taken', () async {
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct(
+        id: 'p1',
+        sku: 'CJL-0255',
+        createdAt: DateTime.utc(2026, 9, 10),
+      ),
+    );
+    await store.upsertProduct(
+      testProduct(
+        id: 'p2',
+        sku: 'CJL-0256',
+        createdAt: DateTime.utc(2026, 9, 11),
+      ),
+    );
+
+    expect(store.suggestedSku(), 'CJL-0257');
+  });
+
+  test(
+    'suggestedSku uses the default sequence after a generated code',
+    () async {
+      final store = AppStore();
+      await store.upsertProduct(
+        testProduct(
+          id: 'p1',
+          sku: 'CJL-0255',
+          createdAt: DateTime.utc(2026, 9, 10),
+        ),
+      );
+      await store.upsertProduct(
+        testProduct(
+          id: 'p2',
+          sku: 'MS-0001',
+          createdAt: DateTime.utc(2026, 9, 11),
+        ),
+      );
+
+      expect(store.suggestedSku(), 'MS-0002');
+    },
+  );
+
+  testWidgets('new product form prefills the next custom SKU', (tester) async {
+    _setTallView(tester);
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct(
+        id: 'p1',
+        sku: 'CJL-0255',
+        createdAt: DateTime.utc(2026, 9, 11),
+      ),
+    );
+    await tester.pumpWidget(_formApp(store));
+
+    final sku = tester.widget<TextFormField>(
+      find.byKey(const ValueKey('product-sku')),
+    );
+    expect(sku.controller?.text, 'CJL-0256');
+  });
+
+  testWidgets('SKU field can be cleared', (tester) async {
+    _setTallView(tester);
+    await tester.pumpWidget(_formApp(AppStore()));
+
+    final sku = find.byKey(const ValueKey('product-sku'));
+    expect(tester.widget<TextFormField>(sku).controller?.text, isNotEmpty);
+    expect(find.byKey(const ValueKey('clear-sku')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('clear-sku')));
+    await tester.pump();
+
+    expect(tester.widget<TextFormField>(sku).controller?.text, isEmpty);
+    expect(find.byKey(const ValueKey('clear-sku')), findsNothing);
+  });
+
   testWidgets('price field keeps digits only', (tester) async {
     _setTallView(tester);
     await tester.pumpWidget(_formApp(AppStore()));

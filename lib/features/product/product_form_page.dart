@@ -9,6 +9,7 @@ import '../../data/image_compress.dart';
 import '../../data/session_store.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_snack_bar.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/product_image_viewer.dart';
 import 'product_actions.dart';
@@ -52,7 +53,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
     final store = context.read<AppStore>();
     final existing = widget.id == null ? null : store.productById(widget.id!);
     _name = TextEditingController(text: existing?.name ?? '');
-    _sku = TextEditingController(text: existing?.sku ?? store.nextSku());
+    _sku = TextEditingController(text: existing?.sku ?? store.suggestedSku());
     _price = TextEditingController(
       text: existing == null ? '' : existing.price.toStringAsFixed(0),
     );
@@ -87,7 +88,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
     final remaining = maxProductImages - _images.length;
     if (remaining <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Podés cargar hasta 3 fotos.')),
+        const AppSnackBar(content: Text('Podés cargar hasta 3 fotos.')),
       );
       return;
     }
@@ -149,12 +150,17 @@ class _ProductFormPageState extends State<ProductFormPage> {
       setState(() => _error = 'Revisá los campos del formulario.');
       return;
     }
+    final store = context.read<AppStore>();
+    final sku = _sku.text.trim();
+    if (store.isSkuInUse(sku, excludingProductId: _productId)) {
+      setState(() => _error = 'Este SKU ya está en uso');
+      return;
+    }
     if (_draft.variants.isEmpty) {
       setState(() => _error = 'Agregá al menos una variante talle × color.');
       return;
     }
     setState(() => _saving = true);
-    final store = context.read<AppStore>();
     try {
       await Future.wait([
         for (final image in List<_ProductImageDraft>.of(_images))
@@ -176,7 +182,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
       final product = Product(
         id: _productId,
         name: _name.text.trim(),
-        sku: _sku.text.trim(),
+        sku: sku,
         category: _category ?? ApparelCategory.match(_categoryQuery),
         audience: _audience,
         brand: store.resolveBrand(_brandQuery),
@@ -192,7 +198,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
       await store.upsertProduct(product);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        AppSnackBar(
           content: Text(
             isEditing ? 'Prenda actualizada' : 'Prenda guardada en el catálogo',
           ),
@@ -364,10 +370,23 @@ class _ProductFormPageState extends State<ProductFormPage> {
       _LabeledField(
         label: 'SKU',
         required: true,
-        icon: Icons.qr_code_2,
         child: TextFormField(
+          key: const ValueKey('product-sku'),
           controller: _sku,
-          decoration: const InputDecoration(hintText: 'Ej. CJL-0255'),
+          decoration: InputDecoration(
+            hintText: 'Ej. CJL-0255',
+            suffixIcon: _sku.text.isEmpty
+                ? const Icon(Icons.qr_code_2, color: AppColors.mutedText)
+                : IconButton(
+                    key: const ValueKey('clear-sku'),
+                    tooltip: 'Limpiar SKU',
+                    onPressed: () {
+                      _sku.clear();
+                      setState(() {});
+                    },
+                    icon: const Icon(Icons.close),
+                  ),
+          ),
           autovalidateMode: AutovalidateMode.onUserInteraction,
           onChanged: (_) => setState(() {}),
           validator: _skuValidator,

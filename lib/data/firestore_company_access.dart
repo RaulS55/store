@@ -77,20 +77,22 @@ class FirestoreCompanyAccess implements CompanyAccess {
 
   @override
   Future<List<Membership>> listMembers(String companyId) async {
-    final docs = await getFirestoreDocs(collection: _members(companyId));
-    final members = [
-      for (final doc in docs) Membership.fromMap(doc.id, companyId, doc.data),
-    ];
+    final members = mapFirestoreDocs(
+      docs: await getFirestoreDocs(collection: _members(companyId)),
+      fromMap: (id, data) => Membership.fromMap(id, companyId, data),
+      label: 'Member',
+    );
     members.sort((a, b) => a.displayName.compareTo(b.displayName));
     return members;
   }
 
   @override
   Future<List<Invitation>> listInvitations(String companyId) async {
-    final docs = await getFirestoreDocs(collection: _invitations(companyId));
-    final invitations = [
-      for (final doc in docs) Invitation.fromMap(doc.id, companyId, doc.data),
-    ];
+    final invitations = mapFirestoreDocs(
+      docs: await getFirestoreDocs(collection: _invitations(companyId)),
+      fromMap: (id, data) => Invitation.fromMap(id, companyId, data),
+      label: 'Invitation',
+    );
     invitations.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return invitations;
   }

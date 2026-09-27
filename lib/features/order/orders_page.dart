@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../data/app_store.dart';
 import '../../models/order.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_snack_bar.dart';
 import 'order_actions.dart';
 import 'order_card.dart';
 
@@ -66,10 +67,7 @@ class OrdersPage extends StatelessWidget {
                   key: const ValueKey('orders-tab-open'),
                   text: _tabLabel('Abiertos', openOrders.length),
                 ),
-                Tab(
-                  key: const ValueKey('orders-tab-closed'),
-                  text: 'Cerrados',
-                ),
+                Tab(key: const ValueKey('orders-tab-closed'), text: 'Cerrados'),
               ],
             ),
             Expanded(
@@ -107,7 +105,7 @@ class OrdersPage extends StatelessWidget {
     final order = store.createOrder(customer);
     if (existing != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        const AppSnackBar(
           content: Text('Este cliente ya tiene un pedido abierto.'),
         ),
       );

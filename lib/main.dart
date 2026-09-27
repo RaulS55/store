@@ -32,7 +32,6 @@ import 'data/local/hive_catalog_cache.dart';
 import 'data/session_cache.dart';
 import 'data/session_store.dart';
 import 'features/auth/loading_page.dart';
-import 'firebase_options.dart';
 import 'models/company.dart';
 import 'routing/app_entry.dart';
 import 'routing/app_router.dart';
@@ -99,7 +98,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
       step = 'firebase';
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
+          options: firebaseOptionsForHost(),
         );
       }
       await configureFirebaseForPlatform();

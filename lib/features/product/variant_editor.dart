@@ -66,10 +66,18 @@ class VariantDraft {
     );
   }
 
+  void _includeSize(String size) {
+    if (!sizes.contains(size)) sizes.add(size);
+  }
+
+  void _includeColor(SwatchColor color) {
+    if (!colors.any((item) => item.name == color.name)) colors.add(color);
+  }
+
   void addSize(String size) {
     final resolved = ApparelSizes.resolve(size);
     if (sizes.contains(resolved)) return;
-    sizes.add(resolved);
+    _includeSize(resolved);
     for (final color in colors) {
       ensureCell(resolved, color);
     }
@@ -84,7 +92,7 @@ class VariantDraft {
   void addColor(SwatchColor color) {
     final resolved = Swatches.find(color.name) ?? color;
     if (colors.any((c) => c.name == resolved.name)) return;
-    colors.add(resolved);
+    _includeColor(resolved);
     for (final size in sizes) {
       ensureCell(size, resolved);
     }
@@ -120,9 +128,11 @@ class VariantDraft {
   }
 
   void addCombination(String size, SwatchColor color) {
-    addSize(size);
-    addColor(color);
-    ensureCell(size, color);
+    final resolvedSize = ApparelSizes.resolve(size);
+    final resolvedColor = Swatches.find(color.name) ?? color;
+    _includeSize(resolvedSize);
+    _includeColor(resolvedColor);
+    ensureCell(resolvedSize, resolvedColor);
   }
 
   List<String> get sizeChoices {
@@ -209,9 +219,34 @@ class VariantEditor extends StatelessWidget {
           _VariantMatrix(draft: draft, onChanged: onChanged)
         else
           _VariantList(draft: draft, onChanged: onChanged, baseSku: baseSku),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          key: const ValueKey('add-combination'),
+          onPressed: () => _openAddCombination(
+            context: context,
+            draft: draft,
+            onChanged: onChanged,
+          ),
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('Agregar combinación'),
+        ),
       ],
     );
   }
+}
+
+Future<void> _openAddCombination({
+  required BuildContext context,
+  required VariantDraft draft,
+  required VoidCallback onChanged,
+}) async {
+  final result = await showDialog<(String, SwatchColor)?>(
+    context: context,
+    builder: (context) => _AddCombinationDialog(draft: draft),
+  );
+  if (result == null) return;
+  draft.addCombination(result.$1, result.$2);
+  onChanged();
 }
 
 class _EquivalentSizeSection extends StatefulWidget {
@@ -647,76 +682,186 @@ class _VariantList extends StatelessWidget {
               ],
             ),
           ),
-        OutlinedButton.icon(
-          onPressed: () => _addCombination(context),
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('Agregar combinación'),
-        ),
       ],
     );
   }
+}
 
-  Future<void> _addCombination(BuildContext context) async {
-    String? size = draft.sizes.isEmpty ? null : draft.sizes.first;
-    SwatchColor? color = draft.colors.isEmpty ? null : draft.colors.first;
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Agregar combinación'),
-          content: StatefulBuilder(
-            builder: (context, setState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: size,
-                    items: [
-                      for (final s in draft.sizeChoices)
-                        DropdownMenuItem(value: s, child: Text(s)),
-                    ],
-                    onChanged: (v) => setState(() => size = v),
-                    decoration: const InputDecoration(
-                      labelText: 'Talle en prenda',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: color?.name,
-                    items: [
-                      for (final c in draft.colorChoices)
-                        DropdownMenuItem(value: c.name, child: Text(c.name)),
-                    ],
-                    onChanged: (v) {
-                      setState(
-                        () => color = v == null ? null : draft.colorByName(v),
-                      );
-                    },
-                    decoration: const InputDecoration(labelText: 'Color'),
-                  ),
+class _AddCombinationDialog extends StatefulWidget {
+  const _AddCombinationDialog({required this.draft});
+
+  final VariantDraft draft;
+
+  @override
+  State<_AddCombinationDialog> createState() => _AddCombinationDialogState();
+}
+
+class _AddCombinationDialogState extends State<_AddCombinationDialog> {
+  static const _otherSize = '__other_size__';
+  static const _otherColor = '__other_color__';
+
+  late String? _size;
+  late String? _colorName;
+  final _customSize = TextEditingController();
+  final _customColor = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _size = widget.draft.sizes.isEmpty ? null : widget.draft.sizes.first;
+    _colorName = widget.draft.colors.isEmpty
+        ? null
+        : widget.draft.colors.first.name;
+    _customSize.addListener(_refresh);
+    _customColor.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    _customSize.removeListener(_refresh);
+    _customColor.removeListener(_refresh);
+    _customSize.dispose();
+    _customColor.dispose();
+    super.dispose();
+  }
+
+  void _refresh() => setState(() {});
+
+  bool get _sizeIsOther => _size == _otherSize;
+
+  bool get _colorIsOther => _colorName == _otherColor;
+
+  String? get _resolvedSize {
+    if (_sizeIsOther) {
+      final value = _customSize.text.trim();
+      return value.isEmpty ? null : ApparelSizes.resolve(value);
+    }
+    return _size;
+  }
+
+  SwatchColor? get _resolvedColor {
+    if (_colorIsOther) {
+      final value = _customColor.text.trim();
+      return value.isEmpty ? null : Swatches.resolve(value);
+    }
+    if (_colorName == null) return null;
+    return widget.draft.colorByName(_colorName!);
+  }
+
+  bool get _canAdd => _resolvedSize != null && _resolvedColor != null;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Agregar combinación'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sizeIsOther)
+              TextField(
+                key: const ValueKey('combination-custom-size'),
+                controller: _customSize,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Talle en prenda',
+                  hintText: 'Ej. 44 / Oversize / 3',
+                ),
+              )
+            else
+              DropdownButtonFormField<String>(
+                key: const ValueKey('combination-size'),
+                initialValue: _size,
+                items: [
+                  for (final size in widget.draft.sizeChoices)
+                    DropdownMenuItem(value: size, child: Text(size)),
                 ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
+                onChanged: (value) => setState(() => _size = value),
+                decoration: const InputDecoration(labelText: 'Talle en prenda'),
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: const ValueKey('combination-custom-size-toggle'),
+                onPressed: () {
+                  setState(() {
+                    if (_sizeIsOther) {
+                      _size = widget.draft.sizes.isEmpty
+                          ? null
+                          : widget.draft.sizes.first;
+                      _customSize.clear();
+                    } else {
+                      _size = _otherSize;
+                    }
+                  });
+                },
+                child: Text(
+                  _sizeIsOther ? 'Elegir talle de la lista' : 'Otro talle',
+                ),
+              ),
             ),
-            FilledButton(
-              onPressed: () {
-                if (size != null && color != null) {
-                  draft.addCombination(size!, color!);
-                  onChanged();
-                }
-                Navigator.pop(context);
-              },
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-              child: const Text('Agregar'),
+            const SizedBox(height: 8),
+            if (_colorIsOther)
+              TextField(
+                key: const ValueKey('combination-custom-color'),
+                controller: _customColor,
+                decoration: const InputDecoration(
+                  labelText: 'Color',
+                  hintText: 'Ej. Lila / Estampado',
+                ),
+              )
+            else
+              DropdownButtonFormField<String>(
+                key: const ValueKey('combination-color'),
+                initialValue: _colorName,
+                items: [
+                  for (final color in widget.draft.colorChoices)
+                    DropdownMenuItem(
+                      value: color.name,
+                      child: Text(color.name),
+                    ),
+                ],
+                onChanged: (value) => setState(() => _colorName = value),
+                decoration: const InputDecoration(labelText: 'Color'),
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: const ValueKey('combination-custom-color-toggle'),
+                onPressed: () {
+                  setState(() {
+                    if (_colorIsOther) {
+                      _colorName = widget.draft.colors.isEmpty
+                          ? null
+                          : widget.draft.colors.first.name;
+                      _customColor.clear();
+                    } else {
+                      _colorName = _otherColor;
+                    }
+                  });
+                },
+                child: Text(
+                  _colorIsOther ? 'Elegir color de la lista' : 'Otro color',
+                ),
+              ),
             ),
           ],
-        );
-      },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _canAdd
+              ? () => Navigator.pop(context, (_resolvedSize!, _resolvedColor!))
+              : null,
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+          child: const Text('Agregar'),
+        ),
+      ],
     );
   }
 }

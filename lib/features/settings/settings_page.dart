@@ -13,6 +13,7 @@ import '../../data/session_exception.dart';
 import '../../data/session_store.dart';
 import '../../models/company.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_snack_bar.dart';
 import 'company_brand_settings.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -112,7 +113,7 @@ class _RubroSettings extends StatelessWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      ).showSnackBar(AppSnackBar(content: Text(error.message)));
     }
   }
 
@@ -248,7 +249,7 @@ class _PhoneSettingsState extends State<_PhoneSettings> {
       _phone.text = _saved ?? '';
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      ).showSnackBar(AppSnackBar(content: Text(error.message)));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -355,7 +356,7 @@ class _CatalogShareSettings extends StatelessWidget {
     final ok = await copyToClipboard(url);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'Copiamos el enlace del catálogo.' : url)),
+      AppSnackBar(content: Text(ok ? 'Copiamos el enlace del catálogo.' : url)),
     );
   }
 }

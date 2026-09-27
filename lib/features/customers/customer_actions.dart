@@ -6,6 +6,7 @@ import '../../data/app_store.dart';
 import '../../data/session_store.dart';
 import '../../models/customer.dart';
 import '../../widgets/app_confirm_dialog.dart';
+import '../../widgets/app_snack_bar.dart';
 
 bool canDeleteCustomer(BuildContext context) {
   return context.watch<SessionStore?>()?.canDeleteCustomer ?? false;
@@ -30,13 +31,13 @@ Future<void> deleteCustomerWithConfirm({
     debugPrint('$stack');
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No se pudo eliminar el cliente.')),
+      const AppSnackBar(content: Text('No se pudo eliminar el cliente.')),
     );
     return;
   }
   if (!context.mounted) return;
   ScaffoldMessenger.of(
     context,
-  ).showSnackBar(const SnackBar(content: Text('Cliente eliminado')));
+  ).showSnackBar(const AppSnackBar(content: Text('Cliente eliminado')));
   context.go('/clientes');
 }

@@ -50,6 +50,10 @@ void main() {
     expect(find.byKey(const ValueKey('product-image-viewer')), findsOneWidget);
     expect(find.text('2 / 2'), findsOneWidget);
     expect(
+      find.byKey(const ValueKey('product-image-viewer-download')),
+      findsOneWidget,
+    );
+    expect(
       find.byKey(const ValueKey('product-image-viewer-image-1-two')),
       findsOneWidget,
     );

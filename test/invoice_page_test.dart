@@ -6,6 +6,7 @@ import 'package:store_app/data/app_store.dart';
 import 'package:store_app/data/session_store.dart';
 import 'package:store_app/features/order/invoice_page.dart';
 import 'package:store_app/features/order/order_actions.dart';
+import 'package:store_app/models/order.dart';
 import 'package:store_app/routing/app_router.dart';
 
 import 'fakes/catalog_harness.dart';
@@ -44,11 +45,84 @@ void main() {
     expect(find.text('Total a facturar'), findsOneWidget);
     expect(find.text(closed.orderNumber), findsOneWidget);
     expect(find.text(closed.customer.name), findsOneWidget);
+    expect(find.byKey(const ValueKey('download-invoice')), findsOneWidget);
+    expect(find.text('Descargar factura'), findsNothing);
     expect(find.text('Cerrar pedido'), findsNothing);
     expect(find.text('Reabrir pedido'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'WhatsApp'), findsOneWidget);
+    expect(
+      tester.getCenter(find.widgetWithText(FilledButton, 'WhatsApp')).dx,
+      greaterThan(tester.getCenter(find.text('Reabrir pedido')).dx),
+    );
     expect(find.text('Volver al cliente'), findsOneWidget);
     expect(find.textContaining('IVA ('), findsNothing);
+    expect(find.text('Subtotal'), findsNothing);
+    expect(find.text('CUIT'), findsOneWidget);
+    expect(find.text('Condición'), findsOneWidget);
     expect(find.text('TST-0001 - REMERA TEST'), findsOneWidget);
+  });
+
+  testWidgets('invoice hides empty tax fields', (tester) async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct());
+    final product = store.productById('p-test')!;
+    final customer = await seedTestCustomer(
+      store,
+      customer: testCustomer(cuit: null, taxCondition: null),
+    );
+    final order = store.createOrder(customer);
+    store.addToOrder(product, product.variants.first);
+    expect(store.closeOrder(order.id), isTrue);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp(home: InvoicePage(orderId: order.id)),
+      ),
+    );
+
+    expect(find.text('Total a facturar'), findsOneWidget);
+    expect(find.text('CUIT'), findsNothing);
+    expect(find.text('Condición'), findsNothing);
+    expect(find.text('Subtotal'), findsNothing);
+  });
+
+  testWidgets('download invoice uses the current factura layout', (
+    tester,
+  ) async {
+    final store = AppStore();
+    final order = await seedTestOrder(store);
+    expect(store.closeOrder(order.id), isTrue);
+    final closed = store.closedOrders.first;
+    DraftOrder? downloaded;
+    bool? includeCode;
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp(
+          home: Scaffold(
+            body: InvoicePage(
+              orderId: closed.id,
+              downloadInvoice: (value, {includeProductCode}) async {
+                downloaded = value;
+                includeCode = includeProductCode;
+                return true;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('download-invoice')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(downloaded?.id, closed.id);
+    expect(includeCode, isTrue);
+    expect(find.text('Factura descargada.'), findsOneWidget);
   });
 
   testWidgets('invoice hides the product code when disabled', (tester) async {
