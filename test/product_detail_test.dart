@@ -69,7 +69,6 @@ void main() {
     await tester.pumpWidget(_app(store));
     await tester.pump();
 
-    expect(find.text('Talle en prenda'), findsOneWidget);
     expect(find.text('TALLE EN PRENDA'), findsOneWidget);
     expect(find.text('TALLE EQUIVALENTE'), findsOneWidget);
     expect(find.text('XXS / M / L'), findsOneWidget);

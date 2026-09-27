@@ -195,6 +195,20 @@ class Swatches {
   static SwatchColor resolve(String name, {int? hex}) {
     return find(name) ?? SwatchColor(name: name, hex: hex ?? 0xFFCCCCCC);
   }
+
+  static int compareName(String a, String b) {
+    final ia = _nameIndex(a);
+    final ib = _nameIndex(b);
+    if (ia != ib) return ia.compareTo(ib);
+    return a.toLowerCase().compareTo(b.toLowerCase());
+  }
+
+  static int _nameIndex(String name) {
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].name == name) return i;
+    }
+    return all.length;
+  }
 }
 
 class ApparelSizes {
@@ -279,6 +293,12 @@ class ProductVariant {
   final String? skuSuffix;
 
   String get key => '$size|$color';
+
+  static int compare(ProductVariant a, ProductVariant b) {
+    final byColor = Swatches.compareName(a.color, b.color);
+    if (byColor != 0) return byColor;
+    return ApparelSizes.compare(a.size, b.size);
+  }
 
   bool get isOut => stock <= 0;
 

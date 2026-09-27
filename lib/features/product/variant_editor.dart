@@ -604,7 +604,7 @@ class _VariantList extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
-        for (final variant in draft.variants)
+        for (final variant in [...draft.variants]..sort(ProductVariant.compare))
           Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),

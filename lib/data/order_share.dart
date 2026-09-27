@@ -10,7 +10,7 @@ class OrderShare {
       ..writeln('Hola ${order.customer.name},')
       ..writeln('te envío el resumen de tu pedido ${order.orderNumber}:')
       ..writeln();
-    for (final line in order.lines) {
+    for (final line in order.sortedLines) {
       buffer.writeln(
         '• ${line.quantity}× ${_itemName(line, showCode)} '
         '(${line.variant.size} · ${line.variant.color}) — '
@@ -68,7 +68,7 @@ class OrderShare {
       ..writeln('Hola, soy ${order.customer.name}.')
       ..writeln(headline)
       ..writeln();
-    for (final line in order.lines) {
+    for (final line in order.sortedLines) {
       buffer.writeln(
         '• ${line.quantity}× ${line.product.name} '
         '(${line.variant.size} · ${line.variant.color}) — '

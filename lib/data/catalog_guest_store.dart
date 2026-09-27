@@ -156,7 +156,7 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
         OrderLine(product: product, variant: variant, quantity: quantity),
       );
     }
-    return result;
+    return OrderLine.sorted(result);
   }
 
   int get cartCount => cartLines.fold(0, (sum, line) => sum + line.quantity);

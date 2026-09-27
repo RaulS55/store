@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/models/order.dart';
+import 'package:store_app/models/product.dart';
 import 'package:store_app/models/record_source.dart';
 
 import 'fakes/catalog_harness.dart';
@@ -121,6 +122,40 @@ void main() {
     expect(order.iva, 0);
     expect(order.toMap()['status'], 'cerrado');
     expect(order.toMap()['closedAt'], closedAt.toIso8601String());
+  });
+
+  test('sortedLines groups by color and then size ascending', () {
+    OrderLine line(String size, String color) {
+      return OrderLine(
+        product: product,
+        variant: ProductVariant(
+          size: size,
+          color: color,
+          colorHex: color == 'Rojo' ? '#C62828' : '#1E1E1E',
+          stock: 4,
+        ),
+        quantity: 1,
+      );
+    }
+
+    final order = DraftOrder(
+      id: 'o-sort',
+      orderNumber: 'PED-9',
+      customer: customer,
+      lines: [
+        line('M', 'Negro'),
+        line('S', 'Negro'),
+        line('L', 'Negro'),
+        line('S', 'Rojo'),
+      ],
+    );
+    expect(
+      [
+        for (final item in order.sortedLines)
+          '${item.variant.color} ${item.variant.size}',
+      ],
+      ['Negro S', 'Negro M', 'Negro L', 'Rojo S'],
+    );
   });
 
   test('OrderStatus.fromStorage rejects an unknown value', () {

@@ -61,6 +61,15 @@ class VariantSelection {
     );
   }
 
+  VariantSelection selectSize(Product product, String colorName, String size) {
+    if (color == colorName) return toggleSize(size);
+    final variant = product.variantFor(size, colorName);
+    if (variant == null || variant.stock <= 0) {
+      return selectColor(product, colorName);
+    }
+    return VariantSelection(color: colorName, sizes: {size});
+  }
+
   List<ProductVariant> selectedVariants(Product product) {
     if (color == null) return const [];
     return [
@@ -116,51 +125,34 @@ class VariantPicker extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 10),
-        Text('Color', style: theme.textTheme.labelLarge),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 16,
-          runSpacing: 12,
-          children: [
-            for (final color in product.colors)
-              _ColorChoice(
-                color: color,
-                stock: product.stockForColor(color.name),
-                selected: selection.color == color.name,
-                onTap: () =>
-                    onChanged(selection.selectColor(product, color.name)),
-              ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Text('Talle en prenda', style: theme.textTheme.labelLarge),
         const SizedBox(height: 4),
         Text(
-          'Podés elegir varios talles del mismo color.',
+          'Los talles se agrupan por color. Podés elegir varios del mismo.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: AppColors.mutedText,
           ),
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final size
-                in selection.hasColor
-                    ? product.sizesForColor(selection.color)
-                    : product.sizes)
-              _SizeChip(
-                label: _sizeChipLabel(product, size),
-                stock: product.stockForSize(size, colorName: selection.color),
-                selected: selection.sizes.contains(size),
-                locked: !selection.hasColor,
-                onTap: () => onChanged(selection.toggleSize(size)),
-              ),
-          ],
-        ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
+        for (final color in _colorsBySwatch(product)) ...[
+          _ColorGroup(
+            color: color,
+            stock: product.stockForColor(color.name),
+            selected: selection.color == color.name,
+            sizes: product.sizesForColor(color.name),
+            selectedSizes: selection.color == color.name
+                ? selection.sizes
+                : const {},
+            sizeLabel: (size) => _sizeChipLabel(product, size),
+            stockForSize: (size) =>
+                product.stockForSize(size, colorName: color.name),
+            onTapColor: () =>
+                onChanged(selection.selectColor(product, color.name)),
+            onToggleSize: (size) =>
+                onChanged(selection.selectSize(product, color.name, size)),
+          ),
+          const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 4),
         _StockLine(
           variants: variants,
           hasColor: selection.hasColor,
@@ -171,8 +163,21 @@ class VariantPicker extends StatelessWidget {
   }
 }
 
+List<SwatchColor> _colorsBySwatch(Product product) {
+  final index = {
+    for (var i = 0; i < Swatches.all.length; i++) Swatches.all[i].name: i,
+  };
+  return [...product.colors]..sort((a, b) {
+    final ia = index[a.name] ?? 1000;
+    final ib = index[b.name] ?? 1000;
+    if (ia != ib) return ia.compareTo(ib);
+    return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+  });
+}
+
 class _SizeChip extends StatelessWidget {
   const _SizeChip({
+    super.key,
     required this.label,
     required this.stock,
     required this.selected,
@@ -218,120 +223,106 @@ class _SizeChip extends StatelessWidget {
   }
 }
 
-class _ColorChoice extends StatelessWidget {
-  const _ColorChoice({
+class _ColorGroup extends StatelessWidget {
+  const _ColorGroup({
     required this.color,
     required this.stock,
     required this.selected,
-    required this.onTap,
+    required this.sizes,
+    required this.selectedSizes,
+    required this.sizeLabel,
+    required this.stockForSize,
+    required this.onTapColor,
+    required this.onToggleSize,
   });
 
   final SwatchColor color;
   final int stock;
   final bool selected;
-  final VoidCallback onTap;
+  final List<String> sizes;
+  final Set<String> selectedSizes;
+  final String Function(String size) sizeLabel;
+  final int Function(String size) stockForSize;
+  final VoidCallback onTapColor;
+  final ValueChanged<String> onToggleSize;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final out = stock <= 0;
-    if (color.isCustom) {
-      return ChoiceChip(
-        label: Text(
-          out ? '${color.name}  ·  0' : color.name,
-          style: TextStyle(
-            decoration: out ? TextDecoration.lineThrough : null,
-            color: out ? AppColors.mutedText : null,
-            fontWeight: FontWeight.w600,
-          ),
+    return Container(
+      key: ValueKey('variant-color-${color.name}'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(
+          color: selected && !out ? AppColors.terracotta : theme.dividerColor,
+          width: selected && !out ? 2 : 1,
         ),
-        selected: selected && !out,
-        onSelected: out ? null : (_) => onTap(),
-        selectedColor: AppColors.terracottaChip,
-        side: BorderSide(
-          color: selected && !out
-              ? AppColors.terracotta
-              : Theme.of(context).dividerColor,
-        ),
-      );
-    }
-    return InkWell(
-      onTap: out ? null : onTap,
-      borderRadius: BorderRadius.circular(AppRadii.md),
-      child: SizedBox(
-        width: 64,
-        child: Column(
-          children: [
-            Stack(
-              alignment: Alignment.center,
+        color: selected && !out ? AppColors.terracottaChip : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: out ? null : onTapColor,
+            borderRadius: BorderRadius.circular(AppRadii.sm),
+            child: Row(
               children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: color.color,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: selected
-                          ? AppColors.terracotta
-                          : const Color(0x33000000),
-                      width: selected ? 2 : 1,
+                if (!color.isCustom) ...[
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: color.color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selected
+                            ? AppColors.terracotta
+                            : const Color(0x33000000),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: Text(
+                    color.name,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      decoration: out ? TextDecoration.lineThrough : null,
+                      color: out ? AppColors.mutedText : null,
                     ),
                   ),
                 ),
-                if (out)
-                  const Icon(Icons.close, size: 16, color: AppColors.stockLow)
-                else if (selected)
-                  Icon(
-                    Icons.check,
-                    size: 16,
-                    color: color.color.computeLuminance() > 0.6
-                        ? AppColors.charcoal
-                        : Colors.white,
+                Text(
+                  out ? 'sin stock' : '$stock u.',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: out ? AppColors.stockLow : AppColors.mutedText,
+                    fontWeight: FontWeight.w600,
                   ),
-                if (!out)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Theme.of(context).dividerColor,
-                        ),
-                      ),
-                      child: Text(
-                        '$stock',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              color.name,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-            Text(
-              out ? 'sin stock' : '$stock u.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: out ? AppColors.stockLow : AppColors.mutedText,
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final size in sizes)
+                _SizeChip(
+                  key: ValueKey('variant-size-${color.name}-$size'),
+                  label: sizeLabel(size),
+                  stock: stockForSize(size),
+                  selected: selectedSizes.contains(size),
+                  locked: false,
+                  onTap: () => onToggleSize(size),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -352,7 +343,7 @@ class _StockLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final available = variants.isNotEmpty;
     final message = !hasColor
-        ? 'Elegí un color para ver los talles'
+        ? 'Elegí los talles de un color'
         : !hasSizes
         ? 'Elegí uno o más talles'
         : !available
@@ -398,47 +389,49 @@ Future<List<ProductVariant>?> showVariantPickerSheet(
           builder: (context, setState) {
             final variants = selection.addableVariants(product);
             final canAdd = variants.isNotEmpty;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  product.name,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                VariantPicker(
-                  product: product,
-                  selection: selection,
-                  onChanged: (next) => setState(() => selection = next),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: canAdd
-                      ? () => Navigator.pop(context, variants)
-                      : null,
-                  child: Text(
-                    variants.length > 1
-                        ? 'Agregar ${variants.length} al pedido'
-                        : 'Agregar al pedido',
-                  ),
-                ),
-                if (!canAdd)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      product.stock <= 0
-                          ? 'No hay stock disponible.'
-                          : !selection.hasColor
-                          ? 'Elegí un color para ver los talles.'
-                          : 'Elegí uno o más talles.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.mutedText,
-                      ),
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    product.name,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-              ],
+                  const SizedBox(height: 16),
+                  VariantPicker(
+                    product: product,
+                    selection: selection,
+                    onChanged: (next) => setState(() => selection = next),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: canAdd
+                        ? () => Navigator.pop(context, variants)
+                        : null,
+                    child: Text(
+                      variants.length > 1
+                          ? 'Agregar ${variants.length} al pedido'
+                          : 'Agregar al pedido',
+                    ),
+                  ),
+                  if (!canAdd)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        product.stock <= 0
+                            ? 'No hay stock disponible.'
+                            : !selection.hasColor
+                            ? 'Elegí los talles de un color.'
+                            : 'Elegí uno o más talles.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.mutedText,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             );
           },
         ),

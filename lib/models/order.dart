@@ -124,6 +124,20 @@ class OrderLine {
       if (unitPriceOverride != null) 'unitPriceOverride': unitPriceOverride,
     };
   }
+
+  static int compare(OrderLine a, OrderLine b) {
+    final byProduct = a.product.name.toLowerCase().compareTo(
+      b.product.name.toLowerCase(),
+    );
+    if (byProduct != 0) return byProduct;
+    final byId = a.product.id.compareTo(b.product.id);
+    if (byId != 0) return byId;
+    return ProductVariant.compare(a.variant, b.variant);
+  }
+
+  static List<OrderLine> sorted(Iterable<OrderLine> lines) {
+    return [...lines]..sort(compare);
+  }
 }
 
 class DraftOrder {
@@ -201,6 +215,8 @@ class DraftOrder {
     }
     return false;
   }
+
+  List<OrderLine> get sortedLines => OrderLine.sorted(lines);
 
   int get itemCount => lines.fold(0, (sum, line) => sum + line.quantity);
 

@@ -64,7 +64,7 @@ Future<Uint8List> buildInvoicePdf(
           pw.SizedBox(height: 8),
           _tableHeader(),
           pw.SizedBox(height: 8),
-          for (final line in order.lines) ...[
+          for (final line in order.sortedLines) ...[
             _lineRow(line, includeProductCode: showCode),
             pw.SizedBox(height: 10),
           ],

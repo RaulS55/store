@@ -357,7 +357,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             product.stock <= 0
                                 ? 'No hay stock disponible.'
                                 : !selection.hasColor
-                                ? 'Elegí un color para ver los talles.'
+                                ? 'Elegí los talles de un color.'
                                 : 'Elegí uno o más talles.',
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: AppColors.mutedText),

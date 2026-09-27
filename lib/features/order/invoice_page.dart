@@ -167,7 +167,7 @@ class InvoicePage extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          for (final line in order.lines) ...[
+                          for (final line in order.sortedLines) ...[
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [

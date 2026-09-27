@@ -25,6 +25,10 @@ Product _garment() {
   );
 }
 
+Finder _sizeChip(String color, String size) {
+  return find.byKey(ValueKey('variant-size-$color-$size'));
+}
+
 void main() {
   test('effective selection keeps only sizes that exist for the color', () {
     final product = _garment();
@@ -38,7 +42,7 @@ void main() {
     expect(product.sizesForColor('Negro'), ['S', 'M', 'L']);
   });
 
-  testWidgets('colors sit above sizes and several sizes can be selected', (
+  testWidgets('sizes sit under each color and several can be selected', (
     tester,
   ) async {
     final product = _garment();
@@ -61,19 +65,36 @@ void main() {
     );
 
     expect(
-      tester.getTopLeft(find.text('Color')).dy,
-      lessThan(tester.getTopLeft(find.text('Talle en prenda')).dy),
+      tester.getTopLeft(find.byKey(const ValueKey('variant-color-Negro'))).dy,
+      lessThan(tester.getTopLeft(_sizeChip('Negro', 'S')).dy),
     );
     expect(
-      find.text('Podés elegir varios talles del mismo color.'),
+      tester.getTopLeft(find.byKey(const ValueKey('variant-color-Negro'))).dy,
+      lessThan(
+        tester.getTopLeft(find.byKey(const ValueKey('variant-color-Rojo'))).dy,
+      ),
+    );
+    expect(
+      find.text(
+        'Los talles se agrupan por color. Podés elegir varios del mismo.',
+      ),
       findsOneWidget,
     );
+    expect(_sizeChip('Negro', 'L'), findsOneWidget);
+    expect(_sizeChip('Rojo', 'L'), findsNothing);
+    expect(_sizeChip('Rojo', 'M'), findsOneWidget);
+    expect(
+      tester.getTopLeft(_sizeChip('Negro', 'S')).dx,
+      lessThan(tester.getTopLeft(_sizeChip('Negro', 'M')).dx),
+    );
+    expect(
+      tester.getTopLeft(_sizeChip('Negro', 'M')).dx,
+      lessThan(tester.getTopLeft(_sizeChip('Negro', 'L')).dx),
+    );
 
-    await tester.tap(find.text('Negro'));
+    await tester.tap(_sizeChip('Negro', 'L'));
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilterChip, 'L'));
-    await tester.pump();
-    await tester.tap(find.widgetWithText(FilterChip, 'S'));
+    await tester.tap(_sizeChip('Negro', 'S'));
     await tester.pump();
 
     expect(selection.color, 'Negro');
@@ -105,11 +126,9 @@ void main() {
     final future = showVariantPickerSheet(host, product);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Negro'));
+    await tester.tap(_sizeChip('Negro', 'S'));
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilterChip, 'S'));
-    await tester.pump();
-    await tester.tap(find.widgetWithText(FilterChip, 'M'));
+    await tester.tap(_sizeChip('Negro', 'M'));
     await tester.pump();
     await tester.tap(find.text('Agregar 2 al pedido'));
     await tester.pumpAndSettle();
@@ -145,9 +164,7 @@ void main() {
     expect(find.text('sin stock'), findsNothing);
     expect(find.textContaining('·  0'), findsNothing);
 
-    await tester.tap(find.text('Negro'));
-    await tester.pump();
-    await tester.tap(find.widgetWithText(FilterChip, 'L'));
+    await tester.tap(_sizeChip('Negro', 'L'));
     await tester.pump();
 
     expect(find.text('sin stock'), findsNothing);
@@ -157,8 +174,9 @@ void main() {
     await tester.pump();
 
     expect(selection.color, 'Rojo');
-    expect(find.widgetWithText(FilterChip, 'L'), findsNothing);
-    expect(find.widgetWithText(FilterChip, 'M'), findsOneWidget);
+    expect(_sizeChip('Rojo', 'L'), findsNothing);
+    expect(_sizeChip('Negro', 'L'), findsOneWidget);
+    expect(_sizeChip('Rojo', 'M'), findsOneWidget);
     expect(find.text('sin stock'), findsNothing);
     expect(find.text('2 u.'), findsOneWidget);
   });

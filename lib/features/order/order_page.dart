@@ -157,7 +157,7 @@ class _MobileOrder extends StatelessWidget {
                 if (order.lines.isEmpty)
                   const _EmptyLines()
                 else
-                  for (final line in order.lines)
+                  for (final line in order.sortedLines)
                     _LineTile(
                       orderId: order.id,
                       line: line,
@@ -256,7 +256,7 @@ class _WebOrder extends StatelessWidget {
                               ? const _EmptyLines()
                               : ListView(
                                   children: [
-                                    for (final line in order.lines)
+                                    for (final line in order.sortedLines)
                                       _LineTile(
                                         orderId: order.id,
                                         line: line,
