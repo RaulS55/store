@@ -9,6 +9,7 @@ import 'package:store_app/data/product_access.dart';
 import 'package:store_app/data/session_exception.dart';
 import 'package:store_app/models/company.dart';
 import 'package:store_app/models/filters.dart';
+import 'package:store_app/models/order.dart';
 import 'package:store_app/models/product.dart';
 import 'package:store_app/models/record_source.dart';
 
@@ -112,7 +113,7 @@ void main() {
   );
 
   test(
-    'submit creates a catalog order, WhatsApp to the business, then a fresh cart',
+    'submit creates a catalog order, WhatsApp to the business, and keeps the cart',
     () async {
       final companies = FakeCompanyAccess()..companies['co1'] = _company();
       final products = FakeProductAccess();
@@ -136,7 +137,9 @@ void main() {
       );
 
       final first = await store.submit(name: '  Juan Pérez  ');
-      expect(store.cartCount, 0);
+      expect(store.cartCount, 2);
+      expect(store.openOrder?.orderId, first.order.id);
+      expect(first.updated, isFalse);
       expect(first.order.isCatalog, isTrue);
       expect(first.order.ivaEnabled, isFalse);
       expect(first.order.customer.name, 'Juan Pérez');
@@ -150,6 +153,10 @@ void main() {
         OrderShare.catalogMessage(first.order),
         contains('Hola, soy Juan Pérez.'),
       );
+      expect(
+        OrderShare.catalogMessage(first.order),
+        contains(first.order.orderNumber),
+      );
       expect(OrderShare.catalogMessage(first.order), isNot(contains('Mónica')));
       expect(
         customers.customers['co1']!.values.single.source,
@@ -157,13 +164,85 @@ void main() {
       );
       expect(orders.orders['co1']!.values.single.id, first.order.id);
 
-      store.addToCart(product, product.variants.first);
+      store.setLineQty(store.cartLines.single.lineKey, 3);
       final second = await store.submit(name: 'Ana');
-      expect(orders.orders['co1']!.length, 2);
-      expect(second.order.id, isNot(first.order.id));
-      expect(customers.customers['co1']!.length, 2);
+      expect(second.updated, isTrue);
+      expect(second.order.id, first.order.id);
+      expect(second.order.customer.name, 'Ana');
+      expect(orders.orders['co1']!.length, 1);
+      expect(orders.orders['co1']!.values.single.lines.single.quantity, 3);
+      expect(customers.customers['co1']!.length, 1);
+      expect(
+        OrderShare.catalogMessage(second.order, updated: true),
+        contains('Actualicé el pedido ${second.order.orderNumber}'),
+      );
     },
   );
+
+  test('a later submit updates the same open order on this device', () async {
+    final companies = FakeCompanyAccess()..companies['co1'] = _company();
+    final products = FakeProductAccess();
+    await products.saveProduct('co1', testProduct());
+    final customers = FakeCustomerAccess();
+    final orders = FakeOrderAccess();
+    final cart = MemoryCatalogCartCache();
+    final firstStore = await _store(
+      companies: companies,
+      products: products,
+      customers: customers,
+      orders: orders,
+      cart: cart,
+    );
+    addTearDown(firstStore.dispose);
+    final product = firstStore.visibleProducts.single;
+    firstStore.addToCart(product, product.variants.first);
+    final first = await firstStore.submit(name: 'Juan');
+
+    final secondStore = await _store(
+      companies: companies,
+      products: products,
+      customers: customers,
+      orders: orders,
+      cart: cart,
+    );
+    addTearDown(secondStore.dispose);
+    expect(secondStore.openOrder?.orderNumber, first.order.orderNumber);
+    expect(secondStore.cartCount, 1);
+    secondStore.setLineQty(secondStore.cartLines.single.lineKey, 2);
+    final second = await secondStore.submit(name: 'Juan');
+    expect(second.updated, isTrue);
+    expect(second.order.id, first.order.id);
+    expect(orders.orders['co1']!.length, 1);
+    expect(orders.orders['co1']!.values.single.lines.single.quantity, 2);
+  });
+
+  test('submit opens a new order after the business closes the previous one', () async {
+    final companies = FakeCompanyAccess()..companies['co1'] = _company();
+    final products = FakeProductAccess();
+    await products.saveProduct('co1', testProduct());
+    final customers = FakeCustomerAccess();
+    final orders = FakeOrderAccess();
+    final store = await _store(
+      companies: companies,
+      products: products,
+      customers: customers,
+      orders: orders,
+    );
+    addTearDown(store.dispose);
+    final product = store.visibleProducts.single;
+    store.addToCart(product, product.variants.first);
+    final first = await store.submit(name: 'Juan');
+    orders.orders['co1']![first.order.id]!.status = OrderStatus.cerrado;
+    orders.orders['co1']![first.order.id]!.closedAt = DateTime.utc(2026, 9, 26);
+
+    store.setLineQty(store.cartLines.single.lineKey, 2);
+    final second = await store.submit(name: 'Juan');
+    expect(second.updated, isFalse);
+    expect(second.replacedClosed, isTrue);
+    expect(second.order.id, isNot(first.order.id));
+    expect(orders.orders['co1']!.length, 2);
+    expect(store.openOrder?.orderId, second.order.id);
+  });
 
   test('submit without a company phone still saves the order', () async {
     final companies = FakeCompanyAccess()

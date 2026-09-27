@@ -52,6 +52,7 @@ dependencies:
   flutter_web_plugins:
     sdk: flutter
   pdf: ^3.12.0
+  font_awesome_flutter: ^10.9.1
 
 # firebase_core_web 3.11.0 calls e.isA<JSObject>() on Object.
 # That API exists from Dart 3.12. This app uses Dart 3.9.2 (Flutter 3.35.5).

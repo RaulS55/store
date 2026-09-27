@@ -127,7 +127,53 @@ service cloud.firestore {
         && request.resource.data.lines.size() <= 50
         && request.resource.data.customer.name is string
         && request.resource.data.customer.name.size() > 1
+        && request.resource.data.customer.name.size() <= 80
         && request.resource.data.customer.source == 'catalog';
+    }
+
+    function isCatalogCustomerUpdate(customerId) {
+      return resource.data.source == 'catalog'
+        && request.resource.data.source == 'catalog'
+        && hasSyncFields(customerId)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.deletedAt == resource.data.deletedAt
+        && request.resource.data.deletedAt == null
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 1
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.phone == resource.data.phone
+        && request.resource.data.cuit == resource.data.cuit
+        && request.resource.data.address == resource.data.address
+        && request.resource.data.taxCondition == resource.data.taxCondition;
+    }
+
+    function isCatalogOrderUpdate() {
+      return resource.data.source == 'catalog'
+        && resource.data.status == 'borrador'
+        && resource.data.deletedAt == null
+        && request.resource.data.source == 'catalog'
+        && request.resource.data.status == 'borrador'
+        && hasSyncFields(resource.data.id)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.orderNumber == resource.data.orderNumber
+        && request.resource.data.closedAt == resource.data.closedAt
+        && request.resource.data.deletedAt == resource.data.deletedAt
+        && request.resource.data.ivaEnabled == resource.data.ivaEnabled
+        && request.resource.data.ivaPercent == resource.data.ivaPercent
+        && request.resource.data.get('includeProductCodeInInvoice', true)
+          == resource.data.get('includeProductCodeInInvoice', true)
+        && request.resource.data.get('stockReservations', [])
+          == resource.data.get('stockReservations', [])
+        && request.resource.data.customer.id == resource.data.customer.id
+        && request.resource.data.customer.source == 'catalog'
+        && request.resource.data.customer.name is string
+        && request.resource.data.customer.name.size() > 1
+        && request.resource.data.customer.name.size() <= 80
+        && request.resource.data.lines is list
+        && request.resource.data.lines.size() > 0
+        && request.resource.data.lines.size() <= 50;
     }
 
     function invitationPath(companyId, invitationId) {
@@ -297,14 +343,16 @@ service cloud.firestore {
         allow read: if isMember(companyId);
         allow create: if (isMember(companyId) && hasSyncFields(customerId))
           || isCatalogCustomerCreate(customerId);
-        allow update: if isMember(companyId)
+        allow update: if (
+          isMember(companyId)
           && hasSyncFields(customerId)
           && request.resource.data.id == resource.data.id
           && request.resource.data.createdAt == resource.data.createdAt
           && (
             request.resource.data.deletedAt == resource.data.deletedAt
             || isOwnerOrAdmin(companyId)
-          );
+          )
+        ) || isCatalogCustomerUpdate(customerId);
         allow delete: if false;
       }
 
@@ -312,7 +360,8 @@ service cloud.firestore {
         allow read: if isMember(companyId);
         allow create: if (isMember(companyId) && hasSyncFields(orderId))
           || isCatalogOrderCreate(orderId);
-        allow update: if isMember(companyId)
+        allow update: if (
+          isMember(companyId)
           && hasSyncFields(orderId)
           && request.resource.data.id == resource.data.id
           && request.resource.data.createdAt == resource.data.createdAt
@@ -325,7 +374,8 @@ service cloud.firestore {
               && request.resource.data.status == 'borrador'
               && request.resource.data.deletedAt is string
             )
-          );
+          )
+        ) || isCatalogOrderUpdate();
         allow delete: if false;
       }
 

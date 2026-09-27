@@ -4,6 +4,7 @@ import '../models/order.dart';
 import 'firestore_query.dart';
 import 'firestore_watch.dart';
 import 'incremental_access.dart';
+import 'session_exception.dart';
 
 class FirestoreOrderAccess implements IncrementalOrderAccess {
   FirestoreOrderAccess({FirebaseFirestore? firestore})
@@ -56,5 +57,21 @@ class FirestoreOrderAccess implements IncrementalOrderAccess {
   @override
   Future<void> saveOrder(String companyId, DraftOrder order) {
     return _orders(companyId).doc(order.id).set(order.toMap());
+  }
+
+  @override
+  Future<void> updateCatalogOrder(String companyId, DraftOrder order) async {
+    try {
+      await _orders(companyId).doc(order.id).update({
+        'lines': [for (final line in order.lines) line.toMap()],
+        'customer': order.customer.toMap(),
+        'updatedAt': order.updatedAt.toUtc().toIso8601String(),
+      });
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied' || error.code == 'not-found') {
+        throw const CatalogOrderLockedException();
+      }
+      rethrow;
+    }
   }
 }

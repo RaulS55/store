@@ -24,6 +24,8 @@ class AppColors {
   static const stockLow = Color(0xFFE03131);
   static const warning = Color(0xFFE67700);
   static const whatsapp = Color(0xFF25D366);
+  static const instagram = Color(0xFFE4405F);
+  static const facebook = Color(0xFF1877F2);
 
   static Color overlaySurface({required bool isDark}) {
     return isDark ? darkElevated : lightSurface;

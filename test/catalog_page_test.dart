@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:store_app/data/catalog_bindings.dart';
@@ -144,6 +145,10 @@ void main() {
     expect(find.text('Casa Norte'), findsOneWidget);
     expect(find.byKey(const ValueKey('catalog-contacts')), findsOneWidget);
     expect(find.byKey(const ValueKey('catalog-whatsapp')), findsOneWidget);
+    expect(find.byIcon(FontAwesomeIcons.whatsapp), findsOneWidget);
+    expect(find.byIcon(FontAwesomeIcons.instagram), findsOneWidget);
+    expect(find.byIcon(FontAwesomeIcons.tiktok), findsOneWidget);
+    expect(find.byIcon(FontAwesomeIcons.facebook), findsOneWidget);
     expect(find.text('Instagram · @casanorte'), findsOneWidget);
     expect(find.text('TikTok'), findsOneWidget);
     expect(find.text('Facebook · @casanorte'), findsOneWidget);

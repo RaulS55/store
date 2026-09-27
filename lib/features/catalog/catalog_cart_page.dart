@@ -35,11 +35,22 @@ class _CatalogCartView extends StatefulWidget {
 
 class _CatalogCartViewState extends State<_CatalogCartView> {
   late final TextEditingController _name;
+  var _nameSeeded = false;
 
   @override
   void initState() {
     super.initState();
     _name = TextEditingController()..addListener(_onNameChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_nameSeeded) return;
+    final stored = context.read<CatalogGuestStore>().openOrder?.customerName;
+    if (stored == null || stored.length < 2) return;
+    _nameSeeded = true;
+    _name.text = stored;
   }
 
   @override
@@ -58,16 +69,28 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
     try {
       final result = await store.submit(name: _name.text);
       if (!mounted) return;
-      _name.clear();
       if (result.missingPhone) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const AppSnackBar(
+          AppSnackBar(
             content: Text(
-              'El pedido se envió al negocio. Este catálogo no tiene WhatsApp configurado.',
+              result.replacedClosed
+                  ? 'El negocio cerró el pedido anterior. Enviamos uno nuevo: ${result.order.orderNumber}.'
+                  : result.updated
+                  ? 'Actualizamos ${result.order.orderNumber}. Este catálogo no tiene WhatsApp configurado.'
+                  : 'El pedido ${result.order.orderNumber} se envió al negocio. Este catálogo no tiene WhatsApp configurado.',
             ),
           ),
         );
         return;
+      }
+      if (result.replacedClosed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          AppSnackBar(
+            content: Text(
+              'El negocio cerró el pedido anterior. Este es el nuevo: ${result.order.orderNumber}.',
+            ),
+          ),
+        );
       }
       final ok = await OrderShare.openUri(result.whatsappUri);
       if (!mounted) return;
@@ -113,11 +136,22 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
                     icon: const Icon(Icons.arrow_back),
                   ),
                   Expanded(
-                    child: Text(
-                      'Tu pedido',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tu pedido',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        if (store.openOrder != null)
+                          Text(
+                            '${store.openOrder!.orderNumber} · lo podés seguir modificando',
+                            key: const ValueKey('catalog-open-order'),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: AppColors.slate),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -201,7 +235,11 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.chat, size: 18),
-                      label: const Text('Enviar por WhatsApp'),
+                      label: Text(
+                        store.openOrder == null
+                            ? 'Enviar por WhatsApp'
+                            : 'Actualizar por WhatsApp',
+                      ),
                     ),
                   ),
                 ],

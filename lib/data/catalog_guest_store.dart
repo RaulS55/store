@@ -25,11 +25,15 @@ class CatalogSubmitResult {
     required this.order,
     required this.whatsappUri,
     required this.missingPhone,
+    this.updated = false,
+    this.replacedClosed = false,
   });
 
   final DraftOrder order;
   final Uri? whatsappUri;
   final bool missingPhone;
+  final bool updated;
+  final bool replacedClosed;
 }
 
 class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
@@ -69,6 +73,7 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
   Company? _company;
   List<Product> _allProducts = const [];
   List<CatalogCartLine> _lines = const [];
+  CatalogOpenOrder? _openOrder;
   String searchQuery = '';
   @override
   ApparelCategory? chipCategory;
@@ -160,6 +165,8 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
       cartLines.fold(0, (sum, line) => sum + line.lineTotal);
 
   bool get hasCart => cartLines.isNotEmpty;
+
+  CatalogOpenOrder? get openOrder => _openOrder;
 
   void setSearch(String value) {
     if (searchQuery == value) return;
@@ -267,6 +274,21 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
     notifyListeners();
     try {
       final now = DateTime.now().toUtc();
+      final open = _openOrder;
+      if (open != null) {
+        try {
+          final order = await _writeOpenOrder(
+            open: open,
+            name: trimmed,
+            lines: lines,
+            now: now,
+          );
+          return _submitResult(order, updated: true);
+        } on CatalogOrderLockedException {
+          await _setOpenOrder(null);
+        }
+      }
+      final replacedClosed = open != null && _openOrder == null;
       final customer = Customer(
         id: _customers.nextCustomerId(companyId),
         name: trimmed,
@@ -288,17 +310,79 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
       );
       await _customers.saveCustomer(companyId, customer);
       await _orders.saveOrder(companyId, order);
-      await clearCart();
-      final uri = OrderShare.catalogWhatsAppUri(order, _company?.phone);
-      return CatalogSubmitResult(
-        order: order,
-        whatsappUri: uri,
-        missingPhone: uri == null,
+      await _setOpenOrder(
+        CatalogOpenOrder(
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          customerId: customer.id,
+          customerName: customer.name,
+          orderCreatedAt: order.createdAt,
+          customerCreatedAt: customer.createdAt,
+        ),
       );
+      return _submitResult(order, replacedClosed: replacedClosed);
     } finally {
       _busy = false;
       notifyListeners();
     }
+  }
+
+  Future<DraftOrder> _writeOpenOrder({
+    required CatalogOpenOrder open,
+    required String name,
+    required List<OrderLine> lines,
+    required DateTime now,
+  }) async {
+    final customer = Customer(
+      id: open.customerId,
+      name: name,
+      createdAt: open.customerCreatedAt,
+      updatedAt: now,
+      source: RecordSource.catalog,
+    );
+    final order = DraftOrder(
+      id: open.orderId,
+      orderNumber: open.orderNumber,
+      customer: customer,
+      lines: lines,
+      createdAt: open.orderCreatedAt,
+      updatedAt: now,
+      ivaEnabled: false,
+      source: RecordSource.catalog,
+    );
+    await _orders.updateCatalogOrder(companyId, order);
+    try {
+      await _customers.saveCustomer(companyId, customer);
+    } catch (error, stack) {
+      debugPrint('Catalog customer update failed: $error');
+      debugPrint('$stack');
+    }
+    await _setOpenOrder(open.copyWith(customerName: customer.name));
+    return order;
+  }
+
+  CatalogSubmitResult _submitResult(
+    DraftOrder order, {
+    bool updated = false,
+    bool replacedClosed = false,
+  }) {
+    final uri = OrderShare.catalogWhatsAppUri(
+      order,
+      _company?.phone,
+      updated: updated,
+    );
+    return CatalogSubmitResult(
+      order: order,
+      whatsappUri: uri,
+      missingPhone: uri == null,
+      updated: updated,
+      replacedClosed: replacedClosed,
+    );
+  }
+
+  Future<void> _setOpenOrder(CatalogOpenOrder? order) async {
+    _openOrder = order;
+    await _cart.saveOpenOrder(companyId, order);
   }
 
   Future<void> _start() async {
@@ -332,8 +416,11 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
         await cart.ensureOpen();
       }
       _lines = _cart.load(companyId);
+      _openOrder = _cart.loadOpenOrder(companyId);
       _company = _local?.loadCompany(companyId);
-      if (_company != null || _lines.isNotEmpty) notifyListeners();
+      if (_company != null || _lines.isNotEmpty || _openOrder != null) {
+        notifyListeners();
+      }
     } catch (error, stack) {
       debugPrint('Catalog local hydrate failed: $error');
       debugPrint('$stack');

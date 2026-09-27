@@ -38,4 +38,9 @@ class CachedOrderAccess implements OrderAccess {
   Future<void> saveOrder(String companyId, DraftOrder order) {
     return _cached.save(companyId, order);
   }
+
+  @override
+  Future<void> updateCatalogOrder(String companyId, DraftOrder order) {
+    return _remote.updateCatalogOrder(companyId, order);
+  }
 }

@@ -82,5 +82,61 @@ void main() {
     );
     await tester.pump();
     expect(_sendButton(tester).onPressed, isNotNull);
+    expect(find.text('Enviar por WhatsApp'), findsOneWidget);
+  });
+
+  testWidgets('an open catalog order shows its id and the update action', (
+    tester,
+  ) async {
+    final companies = FakeCompanyAccess()
+      ..companies['co1'] = Company(
+        id: 'co1',
+        name: 'Moda Stock',
+        ownerId: 'u1',
+        createdAt: DateTime.utc(2026, 9, 11),
+        phone: '+54 9 11 4555-0101',
+      );
+    final products = FakeProductAccess();
+    await products.saveProduct('co1', testProduct());
+    final bindings = CatalogBindings(
+      companies: companies,
+      products: products,
+      customers: FakeCustomerAccess(),
+      orders: FakeOrderAccess(),
+    );
+    addTearDown(bindings.dispose);
+
+    final store = bindings.storeFor('co1');
+    await store.ready;
+    final product = store.visibleProducts.single;
+    store.addToCart(product, product.variants.first);
+    final submitted = await store.submit(name: 'Juan');
+
+    final router = GoRouter(
+      initialLocation: '/catalogo/co1/pedido',
+      routes: [
+        GoRoute(
+          path: '/catalogo/:companyId',
+          builder: (_, _) => const SizedBox.shrink(),
+          routes: [
+            GoRoute(path: 'pedido', builder: (_, _) => const CatalogCartPage()),
+          ],
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      Provider.value(
+        value: bindings,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('catalog-open-order')), findsOneWidget);
+    expect(find.textContaining(submitted.order.orderNumber), findsOneWidget);
+    expect(find.text('Actualizar por WhatsApp'), findsOneWidget);
+    expect(find.text('Juan'), findsOneWidget);
   });
 }

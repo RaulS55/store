@@ -55,10 +55,13 @@ class OrderShare {
     return openUri(whatsappUri(order, includeProductCode: includeProductCode));
   }
 
-  static String catalogMessage(DraftOrder order) {
+  static String catalogMessage(DraftOrder order, {bool updated = false}) {
+    final headline = updated
+        ? 'Actualicé el pedido ${order.orderNumber}:'
+        : 'Quiero este pedido ${order.orderNumber}:';
     final buffer = StringBuffer()
       ..writeln('Hola, soy ${order.customer.name}.')
-      ..writeln('Quiero este pedido:')
+      ..writeln(headline)
       ..writeln();
     for (final line in order.lines) {
       buffer.writeln(
@@ -73,11 +76,17 @@ class OrderShare {
     return buffer.toString();
   }
 
-  static Uri? catalogWhatsAppUri(DraftOrder order, String? phone) {
+  static Uri? catalogWhatsAppUri(
+    DraftOrder order,
+    String? phone, {
+    bool updated = false,
+  }) {
     if (order.lines.isEmpty) return null;
     final digits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
     if (digits.isEmpty) return null;
-    final text = Uri.encodeComponent(catalogMessage(order));
+    final text = Uri.encodeComponent(
+      catalogMessage(order, updated: updated),
+    );
     return Uri.parse('https://wa.me/$digits?text=$text');
   }
 

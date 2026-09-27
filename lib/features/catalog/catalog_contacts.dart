@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../data/order_share.dart';
 import '../../models/company.dart';
@@ -29,7 +30,7 @@ List<CatalogContactLink> catalogContactLinks(Company company) {
       CatalogContactLink(
         id: 'catalog-whatsapp',
         label: 'WhatsApp',
-        icon: Icons.chat_outlined,
+        icon: FontAwesomeIcons.whatsapp,
         uri: Uri.parse('https://wa.me/$digits'),
         color: AppColors.whatsapp,
       ),
@@ -41,8 +42,9 @@ List<CatalogContactLink> catalogContactLinks(Company company) {
       CatalogContactLink(
         id: 'catalog-instagram',
         label: _socialLabel('Instagram', company.instagram),
-        icon: Icons.photo_camera_outlined,
+        icon: FontAwesomeIcons.instagram,
         uri: Uri.parse(instagram),
+        color: AppColors.instagram,
       ),
     );
   }
@@ -52,7 +54,7 @@ List<CatalogContactLink> catalogContactLinks(Company company) {
       CatalogContactLink(
         id: 'catalog-tiktok',
         label: _socialLabel('TikTok', company.tiktok),
-        icon: Icons.music_note_outlined,
+        icon: FontAwesomeIcons.tiktok,
         uri: Uri.parse(tiktok),
       ),
     );
@@ -63,8 +65,9 @@ List<CatalogContactLink> catalogContactLinks(Company company) {
       CatalogContactLink(
         id: 'catalog-facebook',
         label: _socialLabel('Facebook', company.facebook),
-        icon: Icons.public_outlined,
+        icon: FontAwesomeIcons.facebook,
         uri: Uri.parse(facebook),
+        color: AppColors.facebook,
       ),
     );
   }
