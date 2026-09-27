@@ -57,11 +57,13 @@ LotStats computeLotStats({
   var reservedValue = 0.0;
   for (final order in openOrders) {
     if (order.isDeleted || !order.isActive) continue;
+    final linesByKey = {for (final line in order.lines) line.lineKey: line};
     for (final hold in order.stockReservations) {
       final product = byId[hold.productId];
       if (product == null || hold.quantity <= 0) continue;
       reservedUnits += hold.quantity;
-      reservedValue += product.price * hold.quantity;
+      final line = linesByKey[hold.key];
+      reservedValue += (line?.unitPrice ?? product.price) * hold.quantity;
     }
   }
 

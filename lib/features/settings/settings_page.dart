@@ -65,6 +65,8 @@ class SettingsPage extends StatelessWidget {
             const Divider(),
             const _IvaSettings(),
             const Divider(),
+            const _SenaSettings(),
+            const Divider(),
             const _InvoiceProductCodeSettings(),
             const ListTile(
               title: Text('Moneda'),
@@ -441,6 +443,79 @@ class _IvaSettingsState extends State<_IvaSettings> {
               onSubmitted: (_) => _commitPercent(),
             ),
           ),
+      ],
+    );
+  }
+}
+
+class _SenaSettings extends StatefulWidget {
+  const _SenaSettings();
+
+  @override
+  State<_SenaSettings> createState() => _SenaSettingsState();
+}
+
+class _SenaSettingsState extends State<_SenaSettings> {
+  late final TextEditingController _amount;
+  late final FocusNode _focus;
+
+  @override
+  void initState() {
+    super.initState();
+    final store = context.read<AppStore>();
+    _amount = TextEditingController(
+      text: MoneyFormat.grouped(store.senaAmount),
+    );
+    _focus = FocusNode()..addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focus.removeListener(_onFocusChange);
+    _focus.dispose();
+    _amount.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (!_focus.hasFocus) {
+      _commitAmount();
+    }
+  }
+
+  void _commitAmount() {
+    final store = context.read<AppStore>();
+    store.setSenaAmount(MoneyFormat.parse(_amount.text) ?? 0);
+    _amount.text = MoneyFormat.grouped(store.senaAmount);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    context.watch<AppStore>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ListTile(
+          title: Text('Seña'),
+          subtitle: Text(
+            'Monto por defecto al cerrar un pedido. Solo aplica al modo negocio.',
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: TextField(
+            key: const ValueKey('sena-amount'),
+            controller: _amount,
+            focusNode: _focus,
+            keyboardType: TextInputType.number,
+            inputFormatters: [MoneyFormat.inputFormatter],
+            decoration: const InputDecoration(
+              labelText: 'Valor de la seña',
+              prefixText: '\$ ',
+            ),
+            onSubmitted: (_) => _commitAmount(),
+          ),
+        ),
       ],
     );
   }

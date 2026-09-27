@@ -713,9 +713,12 @@ class _LineTile extends StatelessWidget {
                   onChanged: (q) => store.setLineQty(orderId, line.lineKey, q),
                 ),
               const SizedBox(height: 6),
-              Text(
-                MoneyFormat.detailed(line.unitPrice),
-                style: Theme.of(context).textTheme.bodySmall,
+              _LineUnitPrice(
+                line: line,
+                readOnly: readOnly,
+                onEdit: readOnly
+                    ? null
+                    : () => _editLineUnitPrice(context, orderId, line),
               ),
               Text(
                 MoneyFormat.detailed(line.lineTotal),
@@ -734,6 +737,149 @@ class _LineTile extends StatelessWidget {
   }
 }
 
+class _LineUnitPrice extends StatelessWidget {
+  const _LineUnitPrice({
+    required this.line,
+    required this.readOnly,
+    this.onEdit,
+  });
+
+  final OrderLine line;
+  final bool readOnly;
+  final VoidCallback? onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final price = Text(
+      MoneyFormat.detailed(line.unitPrice),
+      style: Theme.of(context).textTheme.bodySmall,
+    );
+    final listHint = line.hasCustomPrice
+        ? Text(
+            'Lista: ${MoneyFormat.detailed(line.listPrice)}',
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: AppColors.mutedText),
+          )
+        : null;
+    if (readOnly || onEdit == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [price, if (listHint != null) listHint],
+      );
+    }
+    return InkWell(
+      key: const ValueKey('edit-line-price'),
+      onTap: onEdit,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                price,
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.edit_outlined,
+                  size: 14,
+                  color: AppColors.mutedText,
+                ),
+              ],
+            ),
+            if (listHint != null) listHint,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _editLineUnitPrice(
+  BuildContext context,
+  String orderId,
+  OrderLine line,
+) async {
+  final result = await showDialog<double>(
+    context: context,
+    builder: (context) => _EditLinePriceDialog(line: line),
+  );
+  if (result == null || !context.mounted) return;
+  context.read<AppStore>().setLineUnitPrice(orderId, line.lineKey, result);
+}
+
+class _EditLinePriceDialog extends StatefulWidget {
+  const _EditLinePriceDialog({required this.line});
+
+  final OrderLine line;
+
+  @override
+  State<_EditLinePriceDialog> createState() => _EditLinePriceDialogState();
+}
+
+class _EditLinePriceDialogState extends State<_EditLinePriceDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: MoneyFormat.grouped(widget.line.unitPrice),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Precio de venta'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Lista: ${MoneyFormat.detailed(widget.line.listPrice)}',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('line-unit-price-field'),
+            controller: _controller,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [MoneyFormat.inputFormatter],
+            decoration: const InputDecoration(hintText: 'Ej. 12.500'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final parsed = MoneyFormat.parse(_controller.text);
+            if (parsed == null) return;
+            Navigator.pop(context, parsed);
+          },
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
+
 class _Totals extends StatelessWidget {
   const _Totals({required this.order});
   final DraftOrder order;
@@ -745,6 +891,10 @@ class _Totals extends StatelessWidget {
       if (order.ivaEnabled)
         (order.ivaLabel, MoneyFormat.detailed(order.iva), false),
       ('Total', MoneyFormat.detailed(order.total), true),
+      if (order.hasSena) ...[
+        ('Seña', MoneyFormat.detailed(order.sena ?? 0), false),
+        ('Restante', MoneyFormat.detailed(order.remaining), false),
+      ],
     ];
     return Column(
       children: [

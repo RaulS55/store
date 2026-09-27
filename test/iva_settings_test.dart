@@ -51,6 +51,11 @@ void main() {
     final store = AppStore();
     store.setIvaPercent(150);
     expect(store.ivaPercent, 100);
+
+    store.setSenaAmount(2500);
+    expect(store.senaAmount, 2500);
+    store.setSenaAmount(-10);
+    expect(store.senaAmount, 0);
   });
 
   testWidgets('settings can select clothing, footwear or both', (tester) async {
@@ -184,6 +189,37 @@ void main() {
     expect(find.byTooltip('Copiar enlace'), findsOneWidget);
     expect(
       find.text('Tus clientes arman un pedido y te lo envían por WhatsApp.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('settings can set a default deposit for business orders', (
+    tester,
+  ) async {
+    final store = AppStore();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: const MaterialApp(home: Scaffold(body: SettingsPage())),
+      ),
+    );
+
+    expect(store.senaAmount, 0);
+    expect(find.text('Seña'), findsOneWidget);
+    expect(find.byKey(const ValueKey('sena-amount')), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('sena-amount')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('sena-amount')), '5000');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(store.senaAmount, 5000);
+    expect(
+      find.text(
+        'Monto por defecto al cerrar un pedido. Solo aplica al modo negocio.',
+      ),
       findsOneWidget,
     );
   });

@@ -98,6 +98,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   bool ivaEnabled = false;
   double ivaPercent = 21;
   bool includeProductCodeInInvoice = true;
+  double senaAmount = 0;
   CompanyRubro rubro = CompanyRubro.ambos;
 
   ProductImageCache get imageCache => _imageCache;
@@ -594,6 +595,13 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     notifyListeners();
   }
 
+  void setSenaAmount(double amount) {
+    final next = _normalizeSena(amount);
+    if (senaAmount == next) return;
+    senaAmount = next;
+    notifyListeners();
+  }
+
   void setRubro(CompanyRubro next) {
     if (rubro == next) return;
     rubro = next;
@@ -909,6 +917,11 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     return trimmed;
   }
 
+  double _normalizeSena(double value) {
+    if (!value.isFinite || value <= 0) return 0;
+    return value;
+  }
+
   Future<void> setCustomerPhone(String customerId, String phone) async {
     final nextPhone = _blankToNull(phone);
     final existing = customerById(customerId);
@@ -1041,6 +1054,20 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     unawaited(_persistOrder(order));
   }
 
+  void setLineUnitPrice(String orderId, String lineKey, double? price) {
+    final order = orderById(orderId);
+    if (order == null || order.isClosed) return;
+    final index = order.lines.indexWhere((l) => l.lineKey == lineKey);
+    if (index < 0) return;
+    final line = order.lines[index];
+    final next = price == null || price == line.listPrice
+        ? line.copyWith(clearUnitPriceOverride: true)
+        : line.copyWith(unitPriceOverride: price);
+    order.lines[index] = next;
+    notifyListeners();
+    unawaited(_persistOrder(order));
+  }
+
   void removeLine(String orderId, String lineKey) {
     final order = orderById(orderId);
     if (order == null || order.isClosed) return;
@@ -1098,10 +1125,11 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     return SaveStockResult.saved;
   }
 
-  bool closeOrder(String orderId) {
+  bool closeOrder(String orderId, {double? sena}) {
     final order = orderById(orderId);
     if (order == null || order.isClosed || order.lines.isEmpty) return false;
     if (saveOrderStock(orderId) == SaveStockResult.insufficient) return false;
+    order.sena = _normalizeSena(sena ?? 0);
     order.status = OrderStatus.cerrado;
     order.closedAt = DateTime.now().toUtc();
     orders.removeWhere((item) => item.id == orderId);

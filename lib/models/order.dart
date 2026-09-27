@@ -67,28 +67,39 @@ class OrderLine {
     required this.product,
     required this.variant,
     required this.quantity,
+    this.unitPriceOverride,
   });
 
   final Product product;
   final ProductVariant variant;
   final int quantity;
+  final double? unitPriceOverride;
 
   String get lineKey => '${product.id}::${variant.key}';
 
   String get variantSku => product.variantSku(variant);
 
-  double get unitPrice => product.price;
+  double get listPrice => product.price;
+
+  bool get hasCustomPrice => unitPriceOverride != null;
+
+  double get unitPrice => unitPriceOverride ?? product.price;
   double get lineTotal => unitPrice * quantity;
 
   OrderLine copyWith({
     Product? product,
     ProductVariant? variant,
     int? quantity,
+    double? unitPriceOverride,
+    bool clearUnitPriceOverride = false,
   }) {
     return OrderLine(
       product: product ?? this.product,
       variant: variant ?? this.variant,
       quantity: quantity ?? this.quantity,
+      unitPriceOverride: clearUnitPriceOverride
+          ? null
+          : (unitPriceOverride ?? this.unitPriceOverride),
     );
   }
 
@@ -101,6 +112,7 @@ class OrderLine {
       product: Product.fromMap(productId, productMap),
       variant: ProductVariant.fromMap(variantMap),
       quantity: (data['quantity'] as num?)?.toInt() ?? 0,
+      unitPriceOverride: (data['unitPriceOverride'] as num?)?.toDouble(),
     );
   }
 
@@ -109,6 +121,7 @@ class OrderLine {
       'product': product.toMap(),
       'variant': variant.toMap(),
       'quantity': quantity,
+      if (unitPriceOverride != null) 'unitPriceOverride': unitPriceOverride,
     };
   }
 }
@@ -128,6 +141,7 @@ class DraftOrder {
     this.ivaEnabled = false,
     this.ivaPercent = 21,
     this.includeProductCodeInInvoice = true,
+    this.sena,
     this.source = RecordSource.staff,
   }) : lines = lines ?? <OrderLine>[],
        stockReservations = stockReservations ?? <StockReservation>[],
@@ -147,6 +161,7 @@ class DraftOrder {
   bool ivaEnabled;
   double ivaPercent;
   bool includeProductCodeInInvoice;
+  double? sena;
   RecordSource source;
 
   bool get isClosed => status == OrderStatus.cerrado;
@@ -196,6 +211,10 @@ class DraftOrder {
   double get iva => subtotal * ivaRate;
 
   double get total => subtotal + iva;
+
+  bool get hasSena => (sena ?? 0) > 0;
+
+  double get remaining => total - (sena ?? 0);
 
   String get ivaLabel => 'IVA ($_ivaPercentText%)';
 
@@ -250,6 +269,9 @@ class DraftOrder {
       ivaPercent: (data['ivaPercent'] as num?)?.toDouble() ?? 21,
       includeProductCodeInInvoice:
           data['includeProductCodeInInvoice'] as bool? ?? true,
+      sena: data.containsKey('sena')
+          ? (data['sena'] as num?)?.toDouble()
+          : null,
       source: RecordSource.fromStorage(data['source'] as String?),
     );
   }
@@ -271,6 +293,7 @@ class DraftOrder {
       'ivaEnabled': ivaEnabled,
       'ivaPercent': ivaPercent,
       'includeProductCodeInInvoice': includeProductCodeInInvoice,
+      if (sena != null) 'sena': sena,
       'source': source.name,
     };
   }

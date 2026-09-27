@@ -254,6 +254,18 @@ class InvoicePage extends StatelessWidget {
                             MoneyFormat.detailed(order.total),
                             emphasize: true,
                           ),
+                          if (order.hasSena) ...[
+                            _kv(
+                              context,
+                              'Seña',
+                              MoneyFormat.detailed(order.sena ?? 0),
+                            ),
+                            _kv(
+                              context,
+                              'Restante',
+                              MoneyFormat.detailed(order.remaining),
+                            ),
+                          ],
                         ],
                       ),
                     ),

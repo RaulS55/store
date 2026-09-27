@@ -61,6 +61,9 @@ void main() {
     expect(order.stockReservations, isEmpty);
     expect(order.stockNeedsSave, isTrue);
     expect(order.includeProductCodeInInvoice, isTrue);
+    expect(order.sena, isNull);
+    expect(order.hasSena, isFalse);
+    expect(order.toMap().containsKey('sena'), isFalse);
   });
 
   test('stock reservations round-trip and track unsaved edits', () {
@@ -122,6 +125,115 @@ void main() {
 
   test('OrderStatus.fromStorage rejects an unknown value', () {
     expect(() => OrderStatus.fromStorage('facturado'), throwsFormatException);
+  });
+
+  test('OrderLine keeps list price and uses an optional sale override', () {
+    final line = OrderLine(
+      product: product,
+      variant: product.variants.first,
+      quantity: 2,
+    );
+    expect(line.listPrice, 10000);
+    expect(line.unitPrice, 10000);
+    expect(line.hasCustomPrice, isFalse);
+    expect(line.lineTotal, 20000);
+    expect(line.toMap().containsKey('unitPriceOverride'), isFalse);
+
+    final discounted = line.copyWith(unitPriceOverride: 8000);
+    expect(discounted.listPrice, 10000);
+    expect(discounted.unitPrice, 8000);
+    expect(discounted.hasCustomPrice, isTrue);
+    expect(discounted.lineTotal, 16000);
+    expect(discounted.toMap()['unitPriceOverride'], 8000);
+
+    final restored = discounted.copyWith(clearUnitPriceOverride: true);
+    expect(restored.hasCustomPrice, isFalse);
+    expect(restored.unitPrice, 10000);
+    expect(restored.toMap().containsKey('unitPriceOverride'), isFalse);
+  });
+
+  test('OrderLine.fromMap reads a missing override as list price', () {
+    final line = OrderLine.fromMap({
+      'quantity': 1,
+      'product': product.toMap(),
+      'variant': product.variants.first.toMap(),
+    });
+    expect(line.unitPriceOverride, isNull);
+    expect(line.unitPrice, product.price);
+
+    final custom = OrderLine.fromMap({
+      'quantity': 1,
+      'product': product.toMap(),
+      'variant': product.variants.first.toMap(),
+      'unitPriceOverride': 7500,
+    });
+    expect(custom.unitPriceOverride, 7500);
+    expect(custom.unitPrice, 7500);
+    expect(custom.listPrice, product.price);
+  });
+
+  test('DraftOrder subtotal uses the sale price when a line is overridden', () {
+    final order = DraftOrder(
+      id: 'o-price',
+      orderNumber: 'PED-9',
+      customer: customer,
+      lines: [
+        OrderLine(
+          product: product,
+          variant: product.variants.first,
+          quantity: 2,
+          unitPriceOverride: 8000,
+        ),
+      ],
+    );
+    expect(order.subtotal, 16000);
+    expect(order.total, 16000);
+  });
+
+  test('DraftOrder reads a saved deposit and remaining balance', () {
+    final order = DraftOrder.fromMap('o-sena', {
+      'id': 'o-sena',
+      'orderNumber': 'PED-10',
+      'status': 'cerrado',
+      'sena': 3000,
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'customer': customer.toMap(),
+      'lines': [
+        {
+          'quantity': 1,
+          'product': product.toMap(),
+          'variant': product.variants.first.toMap(),
+        },
+      ],
+    });
+    expect(order.sena, 3000);
+    expect(order.hasSena, isTrue);
+    expect(order.total, 10000);
+    expect(order.remaining, 7000);
+    expect(order.toMap()['sena'], 3000);
+  });
+
+  test('DraftOrder.fromMap keeps a recorded zero deposit', () {
+    final order = DraftOrder.fromMap('o-sena-0', {
+      'id': 'o-sena-0',
+      'orderNumber': 'PED-11',
+      'status': 'borrador',
+      'sena': 0,
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'customer': customer.toMap(),
+      'lines': [
+        {
+          'quantity': 1,
+          'product': product.toMap(),
+          'variant': product.variants.first.toMap(),
+        },
+      ],
+    });
+    expect(order.sena, 0);
+    expect(order.hasSena, isFalse);
+    expect(order.toMap()['sena'], 0);
   });
 
   test('DraftOrder.fromMap reads a catalog source', () {

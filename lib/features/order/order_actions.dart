@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../../data/formatters.dart';
 import '../../data/order_share.dart';
 import '../../models/order.dart';
 import '../../theme/tokens.dart';
@@ -150,33 +151,16 @@ class CancelOrderButton extends StatelessWidget {
 
 Future<void> closeOrderFlow(BuildContext context, DraftOrder order) async {
   if (order.lines.isEmpty || order.isClosed) return;
-  final confirmed = await showDialog<bool>(
+  final store = context.read<AppStore>();
+  final initialSena = order.sena ?? store.senaAmount;
+  final sena = await showDialog<double>(
     context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('Cerrar pedido'),
-        content: Text(
-          order.stockNeedsSave
-              ? 'El pedido deja de estar activo. El stock se actualiza y queda en el historial del cliente.'
-              : 'El pedido deja de estar activo. El stock ya está reservado y queda en el historial del cliente.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-            child: const Text('Aceptar'),
-          ),
-        ],
-      );
-    },
+    builder: (context) =>
+        _CloseOrderDialog(order: order, initialSena: initialSena),
   );
-  if (confirmed != true || !context.mounted) return;
+  if (sena == null || !context.mounted) return;
   final orderId = order.id;
-  final ok = context.read<AppStore>().closeOrder(orderId);
+  final ok = context.read<AppStore>().closeOrder(orderId, sena: sena);
   if (!context.mounted) return;
   if (!ok) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -187,6 +171,79 @@ Future<void> closeOrderFlow(BuildContext context, DraftOrder order) async {
     return;
   }
   context.go(invoiceRoute(orderId));
+}
+
+class _CloseOrderDialog extends StatefulWidget {
+  const _CloseOrderDialog({required this.order, required this.initialSena});
+
+  final DraftOrder order;
+  final double initialSena;
+
+  @override
+  State<_CloseOrderDialog> createState() => _CloseOrderDialogState();
+}
+
+class _CloseOrderDialogState extends State<_CloseOrderDialog> {
+  late final TextEditingController _sena;
+
+  @override
+  void initState() {
+    super.initState();
+    _sena = TextEditingController(
+      text: MoneyFormat.grouped(widget.initialSena),
+    );
+  }
+
+  @override
+  void dispose() {
+    _sena.dispose();
+    super.dispose();
+  }
+
+  void _accept() {
+    Navigator.pop(context, MoneyFormat.parse(_sena.text) ?? 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Cerrar pedido'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.order.stockNeedsSave
+                ? 'El pedido deja de estar activo. El stock se actualiza y queda en el historial del cliente.'
+                : 'El pedido deja de estar activo. El stock ya está reservado y queda en el historial del cliente.',
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const ValueKey('order-sena-field'),
+            controller: _sena,
+            keyboardType: TextInputType.number,
+            inputFormatters: [MoneyFormat.inputFormatter],
+            decoration: const InputDecoration(
+              labelText: 'Seña',
+              prefixText: '\$ ',
+            ),
+            onSubmitted: (_) => _accept(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _accept,
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+          child: const Text('Aceptar'),
+        ),
+      ],
+    );
+  }
 }
 
 Future<void> reopenOrderFlow(BuildContext context, DraftOrder order) async {

@@ -242,4 +242,53 @@ void main() {
     expect(store.productById('p-test')!.variants.first.stock, 8);
     expect(order.stockNeedsSave, isFalse);
   });
+
+  testWidgets('active orders let staff change the sale price of a line', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    expect(find.text(r'$10.000,00'), findsWidgets);
+    await tester.ensureVisible(find.byKey(const ValueKey('edit-line-price')));
+    await tester.tap(find.byKey(const ValueKey('edit-line-price')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Precio de venta'), findsOneWidget);
+    expect(find.text(r'Lista: $10.000,00'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('line-unit-price-field')),
+      '8000',
+    );
+    await tester.tap(find.text('Guardar'));
+    await tester.pumpAndSettle();
+
+    expect(order.lines.first.unitPrice, 8000);
+    expect(order.subtotal, 8000);
+    expect(find.text(r'$8.000,00'), findsWidgets);
+    expect(find.text(r'Lista: $10.000,00'), findsOneWidget);
+    expect(store.productById('p-test')!.price, 10000);
+  });
+
+  testWidgets('closed orders do not offer a line price change', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    store.setLineUnitPrice(order.id, order.lines.first.lineKey, 8000);
+    expect(store.closeOrder(order.id), isTrue);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('edit-line-price')), findsNothing);
+    expect(find.text(r'$8.000,00'), findsWidgets);
+    expect(find.text(r'Lista: $10.000,00'), findsOneWidget);
+  });
 }

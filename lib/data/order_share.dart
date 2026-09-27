@@ -23,8 +23,13 @@ class OrderShare {
     if (order.ivaEnabled) {
       buffer.writeln('${order.ivaLabel}: ${MoneyFormat.detailed(order.iva)}');
     }
+    buffer.writeln('Total: ${MoneyFormat.detailed(order.total)}');
+    if (order.hasSena) {
+      buffer
+        ..writeln('Seña: ${MoneyFormat.detailed(order.sena ?? 0)}')
+        ..writeln('Restante: ${MoneyFormat.detailed(order.remaining)}');
+    }
     buffer
-      ..writeln('Total: ${MoneyFormat.detailed(order.total)}')
       ..writeln()
       ..writeln('Moda Stock');
     return buffer.toString();
@@ -84,9 +89,7 @@ class OrderShare {
     if (order.lines.isEmpty) return null;
     final digits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
     if (digits.isEmpty) return null;
-    final text = Uri.encodeComponent(
-      catalogMessage(order, updated: updated),
-    );
+    final text = Uri.encodeComponent(catalogMessage(order, updated: updated));
     return Uri.parse('https://wa.me/$digits?text=$text');
   }
 

@@ -120,6 +120,7 @@ service cloud.firestore {
         && request.resource.data.deletedAt == null
         && request.resource.data.status == 'borrador'
         && request.resource.data.ivaEnabled == false
+        && request.resource.data.get('sena', 0) == 0
         && request.resource.data.closedAt == null
         && request.resource.data.orderNumber is string
         && request.resource.data.lines is list
@@ -164,6 +165,8 @@ service cloud.firestore {
         && request.resource.data.ivaPercent == resource.data.ivaPercent
         && request.resource.data.get('includeProductCodeInInvoice', true)
           == resource.data.get('includeProductCodeInInvoice', true)
+        && request.resource.data.get('sena', 0)
+          == resource.data.get('sena', 0)
         && request.resource.data.get('stockReservations', [])
           == resource.data.get('stockReservations', [])
         && request.resource.data.customer.id == resource.data.customer.id

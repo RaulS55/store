@@ -143,6 +143,49 @@ void main() {
     expect(stats.expectedProfit, 0);
   });
 
+  test('closed orders use the sale override instead of list price', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final lot = testLot(id: 'l1', cost: 40000, quantity: 10, unitCost: 4000);
+    await store.upsertLot(lot);
+    final product = testProduct(id: 'p1', lotId: 'l1', stock: 8, price: 15000);
+    await store.upsertProduct(product);
+    final order = await seedTestOrder(store, product: product);
+    store.setLineUnitPrice(order.id, order.lines.first.lineKey, 10000);
+    expect(store.closeOrder(order.id), isTrue);
+
+    final stats = store.statsForLot(lot);
+    expect(stats.soldUnits, 1);
+    expect(stats.availableUnits, 7);
+    expect(stats.soldValue, 10000);
+    expect(stats.expectedValue, 115000);
+    expect(stats.recoveryRemainingPercent, 75);
+    expect(store.productById('p1')!.price, 15000);
+  });
+
+  test('reserved stock uses the sale override when present', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final lot = testLot(id: 'l1', cost: 40000, quantity: 10, unitCost: 4000);
+    await store.upsertLot(lot);
+    final product = testProduct(id: 'p1', lotId: 'l1', stock: 8, price: 15000);
+    await store.upsertProduct(product);
+    final order = await seedTestOrder(store, product: product);
+    store.setLineQty(order.id, order.lines.first.lineKey, 2);
+    store.setLineUnitPrice(order.id, order.lines.first.lineKey, 10000);
+    expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+
+    final stats = store.statsForLot(store.lotById('l1')!);
+    expect(stats.availableUnits, 6);
+    expect(stats.reservedUnits, 2);
+    expect(stats.soldUnits, 0);
+    expect(stats.reservedValue, 20000);
+    expect(stats.soldValue, 0);
+    expect(stats.expectedValue, 110000);
+    expect(stats.recoveryRemainingPercent, 100);
+    expect(store.productById('p1')!.price, 15000);
+  });
+
   test('app sales plus other channels cannot push recovery over 100', () async {
     final store = AppStore();
     addTearDown(store.dispose);

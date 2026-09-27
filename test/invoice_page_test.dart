@@ -165,6 +165,87 @@ void main() {
     expect(find.text('RESUMEN DE FACTURA'), findsOneWidget);
     expect(find.text('Total a facturar'), findsOneWidget);
     expect(order.isClosed, isTrue);
+    expect(order.sena, 0);
+    expect(find.text('Seña'), findsNothing);
+  });
+
+  testWidgets('closing an order prefills the configured deposit', (
+    tester,
+  ) async {
+    final store = AppStore();
+    final session = await signedInOwnerSession();
+    final order = await seedTestOrder(store);
+    store.setSenaAmount(5000);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/pedido/${order.id}');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cerrar pedido'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('order-sena-field')), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('order-sena-field')))
+          .controller!
+          .text,
+      '5.000',
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('order-sena-field')),
+      '2000',
+    );
+    await tester.tap(find.text('Aceptar'));
+    await tester.pumpAndSettle();
+
+    expect(order.isClosed, isTrue);
+    expect(order.sena, 2000);
+    expect(find.text('Seña'), findsOneWidget);
+    expect(find.text('Restante'), findsOneWidget);
+  });
+
+  testWidgets('reclosing keeps the last deposit of the order', (tester) async {
+    final store = AppStore();
+    final session = await signedInOwnerSession();
+    final order = await seedTestOrder(store);
+    store.setSenaAmount(5000);
+    expect(store.closeOrder(order.id, sena: 2000), isTrue);
+    expect(store.reopenOrder(order.id), ReopenOrderResult.reopened);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/pedido/${order.id}');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cerrar pedido'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('order-sena-field')))
+          .controller!
+          .text,
+      '2.000',
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('order-sena-field')),
+      '3000',
+    );
+    await tester.tap(find.text('Aceptar'));
+    await tester.pumpAndSettle();
+
+    expect(order.isClosed, isTrue);
+    expect(order.sena, 3000);
   });
 
   testWidgets('customers history opens billing for a closed order', (

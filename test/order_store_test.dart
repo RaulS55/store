@@ -73,6 +73,30 @@ void main() {
     expect(saved.status, OrderStatus.cerrado);
     expect(saved.closedAt, isNotNull);
     expect(saved.toMap()['status'], 'cerrado');
+    expect(saved.sena, 0);
+    expect(saved.toMap()['sena'], 0);
+  });
+
+  test('closeOrder persists the deposit entered for the order', () async {
+    final access = FakeOrderAccess();
+    final store = AppStore(
+      orderAccess: access,
+      customers: FakeCustomerAccess(),
+      products: FakeProductAccess(),
+    );
+    addTearDown(store.dispose);
+    store.bindCompany('co1');
+    await _flush();
+    final order = await seedTestOrder(store);
+    await _flush();
+
+    expect(store.closeOrder(order.id, sena: 2500), isTrue);
+    await _flush();
+    final saved = access.orders['co1']![order.id]!;
+    expect(saved.sena, 2500);
+    expect(saved.hasSena, isTrue);
+    expect(saved.remaining, 7500);
+    expect(saved.toMap()['sena'], 2500);
   });
 
   test('a second store sees open and closed orders from access', () async {
@@ -378,8 +402,9 @@ void main() {
     store.bindCompany('co1');
     await _flush();
     final order = await seedTestOrder(store);
-    expect(store.closeOrder(order.id), isTrue);
+    expect(store.closeOrder(order.id, sena: 2500), isTrue);
     await _flush();
+    expect(order.sena, 2500);
     final stockAfterClose = store.productById('p-test')!.variants.first.stock;
     final holds = [...order.stockReservations];
     expect(holds, isNotEmpty);
@@ -388,6 +413,7 @@ void main() {
     await _flush();
     expect(order.isActive, isTrue);
     expect(order.closedAt, isNull);
+    expect(order.sena, 2500);
     expect(store.orders.any((item) => item.id == order.id), isTrue);
     expect(store.closedOrders.any((item) => item.id == order.id), isFalse);
     expect(store.activeOrderId, order.id);
@@ -397,6 +423,7 @@ void main() {
     final saved = access.orders['co1']![order.id]!;
     expect(saved.status, OrderStatus.borrador);
     expect(saved.closedAt, isNull);
+    expect(saved.sena, 2500);
 
     store.setLineQty(order.id, order.lines.first.lineKey, 2);
     expect(order.stockNeedsSave, isTrue);
@@ -444,5 +471,65 @@ void main() {
     expect(order.lines.first.quantity, 2);
     expect(order.stockNeedsSave, isFalse);
     expect(store.productById('p-test')!.variants.first.stock, 0);
+  });
+
+  test(
+    'setLineUnitPrice persists an override and clears it at list price',
+    () async {
+      final access = FakeOrderAccess();
+      final store = AppStore(
+        orderAccess: access,
+        customers: FakeCustomerAccess(),
+        products: FakeProductAccess(),
+      );
+      addTearDown(store.dispose);
+      store.bindCompany('co1');
+      await _flush();
+      final order = await seedTestOrder(store);
+      await _flush();
+      final lineKey = order.lines.first.lineKey;
+
+      store.setLineUnitPrice(order.id, lineKey, 8000);
+      await _flush();
+      expect(order.lines.first.hasCustomPrice, isTrue);
+      expect(order.lines.first.unitPrice, 8000);
+      expect(order.subtotal, 8000);
+      expect(
+        access.orders['co1']![order.id]!.lines.first.unitPriceOverride,
+        8000,
+      );
+
+      store.addToOrder(
+        store.productById('p-test')!,
+        store.productById('p-test')!.variants.first,
+      );
+      await _flush();
+      expect(order.lines.first.quantity, 2);
+      expect(order.lines.first.unitPriceOverride, 8000);
+      expect(order.subtotal, 16000);
+
+      store.setLineUnitPrice(order.id, lineKey, 10000);
+      await _flush();
+      expect(order.lines.first.hasCustomPrice, isFalse);
+      expect(order.lines.first.unitPrice, 10000);
+      expect(
+        access.orders['co1']![order.id]!.lines.first.toMap().containsKey(
+          'unitPriceOverride',
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  test('setLineUnitPrice ignores closed orders', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    final lineKey = order.lines.first.lineKey;
+    expect(store.closeOrder(order.id), isTrue);
+
+    store.setLineUnitPrice(order.id, lineKey, 8000);
+    expect(store.closedOrders.first.lines.first.hasCustomPrice, isFalse);
+    expect(store.closedOrders.first.lines.first.unitPrice, 10000);
   });
 }
