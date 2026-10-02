@@ -134,11 +134,13 @@ class _OrderHeader extends StatelessWidget {
         ),
         if (wide) const SizedBox(width: 4),
         Expanded(
-          child: Text(
-            order.isClosed ? 'Pedido cerrado' : 'Armar pedido',
-            textAlign: TextAlign.start,
-            style: titleStyle,
-          ),
+          child: wide || order.isClosed
+              ? Text(
+                  order.isClosed ? 'Pedido cerrado' : 'Armar pedido',
+                  textAlign: TextAlign.start,
+                  style: titleStyle,
+                )
+              : const SizedBox.shrink(),
         ),
         _StatusBadge(order: order),
         if (!order.isClosed) OrderSenaButton(order: order),

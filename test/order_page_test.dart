@@ -347,7 +347,7 @@ void main() {
 
     expect(order.isActive, isTrue);
     expect(store.productById('p-test')!.variants.first.stock, stockAfterClose);
-    expect(find.text('Armar pedido'), findsOneWidget);
+    expect(find.text('Armar pedido'), findsNothing);
     expect(find.text('Restablecer stock'), findsOneWidget);
     expect(find.text('Cambiar'), findsOneWidget);
     expect(

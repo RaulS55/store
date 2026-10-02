@@ -271,8 +271,18 @@ class _ProductFormPageState extends State<ProductFormPage> {
       saving: _saving,
       onAdd: _saving ? null : _addImage,
       onRemove: _saving ? null : (i) => setState(() => _images.removeAt(i)),
+      onReorder: _saving ? null : _reorderImages,
       wide: wide,
     );
+  }
+
+  void _reorderImages(int from, int to) {
+    if (from == to || from < 0 || to < 0) return;
+    if (from >= _images.length || to >= _images.length) return;
+    setState(() {
+      final image = _images.removeAt(from);
+      _images.insert(to, image);
+    });
   }
 
   Widget _mobileBody() {
@@ -636,10 +646,18 @@ class _LabeledField extends StatelessWidget {
 }
 
 class _ProductImageDraft {
-  _ProductImageDraft.url(this.url) : bytes = null, compressing = false;
+  _ProductImageDraft.url(this.url)
+    : bytes = null,
+      compressing = false,
+      id = url!;
 
-  _ProductImageDraft.pending(this.bytes) : url = null, compressing = true;
+  _ProductImageDraft.pending(this.bytes)
+    : url = null,
+      compressing = true,
+      id =
+          'pending-${identityHashCode(bytes)}-${DateTime.now().microsecondsSinceEpoch}';
 
+  final String id;
   final String? url;
   Uint8List? bytes;
   Future<void>? compression;
@@ -651,6 +669,7 @@ class _ImagesEditor extends StatelessWidget {
     required this.images,
     required this.onRemove,
     this.onAdd,
+    this.onReorder,
     this.saving = false,
     this.wide = false,
   });
@@ -658,12 +677,12 @@ class _ImagesEditor extends StatelessWidget {
   final List<_ProductImageDraft> images;
   final VoidCallback? onAdd;
   final ValueChanged<int>? onRemove;
+  final void Function(int from, int to)? onReorder;
   final bool saving;
   final bool wide;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -675,9 +694,13 @@ class _ImagesEditor extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          wide
-              ? 'Arrastrá o hacé clic para elegir imágenes (máx. 3)'
-              : 'Agregá hasta 3 imágenes',
+          images.length > 1
+              ? (wide
+                    ? 'Arrastrá las fotos para ordenarlas. La primera es la portada (máx. 3).'
+                    : 'Mantené presionada una foto y arrastrala para ordenar. La primera es la portada.')
+              : (wide
+                    ? 'Arrastrá o hacé clic para elegir imágenes (máx. 3)'
+                    : 'Agregá hasta 3 imágenes'),
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
@@ -688,130 +711,259 @@ class _ImagesEditor extends StatelessWidget {
           runSpacing: 10,
           children: [
             for (var i = 0; i < images.length; i++)
-              SizedBox(
-                width: 88,
-                height: 88,
-                child: ClipRRect(
+              _SortableProductImage(
+                key: ValueKey('product-image-tile-${images[i].id}'),
+                index: i,
+                image: images[i],
+                images: images,
+                canReorder: onReorder != null && images.length > 1,
+                immediateDrag: wide,
+                onRemove: onRemove,
+                onReorder: onReorder,
+              ),
+            _AddImageTile(onAdd: onAdd, saving: saving, wide: wide),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SortableProductImage extends StatelessWidget {
+  const _SortableProductImage({
+    super.key,
+    required this.index,
+    required this.image,
+    required this.images,
+    required this.canReorder,
+    required this.immediateDrag,
+    required this.onRemove,
+    required this.onReorder,
+  });
+
+  final int index;
+  final _ProductImageDraft image;
+  final List<_ProductImageDraft> images;
+  final bool canReorder;
+  final bool immediateDrag;
+  final ValueChanged<int>? onRemove;
+  final void Function(int from, int to)? onReorder;
+
+  @override
+  Widget build(BuildContext context) {
+    final tile = _imageTile(context);
+    if (!canReorder) return tile;
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) => details.data != index,
+      onAcceptWithDetails: (details) => onReorder?.call(details.data, index),
+      builder: (context, candidate, rejected) {
+        final hovering = candidate.isNotEmpty;
+        final highlighted = DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadii.md),
+            border: hovering
+                ? Border.all(color: AppColors.terracotta, width: 2)
+                : null,
+          ),
+          child: tile,
+        );
+        final feedback = Material(
+          elevation: 6,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: 88,
+            height: 88,
+            child: ProductImage(
+              path: image.url ?? '',
+              bytes: image.bytes,
+              borderRadius: BorderRadius.circular(AppRadii.md),
+            ),
+          ),
+        );
+        final placeholder = Opacity(opacity: 0.35, child: tile);
+        if (immediateDrag) {
+          return Draggable<int>(
+            data: index,
+            feedback: feedback,
+            childWhenDragging: placeholder,
+            maxSimultaneousDrags: 1,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.grab,
+              child: highlighted,
+            ),
+          );
+        }
+        return LongPressDraggable<int>(
+          data: index,
+          feedback: feedback,
+          childWhenDragging: placeholder,
+          maxSimultaneousDrags: 1,
+          child: highlighted,
+        );
+      },
+    );
+  }
+
+  Widget _imageTile(BuildContext context) {
+    return SizedBox(
+      width: 88,
+      height: 88,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => showProductImageViewer(
+                  context: context,
+                  images: [
+                    for (final item in images)
+                      ProductImageEntry(
+                        path: item.url ?? '',
+                        bytes: item.bytes,
+                      ),
+                  ],
+                  initialIndex: index,
+                ),
+                child: ProductImage(
+                  path: image.url ?? '',
+                  bytes: image.bytes,
                   borderRadius: BorderRadius.circular(AppRadii.md),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: GestureDetector(
-                          onTap: () => showProductImageViewer(
-                            context: context,
-                            images: [
-                              for (final image in images)
-                                ProductImageEntry(
-                                  path: image.url ?? '',
-                                  bytes: image.bytes,
-                                ),
-                            ],
-                            initialIndex: i,
-                          ),
-                          child: ProductImage(
-                            path: images[i].url ?? '',
-                            bytes: images[i].bytes,
-                            borderRadius: BorderRadius.circular(AppRadii.md),
-                          ),
-                        ),
-                      ),
-                      if (images[i].compressing)
-                        const Positioned.fill(
-                          child: ColoredBox(
-                            color: Color(0x66000000),
-                            child: Center(
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: InkWell(
-                          onTap: () => onRemove?.call(i),
-                          child: const CircleAvatar(
-                            radius: 10,
-                            backgroundColor: Colors.white,
-                            child: Icon(Icons.close, size: 12),
-                          ),
-                        ),
-                      ),
-                    ],
+                ),
+              ),
+            ),
+            if (image.compressing)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Color(0x66000000),
+                  child: Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   ),
                 ),
               ),
-            Material(
-              color: isDark
-                  ? AppColors.terracotta.withValues(alpha: 0.08)
-                  : AppColors.terracottaChip,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadii.md),
-                side: BorderSide(
-                  color: AppColors.terracotta.withValues(alpha: 0.45),
-                ),
-              ),
-              clipBehavior: Clip.antiAlias,
+            if (index == 0)
+              const Positioned(left: 4, bottom: 4, child: _CoverBadge()),
+            Positioned(
+              top: 4,
+              right: 4,
               child: InkWell(
-                onTap: onAdd,
-                borderRadius: BorderRadius.circular(AppRadii.md),
-                child: SizedBox(
-                  width: wide ? double.infinity : 88,
-                  height: wide ? 120 : 88,
-                  child: saving
-                      ? const Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      : wide
-                      ? const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.add_photo_alternate_outlined,
-                              color: AppColors.terracotta,
-                            ),
-                            SizedBox(height: 6),
-                            Text(
-                              'Agregar foto (máx. 3)',
-                              style: TextStyle(color: AppColors.terracotta),
-                            ),
-                            Text(
-                              'JPEG, PNG o WEBP hasta 10 MB.',
-                              style: TextStyle(
-                                color: AppColors.mutedText,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        )
-                      : const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add, color: AppColors.terracotta),
-                            Text(
-                              'Agregar',
-                              style: TextStyle(
-                                color: AppColors.terracotta,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
+                onTap: () => onRemove?.call(index),
+                child: const CircleAvatar(
+                  radius: 10,
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.close, size: 12),
                 ),
               ),
             ),
           ],
         ),
-      ],
+      ),
+    );
+  }
+}
+
+class _CoverBadge extends StatelessWidget {
+  const _CoverBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.terracotta,
+        borderRadius: BorderRadius.circular(AppRadii.pill),
+      ),
+      child: const Text(
+        'Portada',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _AddImageTile extends StatelessWidget {
+  const _AddImageTile({
+    required this.onAdd,
+    required this.saving,
+    required this.wide,
+  });
+
+  final VoidCallback? onAdd;
+  final bool saving;
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: isDark
+          ? AppColors.terracotta.withValues(alpha: 0.08)
+          : AppColors.terracottaChip,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        side: BorderSide(color: AppColors.terracotta.withValues(alpha: 0.45)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onAdd,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        child: SizedBox(
+          width: wide ? double.infinity : 88,
+          height: wide ? 120 : 88,
+          child: saving
+              ? const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : wide
+              ? const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.add_photo_alternate_outlined,
+                      color: AppColors.terracotta,
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'Agregar foto (máx. 3)',
+                      style: TextStyle(color: AppColors.terracotta),
+                    ),
+                    Text(
+                      'JPEG, PNG o WEBP hasta 10 MB.',
+                      style: TextStyle(
+                        color: AppColors.mutedText,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                )
+              : const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add, color: AppColors.terracotta),
+                    Text(
+                      'Agregar',
+                      style: TextStyle(
+                        color: AppColors.terracotta,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
     );
   }
 }

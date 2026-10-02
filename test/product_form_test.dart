@@ -431,6 +431,40 @@ void main() {
     },
   );
 
+  testWidgets('dragging photos reorders them and saves the new cover', (
+    tester,
+  ) async {
+    _setTallView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-img',
+      ).copyWith(images: const ['img-a', 'img-b', 'img-c']),
+    );
+
+    await tester.pumpWidget(_formApp(store, productId: 'p-img'));
+    await tester.pump();
+
+    final from = find.byKey(const ValueKey('product-image-tile-img-c'));
+    final to = find.byKey(const ValueKey('product-image-tile-img-a'));
+    final start = tester.getCenter(from);
+    final end = tester.getCenter(to);
+    final gesture = await tester.startGesture(start);
+    await tester.pump(const Duration(milliseconds: 700));
+    await gesture.moveTo(end);
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Portada'), findsOneWidget);
+    await tester.ensureVisible(find.text('Guardar prenda'));
+    await tester.tap(find.text('Guardar prenda'));
+    await tester.pump();
+
+    expect(store.productById('p-img')!.images, ['img-c', 'img-a', 'img-b']);
+  });
+
   testWidgets('picking a photo compresses it at once and does not upload yet', (
     tester,
   ) async {
