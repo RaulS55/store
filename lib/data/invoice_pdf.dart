@@ -1,7 +1,9 @@
 import 'dart:typed_data';
+import 'dart:ui' show Rect;
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
 
 import '../models/order.dart';
 import 'download_file.dart';
@@ -106,6 +108,54 @@ Future<bool> downloadInvoicePdf(
     filename: InvoiceDocument.filename(order),
     mimeType: 'application/pdf',
   );
+}
+
+Future<bool> shareInvoicePdf(
+  DraftOrder order, {
+  bool? includeProductCode,
+  Rect? sharePositionOrigin,
+  Future<bool> Function({
+    required Uint8List bytes,
+    required String filename,
+    String mimeType,
+    Rect? sharePositionOrigin,
+  })?
+  shareBytes,
+}) async {
+  if (order.lines.isEmpty) return false;
+  final bytes = await buildInvoicePdf(
+    order,
+    includeProductCode: includeProductCode,
+  );
+  if (bytes.isEmpty) return false;
+  return (shareBytes ?? sharePdfBytes)(
+    bytes: bytes,
+    filename: InvoiceDocument.filename(order),
+    mimeType: 'application/pdf',
+    sharePositionOrigin: sharePositionOrigin,
+  );
+}
+
+Future<bool> sharePdfBytes({
+  required Uint8List bytes,
+  required String filename,
+  String mimeType = 'application/pdf',
+  Rect? sharePositionOrigin,
+}) async {
+  if (bytes.isEmpty || filename.isEmpty) return false;
+  try {
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile.fromData(bytes, mimeType: mimeType, name: filename)],
+        fileNameOverrides: [filename],
+        title: filename,
+        sharePositionOrigin: sharePositionOrigin,
+      ),
+    );
+    return true;
+  } catch (_) {
+    return downloadBytes(bytes: bytes, filename: filename, mimeType: mimeType);
+  }
 }
 
 pw.Widget _receiptIcon() {

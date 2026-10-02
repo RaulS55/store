@@ -131,6 +131,62 @@ void main() {
     expect(text, contains('REMERA'));
     expect(text, isNot(contains('TST-0001')));
   });
+
+  test('an open order can share the invoice pdf as it stands', () async {
+    final open = DraftOrder(
+      id: 'o-open',
+      orderNumber: 'PED-77',
+      customer: customer,
+      createdAt: stamp,
+      updatedAt: stamp,
+      lines: [
+        OrderLine(
+          product: product,
+          variant: product.variants.first,
+          quantity: 1,
+        ),
+      ],
+    );
+    Uint8List? shared;
+    String? name;
+    final ok = await shareInvoicePdf(
+      open,
+      shareBytes:
+          ({
+            required bytes,
+            required filename,
+            mimeType = 'application/pdf',
+            sharePositionOrigin,
+          }) async {
+            shared = bytes;
+            name = filename;
+            return true;
+          },
+    );
+    expect(ok, isTrue);
+    expect(name, 'factura-PED-77.pdf');
+    expect(shared!.take(5).toList(), '%PDF-'.codeUnits);
+    expect(_pdfText(shared!), contains('PED-77'));
+  });
+
+  test('an empty order cannot share an invoice pdf', () async {
+    var shared = false;
+    final ok = await shareInvoicePdf(
+      DraftOrder(id: 'o-empty', orderNumber: 'PED-0', customer: customer),
+      shareBytes:
+          ({
+            required bytes,
+            required filename,
+            mimeType = 'application/pdf',
+            sharePositionOrigin,
+          }) async {
+            shared = true;
+            return true;
+          },
+    );
+    expect(ok, isFalse);
+    expect(shared, isFalse);
+  });
 }
 
 String _pdfText(Uint8List bytes) {

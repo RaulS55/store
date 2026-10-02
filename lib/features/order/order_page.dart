@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
 import '../../data/formatters.dart';
+import '../../data/invoice_pdf.dart';
 import '../../models/order.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
@@ -16,9 +17,14 @@ import '../../widgets/variant_picker.dart';
 import 'order_actions.dart';
 
 class OrderPage extends StatefulWidget {
-  const OrderPage({super.key, required this.orderId});
+  const OrderPage({
+    super.key,
+    required this.orderId,
+    this.shareInvoice = shareInvoicePdf,
+  });
 
   final String orderId;
+  final InvoiceSharer shareInvoice;
 
   @override
   State<OrderPage> createState() => _OrderPageState();
@@ -74,12 +80,14 @@ class _OrderPageState extends State<OrderPage> {
             query: _query,
             onQuery: _setQuery,
             search: _search,
+            shareInvoice: widget.shareInvoice,
           )
         : _MobileOrder(
             order: order,
             query: _query,
             onQuery: _setQuery,
             search: _search,
+            shareInvoice: widget.shareInvoice,
           );
   }
 
@@ -98,18 +106,62 @@ void _leaveOrder(BuildContext context, DraftOrder order) {
   context.go('/pedido');
 }
 
+class _OrderHeader extends StatelessWidget {
+  const _OrderHeader({
+    required this.order,
+    this.wide = false,
+    this.shareInvoice = shareInvoicePdf,
+  });
+
+  final DraftOrder order;
+  final bool wide;
+  final InvoiceSharer shareInvoice;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleStyle = wide
+        ? Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)
+        : Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600);
+    return Row(
+      children: [
+        IconButton(
+          onPressed: () => _leaveOrder(context, order),
+          icon: const Icon(Icons.arrow_back),
+        ),
+        if (wide) const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            order.isClosed ? 'Pedido cerrado' : 'Armar pedido',
+            textAlign: TextAlign.start,
+            style: titleStyle,
+          ),
+        ),
+        _StatusBadge(order: order),
+        ShareOrderButton(order: order, shareInvoice: shareInvoice),
+        if (!order.isClosed) CancelOrderButton(order: order),
+      ],
+    );
+  }
+}
+
 class _MobileOrder extends StatelessWidget {
   const _MobileOrder({
     required this.order,
     required this.query,
     required this.onQuery,
     required this.search,
+    required this.shareInvoice,
   });
 
   final DraftOrder order;
   final String query;
   final ValueChanged<String> onQuery;
   final TextEditingController search;
+  final InvoiceSharer shareInvoice;
 
   @override
   Widget build(BuildContext context) {
@@ -117,25 +169,8 @@ class _MobileOrder extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 12, 4),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => _leaveOrder(context, order),
-                  icon: const Icon(Icons.arrow_back),
-                ),
-                Expanded(
-                  child: Text(
-                    order.isClosed ? 'Pedido cerrado' : 'Armar pedido',
-                    textAlign: TextAlign.start,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                _StatusBadge(order: order),
-              ],
-            ),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+            child: _OrderHeader(order: order, shareInvoice: shareInvoice),
           ),
           if (!order.isClosed) ...[
             Padding(
@@ -184,12 +219,14 @@ class _WebOrder extends StatelessWidget {
     required this.query,
     required this.onQuery,
     required this.search,
+    required this.shareInvoice,
   });
 
   final DraftOrder order;
   final String query;
   final ValueChanged<String> onQuery;
   final TextEditingController search;
+  final InvoiceSharer shareInvoice;
 
   @override
   Widget build(BuildContext context) {
@@ -198,24 +235,7 @@ class _WebOrder extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => _leaveOrder(context, order),
-                icon: const Icon(Icons.arrow_back),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  order.isClosed ? 'Pedido cerrado' : 'Armar pedido',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              _StatusBadge(order: order),
-            ],
-          ),
+          _OrderHeader(order: order, wide: true, shareInvoice: shareInvoice),
           const SizedBox(height: 16),
           Expanded(
             child: Row(
@@ -432,8 +452,7 @@ class _OrderActions extends StatelessWidget {
         if (order.isClosed) ...[
           SizedBox(height: compact ? 6 : 8),
           ReopenOrderButton(order: order, dense: compact),
-        ] else
-          CancelOrderButton(order: order),
+        ],
       ],
     );
   }

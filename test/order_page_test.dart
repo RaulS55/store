@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:store_app/data/app_store.dart';
+import 'package:store_app/data/invoice_pdf.dart';
+import 'package:store_app/features/order/order_actions.dart';
 import 'package:store_app/features/order/order_page.dart';
+import 'package:store_app/models/order.dart';
 
 import 'fakes/catalog_harness.dart';
 
@@ -13,11 +16,17 @@ void _setPhoneView(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Widget _app(AppStore store, String orderId) {
+Widget _app(
+  AppStore store,
+  String orderId, {
+  InvoiceSharer shareInvoice = shareInvoicePdf,
+}) {
   return ChangeNotifierProvider.value(
     value: store,
     child: MaterialApp(
-      home: Scaffold(body: OrderPage(orderId: orderId)),
+      home: Scaffold(
+        body: OrderPage(orderId: orderId, shareInvoice: shareInvoice),
+      ),
     ),
   );
 }
@@ -116,6 +125,7 @@ void main() {
     expect(find.text('Guardar stock'), findsOneWidget);
     expect(find.text('Cerrar pedido'), findsOneWidget);
     expect(find.byKey(const ValueKey('cancel-order')), findsOneWidget);
+    expect(find.byKey(const ValueKey('share-order')), findsOneWidget);
 
     final stock = tester.getRect(
       find.byKey(const ValueKey('save-order-stock')),
@@ -156,9 +166,71 @@ void main() {
 
     expect(find.byKey(const ValueKey('cancel-order')), findsNothing);
     expect(find.text('Cancelar pedido'), findsNothing);
+    expect(find.byKey(const ValueKey('share-order')), findsOneWidget);
     expect(find.byKey(const ValueKey('save-order-stock')), findsNothing);
     expect(find.text('WhatsApp'), findsOneWidget);
     expect(find.byKey(const ValueKey('reopen-order')), findsOneWidget);
+  });
+
+  testWidgets('open orders can share the current invoice pdf', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    DraftOrder? shared;
+    bool? includeCode;
+
+    await tester.pumpWidget(
+      _app(
+        store,
+        order.id,
+        shareInvoice: (value, {includeProductCode, sharePositionOrigin}) async {
+          shared = value;
+          includeCode = includeProductCode;
+          return true;
+        },
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('share-order')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(shared?.id, order.id);
+    expect(shared?.isClosed, isFalse);
+    expect(includeCode, isTrue);
+    expect(find.text('No se pudo compartir la factura.'), findsNothing);
+  });
+
+  testWidgets('empty orders cannot share an invoice pdf', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final customer = await seedTestCustomer(store);
+    final order = store.createOrder(customer);
+    var shared = false;
+
+    await tester.pumpWidget(
+      _app(
+        store,
+        order.id,
+        shareInvoice: (value, {includeProductCode, sharePositionOrigin}) async {
+          shared = true;
+          return true;
+        },
+      ),
+    );
+    await tester.pump();
+
+    final button = tester.widget<IconButton>(
+      find.byKey(const ValueKey('share-order')),
+    );
+    expect(button.onPressed, isNull);
+
+    await tester.tap(find.byKey(const ValueKey('share-order')));
+    await tester.pump();
+    expect(shared, isFalse);
   });
 
   testWidgets('reopening a closed order keeps reserved stock and unlocks edits', (

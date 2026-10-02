@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
 import '../../data/formatters.dart';
+import '../../data/invoice_pdf.dart';
 import '../../data/order_share.dart';
 import '../../models/order.dart';
 import '../../theme/tokens.dart';
@@ -128,6 +129,79 @@ Future<void> cancelOrderWithConfirm({
   messenger.showSnackBar(const AppSnackBar(content: Text('Pedido cancelado')));
 }
 
+typedef InvoiceSharer =
+    Future<bool> Function(
+      DraftOrder order, {
+      bool? includeProductCode,
+      Rect? sharePositionOrigin,
+    });
+
+class ShareOrderButton extends StatefulWidget {
+  const ShareOrderButton({
+    super.key,
+    required this.order,
+    this.shareInvoice = shareInvoicePdf,
+  });
+
+  final DraftOrder order;
+  final InvoiceSharer shareInvoice;
+
+  @override
+  State<ShareOrderButton> createState() => _ShareOrderButtonState();
+}
+
+class _ShareOrderButtonState extends State<ShareOrderButton> {
+  var _busy = false;
+
+  Rect? _origin() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+
+  Future<void> _share() async {
+    if (_busy || widget.order.lines.isEmpty) return;
+    setState(() => _busy = true);
+    var ok = false;
+    try {
+      final includeProductCode = context
+          .read<AppStore>()
+          .includeProductCodeInInvoice;
+      ok = await widget.shareInvoice(
+        widget.order,
+        includeProductCode: includeProductCode,
+        sharePositionOrigin: _origin(),
+      );
+    } catch (error, stack) {
+      debugPrint('Invoice share failed: $error');
+      debugPrint('$stack');
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const AppSnackBar(content: Text('No se pudo compartir la factura.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.order.lines.isNotEmpty && !_busy;
+    return IconButton(
+      key: const ValueKey('share-order'),
+      tooltip: 'Compartir factura',
+      onPressed: enabled ? _share : null,
+      icon: _busy
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.share_outlined),
+    );
+  }
+}
+
 class CancelOrderButton extends StatelessWidget {
   const CancelOrderButton({super.key, required this.order});
 
@@ -135,16 +209,12 @@ class CancelOrderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton.icon(
+    return IconButton(
       key: const ValueKey('cancel-order'),
+      tooltip: 'Cancelar pedido',
       onPressed: () => cancelOrderWithConfirm(context: context, order: order),
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.stockLow,
-        visualDensity: VisualDensity.compact,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      icon: const Icon(Icons.delete_outline, size: 18),
-      label: const Text('Cancelar pedido'),
+      style: IconButton.styleFrom(foregroundColor: AppColors.stockLow),
+      icon: const Icon(Icons.delete_outline),
     );
   }
 }
