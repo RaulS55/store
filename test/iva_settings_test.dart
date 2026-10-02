@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:store_app/data/app_store.dart';
 import 'package:store_app/data/formatters.dart';
+import 'package:store_app/data/product_filter_host.dart';
 import 'package:store_app/features/settings/settings_page.dart';
 import 'package:store_app/models/company.dart';
 import 'package:store_app/models/product.dart';
@@ -69,16 +70,16 @@ void main() {
     );
 
     expect(store.rubro, CompanyRubro.ambos);
-    expect(store.visibleCategories, contains(ApparelCategory.remeras));
-    expect(store.visibleCategories, contains(ApparelCategory.zapatillas));
+    expect(store.categoryChoices(), contains(ApparelCategory.remeras));
+    expect(store.categoryChoices(), contains(ApparelCategory.zapatillas));
 
     await tester.tap(find.widgetWithText(FilterChip, 'Calzado'));
     await tester.pumpAndSettle();
 
     expect(store.rubro, CompanyRubro.ropa);
-    expect(store.visibleCategories, contains(ApparelCategory.remeras));
+    expect(store.categoryChoices(), contains(ApparelCategory.remeras));
     expect(
-      store.visibleCategories,
+      store.categoryChoices(),
       isNot(contains(ApparelCategory.zapatillas)),
     );
 
@@ -96,8 +97,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.rubro, CompanyRubro.calzado);
-    expect(store.visibleCategories, contains(ApparelCategory.pantuflas));
-    expect(store.visibleCategories, isNot(contains(ApparelCategory.remeras)));
+    expect(store.categoryChoices(), contains(ApparelCategory.pantuflas));
+    expect(store.categoryChoices(), isNot(contains(ApparelCategory.remeras)));
   });
 
   testWidgets('settings can save a company phone number', (tester) async {
@@ -145,7 +146,98 @@ void main() {
 
     store.setRubro(CompanyRubro.calzado);
     expect(store.filteredProducts, isEmpty);
-    expect(store.visibleCategories.first.line, ApparelLine.calzado);
+    expect(store.visibleCategories, isEmpty);
+    expect(store.categoryChoices().first.line, ApparelLine.calzado);
+  });
+
+  test('stock filters only list categories with garments', () async {
+    final store = AppStore();
+    expect(store.visibleCategories, isEmpty);
+
+    await store.upsertProduct(testProduct());
+    await store.upsertProduct(
+      testProduct(id: 'p-jeans', category: ApparelCategory.jeans),
+    );
+
+    expect(store.visibleCategories, [
+      ApparelCategory.remeras,
+      ApparelCategory.jeans,
+    ]);
+    expect(store.visibleCategories, isNot(contains(ApparelCategory.musculosas)));
+    expect(store.categoryChoices(), contains(ApparelCategory.musculosas));
+  });
+
+  test('stock filters list categories and audiences with more garments first', () async {
+    final store = AppStore();
+    await store.upsertProduct(testProduct(id: 'p-r1'));
+    await store.upsertProduct(
+      testProduct(id: 'p-j1', sku: 'TST-0002', category: ApparelCategory.jeans),
+    );
+    await store.upsertProduct(
+      testProduct(id: 'p-j2', sku: 'TST-0003', category: ApparelCategory.jeans),
+    );
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-m1',
+        sku: 'TST-0004',
+        category: ApparelCategory.jeans,
+        audience: ApparelAudience.mujer,
+      ),
+    );
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-m2',
+        sku: 'TST-0005',
+        category: ApparelCategory.jeans,
+        audience: ApparelAudience.mujer,
+      ),
+    );
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-h1',
+        sku: 'TST-0006',
+        category: ApparelCategory.jeans,
+        audience: ApparelAudience.hombre,
+      ),
+    );
+
+    expect(store.visibleCategories, [
+      ApparelCategory.jeans,
+      ApparelCategory.remeras,
+    ]);
+    expect(store.visibleAudiences, [
+      ApparelAudience.mujer,
+      ApparelAudience.hombre,
+    ]);
+  });
+
+  test('stock filters hide audience when only one public is used', () async {
+    final store = AppStore();
+    expect(store.visibleAudiences, isEmpty);
+    expect(store.showAudienceFilter, isFalse);
+
+    await store.upsertProduct(
+      testProduct(audience: ApparelAudience.mujer),
+    );
+    expect(store.visibleAudiences, [ApparelAudience.mujer]);
+    expect(store.showAudienceFilter, isFalse);
+
+    store.selectChipAudience(ApparelAudience.mujer);
+    expect(store.filteredProducts, hasLength(1));
+
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-h',
+        sku: 'TST-0002',
+        audience: ApparelAudience.hombre,
+      ),
+    );
+    expect(store.visibleAudiences, [
+      ApparelAudience.hombre,
+      ApparelAudience.mujer,
+    ]);
+    expect(store.showAudienceFilter, isTrue);
+    expect(store.visibleAudiences, isNot(contains(ApparelAudience.bebe)));
   });
 
   testWidgets('settings shows the catalog share link', (tester) async {

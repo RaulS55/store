@@ -184,7 +184,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
         id: _productId,
         name: _name.text.trim(),
         sku: sku,
-        category: _category ?? ApparelCategory.match(_categoryQuery),
+        category: store.resolveCategory(_categoryQuery),
         audience: _audience,
         brand: store.resolveBrand(_brandQuery),
         price: MoneyFormat.parse(_price.text)!,
@@ -412,13 +412,14 @@ class _ProductFormPageState extends State<ProductFormPage> {
           },
           fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
             return TextFormField(
+              key: const ValueKey('product-category'),
               controller: controller,
               focusNode: focusNode,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(hintText: 'Ej. Remeras'),
               onChanged: (value) {
                 _categoryQuery = value;
-                _category = ApparelCategory.match(value);
+                _category = ApparelCategory.resolve(value);
               },
               onFieldSubmitted: (_) => onFieldSubmitted(),
             );

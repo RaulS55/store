@@ -6,6 +6,8 @@ import 'package:store_app/features/stock/filters_panel.dart';
 import 'package:store_app/models/product.dart';
 import 'package:store_app/theme/app_theme.dart';
 
+import 'fakes/catalog_harness.dart';
+
 Product _sizedProduct() {
   final stamp = DateTime.utc(2026, 9, 11);
   return Product(
@@ -69,6 +71,52 @@ void main() {
     for (final size in sizes) {
       expect(tester.getTopLeft(_sizeChip(size)), before[size]);
     }
+    expect(find.widgetWithText(FilterChip, 'Remeras'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Musculosas'), findsNothing);
+    expect(find.text('Público'), findsNothing);
+  });
+
+  testWidgets('filter sheet lists used audiences', (tester) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct(id: 'p-m', audience: ApparelAudience.mujer),
+    );
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-h',
+        sku: 'TST-0002',
+        audience: ApparelAudience.hombre,
+      ),
+    );
+    await tester.pumpWidget(_app(store));
+
+    expect(find.text('Público'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Mujer'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Hombre'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Bebé'), findsNothing);
+  });
+
+  testWidgets('filter sheet hides public when only one audience exists', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct(audience: ApparelAudience.mujer),
+    );
+    await tester.pumpWidget(_app(store));
+
+    expect(find.text('Público'), findsNothing);
+    expect(find.widgetWithText(FilterChip, 'Mujer'), findsNothing);
   });
 
   testWidgets(
@@ -97,13 +145,8 @@ void main() {
       expect(find.text('42'), findsNothing);
       expect(find.text('Poco stock'), findsOneWidget);
       expect(find.text('Solo bajo stock'), findsNothing);
-      expect(find.byKey(const ValueKey('audience-chip-all')), findsOneWidget);
-      expect(find.byKey(const ValueKey('audience-chip-mujer')), findsOneWidget);
-      expect(find.byKey(const ValueKey('audience-chip-bebe')), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('audience-chip-juvenil')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('audience-chip-all')), findsNothing);
+      expect(find.byKey(const ValueKey('audience-chip-mujer')), findsNothing);
       expect(find.text('Público'), findsNothing);
 
       await tester.tap(find.widgetWithText(FilterChip, 'Poco stock'));
@@ -126,6 +169,16 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final store = AppStore();
+    await store.upsertProduct(
+      testProduct(id: 'p-m', audience: ApparelAudience.mujer),
+    );
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-h',
+        sku: 'TST-0002',
+        audience: ApparelAudience.hombre,
+      ),
+    );
     await tester.pumpWidget(
       ChangeNotifierProvider.value(
         value: store,
@@ -143,5 +196,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('audience-chip-all')));
     await tester.pump();
     expect(store.chipAudience, isNull);
+    expect(find.byKey(const ValueKey('audience-chip-bebe')), findsNothing);
   });
 }

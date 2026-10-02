@@ -108,18 +108,25 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
 
   @override
   List<ApparelCategory> get visibleCategories {
-    switch (rubro) {
-      case CompanyRubro.ropa:
-        return ApparelCategory.forLine(ApparelLine.ropa);
-      case CompanyRubro.calzado:
-        return ApparelCategory.forLine(ApparelLine.calzado);
-      case CompanyRubro.ambos:
-        return ApparelCategory.values;
-    }
+    final predefined = switch (rubro) {
+      CompanyRubro.ropa => ApparelCategory.forLine(ApparelLine.ropa),
+      CompanyRubro.calzado => ApparelCategory.forLine(ApparelLine.calzado),
+      CompanyRubro.ambos => ApparelCategory.values,
+    };
+    return ApparelCategory.mergeVisible(
+      predefined: predefined,
+      used: [
+        for (final product in products)
+          if (product.category != null) product.category!,
+      ],
+    );
   }
 
   @override
   List<String> get allBrands => brandsOf(products);
+
+  @override
+  List<ApparelAudience> get visibleAudiences => audiencesOf(products);
 
   @override
   List<String> get allSizes => sizesOf(products);
@@ -134,6 +141,7 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
           product: product,
           searchQuery: searchQuery,
           visibleCategories: visibleCategories,
+          visibleAudiences: visibleAudiences,
           chipCategory: chipCategory,
           chipAudience: chipAudience,
           filters: filters,

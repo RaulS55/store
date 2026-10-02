@@ -88,6 +88,13 @@ void main() {
     expect(find.byKey(const ValueKey('catalog-logo')), findsNothing);
     expect(find.byKey(const ValueKey('catalog-contacts')), findsNothing);
     expect(find.widgetWithText(ChoiceChip, 'Todo'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Remeras'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Jeans'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Musculosas'), findsNothing);
+    expect(find.byKey(const ValueKey('audience-chip-all')), findsOneWidget);
+    expect(find.byKey(const ValueKey('audience-chip-mujer')), findsOneWidget);
+    expect(find.byKey(const ValueKey('audience-chip-hombre')), findsOneWidget);
+    expect(find.byKey(const ValueKey('audience-chip-bebe')), findsNothing);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Remeras'));
     await tester.pumpAndSettle();
@@ -117,6 +124,48 @@ void main() {
 
     expect(find.text('Filtros'), findsOneWidget);
     expect(find.text('Aplicar filtros'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Remeras'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Jeans'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Musculosas'), findsNothing);
+    expect(find.text('Público'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Mujer'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Hombre'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Bebé'), findsNothing);
+  });
+
+  testWidgets('client catalog hides audience filter when only one public exists', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final companies = FakeCompanyAccess()
+      ..companies['co1'] = Company(
+        id: 'co1',
+        name: 'Moda Stock',
+        ownerId: 'u1',
+        createdAt: DateTime.utc(2026, 9, 11),
+      );
+    final products = FakeProductAccess();
+    await products.saveProduct(
+      'co1',
+      testProduct(audience: ApparelAudience.mujer),
+    );
+    final bindings = CatalogBindings(
+      companies: companies,
+      products: products,
+      customers: FakeCustomerAccess(),
+      orders: FakeOrderAccess(),
+    );
+    addTearDown(bindings.dispose);
+    await bindings.storeFor('co1').ready;
+    await tester.pumpWidget(_app(bindings));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('audience-chip-all')), findsNothing);
+    expect(find.byKey(const ValueKey('audience-chip-mujer')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('catalog-filters')));
+    await tester.pumpAndSettle();
+    expect(find.text('Público'), findsNothing);
   });
 
   testWidgets('client catalog shows the business logo and contact links', (

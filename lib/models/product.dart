@@ -5,61 +5,250 @@ import 'sync_record.dart';
 
 enum ApparelLine { ropa, calzado }
 
-enum ApparelCategory {
-  remeras('Remeras', ApparelLine.ropa),
-  musculosas('Musculosas', ApparelLine.ropa),
-  poleras('Poleras', ApparelLine.ropa),
-  camisas('Camisas', ApparelLine.ropa),
-  chombas('Chombas', ApparelLine.ropa),
-  tops('Tops', ApparelLine.ropa),
-  bodies('Bodies', ApparelLine.ropa),
-  buzos('Buzos', ApparelLine.ropa),
-  sweaters('Sweaters', ApparelLine.ropa),
-  cardigans('Cardigans', ApparelLine.ropa),
-  camperas('Camperas', ApparelLine.ropa),
-  abrigos('Abrigos', ApparelLine.ropa),
-  blazers('Blazers', ApparelLine.ropa),
-  chalecos('Chalecos', ApparelLine.ropa),
-  pantalones('Pantalones', ApparelLine.ropa),
-  jeans('Jeans', ApparelLine.ropa),
-  shorts('Shorts', ApparelLine.ropa),
-  faldas('Faldas', ApparelLine.ropa),
-  vestidos('Vestidos', ApparelLine.ropa),
-  enteritos('Enteritos', ApparelLine.ropa),
-  conjuntos('Conjuntos', ApparelLine.ropa),
-  pijamas('Pijamas', ApparelLine.ropa),
-  ropaInterior('Ropa interior', ApparelLine.ropa),
-  trajesDeBano('Trajes de baño', ApparelLine.ropa),
-  medias('Medias', ApparelLine.ropa),
-  gorras('Gorras', ApparelLine.ropa),
-  bufandas('Bufandas', ApparelLine.ropa),
-  accesorios('Accesorios', ApparelLine.ropa),
-  zapatillas('Zapatillas', ApparelLine.calzado),
-  zapatos('Zapatos', ApparelLine.calzado),
-  botas('Botas', ApparelLine.calzado),
-  botinetas('Botinetas', ApparelLine.calzado),
-  borcegos('Borcegos', ApparelLine.calzado),
-  sandalias('Sandalias', ApparelLine.calzado),
-  chatitas('Chatitas', ApparelLine.calzado),
-  mocasines('Mocasines', ApparelLine.calzado),
-  zuecos('Zuecos', ApparelLine.calzado),
-  alpargatas('Alpargatas', ApparelLine.calzado),
-  ojotas('Ojotas', ApparelLine.calzado),
-  pantuflas('Pantuflas', ApparelLine.calzado),
-  tacos('Tacos', ApparelLine.calzado),
-  botasDeLluvia('Botas de lluvia', ApparelLine.calzado),
-  calzado('Calzado', ApparelLine.calzado);
+class ApparelCategory {
+  const ApparelCategory._(this.name, this.label, this.line);
 
-  const ApparelCategory(this.label, this.line);
+  factory ApparelCategory.custom(String label) {
+    final trimmed = label.trim();
+    return ApparelCategory._(trimmed, trimmed, ApparelLine.ropa);
+  }
+
+  final String name;
   final String label;
   final ApparelLine line;
 
+  bool get isCustom => !values.contains(this);
+
+  static const remeras = ApparelCategory._(
+    'remeras',
+    'Remeras',
+    ApparelLine.ropa,
+  );
+  static const musculosas = ApparelCategory._(
+    'musculosas',
+    'Musculosas',
+    ApparelLine.ropa,
+  );
+  static const poleras = ApparelCategory._(
+    'poleras',
+    'Poleras',
+    ApparelLine.ropa,
+  );
+  static const camisas = ApparelCategory._(
+    'camisas',
+    'Camisas',
+    ApparelLine.ropa,
+  );
+  static const chombas = ApparelCategory._(
+    'chombas',
+    'Chombas',
+    ApparelLine.ropa,
+  );
+  static const tops = ApparelCategory._('tops', 'Tops', ApparelLine.ropa);
+  static const bodies = ApparelCategory._('bodies', 'Bodies', ApparelLine.ropa);
+  static const buzos = ApparelCategory._('buzos', 'Buzos', ApparelLine.ropa);
+  static const sweaters = ApparelCategory._(
+    'sweaters',
+    'Sweaters',
+    ApparelLine.ropa,
+  );
+  static const cardigans = ApparelCategory._(
+    'cardigans',
+    'Cardigans',
+    ApparelLine.ropa,
+  );
+  static const camperas = ApparelCategory._(
+    'camperas',
+    'Camperas',
+    ApparelLine.ropa,
+  );
+  static const abrigos = ApparelCategory._(
+    'abrigos',
+    'Abrigos',
+    ApparelLine.ropa,
+  );
+  static const blazers = ApparelCategory._(
+    'blazers',
+    'Blazers',
+    ApparelLine.ropa,
+  );
+  static const chalecos = ApparelCategory._(
+    'chalecos',
+    'Chalecos',
+    ApparelLine.ropa,
+  );
+  static const pantalones = ApparelCategory._(
+    'pantalones',
+    'Pantalones',
+    ApparelLine.ropa,
+  );
+  static const jeans = ApparelCategory._('jeans', 'Jeans', ApparelLine.ropa);
+  static const shorts = ApparelCategory._('shorts', 'Shorts', ApparelLine.ropa);
+  static const faldas = ApparelCategory._('faldas', 'Faldas', ApparelLine.ropa);
+  static const vestidos = ApparelCategory._(
+    'vestidos',
+    'Vestidos',
+    ApparelLine.ropa,
+  );
+  static const enteritos = ApparelCategory._(
+    'enteritos',
+    'Enteritos',
+    ApparelLine.ropa,
+  );
+  static const conjuntos = ApparelCategory._(
+    'conjuntos',
+    'Conjuntos',
+    ApparelLine.ropa,
+  );
+  static const pijamas = ApparelCategory._(
+    'pijamas',
+    'Pijamas',
+    ApparelLine.ropa,
+  );
+  static const ropaInterior = ApparelCategory._(
+    'ropaInterior',
+    'Ropa interior',
+    ApparelLine.ropa,
+  );
+  static const trajesDeBano = ApparelCategory._(
+    'trajesDeBano',
+    'Trajes de baño',
+    ApparelLine.ropa,
+  );
+  static const medias = ApparelCategory._('medias', 'Medias', ApparelLine.ropa);
+  static const gorras = ApparelCategory._('gorras', 'Gorras', ApparelLine.ropa);
+  static const bufandas = ApparelCategory._(
+    'bufandas',
+    'Bufandas',
+    ApparelLine.ropa,
+  );
+  static const accesorios = ApparelCategory._(
+    'accesorios',
+    'Accesorios',
+    ApparelLine.ropa,
+  );
+  static const zapatillas = ApparelCategory._(
+    'zapatillas',
+    'Zapatillas',
+    ApparelLine.calzado,
+  );
+  static const zapatos = ApparelCategory._(
+    'zapatos',
+    'Zapatos',
+    ApparelLine.calzado,
+  );
+  static const botas = ApparelCategory._('botas', 'Botas', ApparelLine.calzado);
+  static const botinetas = ApparelCategory._(
+    'botinetas',
+    'Botinetas',
+    ApparelLine.calzado,
+  );
+  static const borcegos = ApparelCategory._(
+    'borcegos',
+    'Borcegos',
+    ApparelLine.calzado,
+  );
+  static const sandalias = ApparelCategory._(
+    'sandalias',
+    'Sandalias',
+    ApparelLine.calzado,
+  );
+  static const chatitas = ApparelCategory._(
+    'chatitas',
+    'Chatitas',
+    ApparelLine.calzado,
+  );
+  static const mocasines = ApparelCategory._(
+    'mocasines',
+    'Mocasines',
+    ApparelLine.calzado,
+  );
+  static const zuecos = ApparelCategory._(
+    'zuecos',
+    'Zuecos',
+    ApparelLine.calzado,
+  );
+  static const alpargatas = ApparelCategory._(
+    'alpargatas',
+    'Alpargatas',
+    ApparelLine.calzado,
+  );
+  static const ojotas = ApparelCategory._(
+    'ojotas',
+    'Ojotas',
+    ApparelLine.calzado,
+  );
+  static const pantuflas = ApparelCategory._(
+    'pantuflas',
+    'Pantuflas',
+    ApparelLine.calzado,
+  );
+  static const tacos = ApparelCategory._('tacos', 'Tacos', ApparelLine.calzado);
+  static const botasDeLluvia = ApparelCategory._(
+    'botasDeLluvia',
+    'Botas de lluvia',
+    ApparelLine.calzado,
+  );
+  static const calzado = ApparelCategory._(
+    'calzado',
+    'Calzado',
+    ApparelLine.calzado,
+  );
+
+  static const values = [
+    remeras,
+    musculosas,
+    poleras,
+    camisas,
+    chombas,
+    tops,
+    bodies,
+    buzos,
+    sweaters,
+    cardigans,
+    camperas,
+    abrigos,
+    blazers,
+    chalecos,
+    pantalones,
+    jeans,
+    shorts,
+    faldas,
+    vestidos,
+    enteritos,
+    conjuntos,
+    pijamas,
+    ropaInterior,
+    trajesDeBano,
+    medias,
+    gorras,
+    bufandas,
+    accesorios,
+    zapatillas,
+    zapatos,
+    botas,
+    botinetas,
+    borcegos,
+    sandalias,
+    chatitas,
+    mocasines,
+    zuecos,
+    alpargatas,
+    ojotas,
+    pantuflas,
+    tacos,
+    botasDeLluvia,
+    calzado,
+  ];
+
   static ApparelCategory fromStorage(String value) {
-    final category = tryFromStorage(value);
-    if (category == null) {
+    final known = tryFromStorage(value) ?? match(value);
+    if (known != null) return known;
+    final raw = value.trim();
+    if (raw.isEmpty) {
       throw FormatException('Unknown category: $value');
     }
-    return category;
+    return ApparelCategory.custom(raw);
   }
 
   static ApparelCategory? tryFromStorage(String value) {
@@ -81,6 +270,12 @@ enum ApparelCategory {
     return null;
   }
 
+  static ApparelCategory? resolve(String value) {
+    final query = value.trim();
+    if (query.isEmpty) return null;
+    return match(query) ?? ApparelCategory.custom(query);
+  }
+
   static List<ApparelCategory> forLine(ApparelLine line) {
     return [
       for (final category in values)
@@ -88,7 +283,55 @@ enum ApparelCategory {
     ];
   }
 
+  static List<ApparelCategory> mergeVisible({
+    required List<ApparelCategory> predefined,
+    required Iterable<ApparelCategory> used,
+  }) {
+    final counts = <ApparelCategory, int>{};
+    for (final category in used) {
+      counts[category] = (counts[category] ?? 0) + 1;
+    }
+    final allowed = predefined.toSet();
+    final list = [
+      for (final category in counts.keys)
+        if (allowed.contains(category) || category.isCustom) category,
+    ];
+    list.sort((a, b) {
+      final byCount = counts[b]!.compareTo(counts[a]!);
+      if (byCount != 0) return byCount;
+      if (a.isCustom != b.isCustom) return a.isCustom ? 1 : -1;
+      final aIndex = predefined.indexOf(a);
+      final bIndex = predefined.indexOf(b);
+      if (aIndex >= 0 && bIndex >= 0) return aIndex.compareTo(bIndex);
+      return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+    });
+    return list;
+  }
+
+  static List<ApparelCategory> mergeChoices({
+    required List<ApparelCategory> predefined,
+    required Iterable<ApparelCategory> used,
+  }) {
+    final seen = {...predefined};
+    final extras = <ApparelCategory>[];
+    for (final category in used) {
+      if (category.isCustom && seen.add(category)) extras.add(category);
+    }
+    extras.sort(
+      (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
+    );
+    return [...predefined, ...extras];
+  }
+
   ApparelCategory get chipFamily => this;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ApparelCategory &&
+      other.name.toLowerCase() == name.toLowerCase();
+
+  @override
+  int get hashCode => name.toLowerCase().hashCode;
 }
 
 enum ApparelAudience {

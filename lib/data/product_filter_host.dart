@@ -8,6 +8,7 @@ abstract class ProductFilterHost implements Listenable {
   ApparelCategory? get chipCategory;
   ApparelAudience? get chipAudience;
   List<ApparelCategory> get visibleCategories;
+  List<ApparelAudience> get visibleAudiences;
   List<String> get allSizes;
   List<SwatchColor> get allColors;
   List<String> get allBrands;
@@ -16,4 +17,8 @@ abstract class ProductFilterHost implements Listenable {
   void clearFilters();
   void selectChipCategory(ApparelCategory? category);
   void selectChipAudience(ApparelAudience? audience);
+}
+
+extension ProductFilterHostAudience on ProductFilterHost {
+  bool get showAudienceFilter => visibleAudiences.length >= 2;
 }

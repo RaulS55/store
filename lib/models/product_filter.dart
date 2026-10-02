@@ -5,6 +5,7 @@ bool matchesProductFilters({
   required Product product,
   required String searchQuery,
   required Iterable<ApparelCategory> visibleCategories,
+  required Iterable<ApparelAudience> visibleAudiences,
   ApparelCategory? chipCategory,
   ApparelAudience? chipAudience,
   required ProductFilters filters,
@@ -29,13 +30,19 @@ bool matchesProductFilters({
       (category == null || !filters.categories.contains(category))) {
     return false;
   }
-  if (chipAudience != null && product.audience != chipAudience) {
-    return false;
-  }
-  if (filters.audiences.isNotEmpty &&
-      (product.audience == null ||
-          !filters.audiences.contains(product.audience))) {
-    return false;
+  final audiences = visibleAudiences.toSet();
+  if (audiences.length >= 2) {
+    if (chipAudience != null &&
+        audiences.contains(chipAudience) &&
+        product.audience != chipAudience) {
+      return false;
+    }
+    final selectedAudiences = filters.audiences.intersection(audiences);
+    if (selectedAudiences.isNotEmpty &&
+        (product.audience == null ||
+            !selectedAudiences.contains(product.audience))) {
+      return false;
+    }
   }
   if (filters.sizes.isNotEmpty &&
       product.sizes.toSet().intersection(filters.sizes).isEmpty) {
@@ -81,6 +88,22 @@ List<String> sizesOf(Iterable<Product> products) {
   return ApparelSizes.sorted({
     for (final product in products) ...product.sizes,
   });
+}
+
+List<ApparelAudience> audiencesOf(Iterable<Product> products) {
+  final counts = <ApparelAudience, int>{};
+  for (final product in products) {
+    final audience = product.audience;
+    if (audience == null) continue;
+    counts[audience] = (counts[audience] ?? 0) + 1;
+  }
+  final list = counts.keys.toList();
+  list.sort((a, b) {
+    final byCount = counts[b]!.compareTo(counts[a]!);
+    if (byCount != 0) return byCount;
+    return a.index.compareTo(b.index);
+  });
+  return list;
 }
 
 List<SwatchColor> colorsOf(Iterable<Product> products) {

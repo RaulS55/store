@@ -131,6 +131,37 @@ void main() {
     expect(ApparelCategory.tryFromStorage(''), isNull);
   });
 
+  test('ApparelCategory keeps an unknown label as a custom category', () {
+    final category = ApparelCategory.fromStorage('Pantalones cargo');
+    expect(category.isCustom, isTrue);
+    expect(category.label, 'Pantalones cargo');
+    expect(ApparelCategory.resolve('Pantalones cargo'), category);
+    expect(ApparelCategory.resolve('Remeras'), ApparelCategory.remeras);
+    expect(ApparelCategory.resolve(''), isNull);
+  });
+
+  test('Product.fromMap keeps a custom category label', () {
+    final product = Product.fromMap('p1', {
+      'id': 'p1',
+      'name': 'Cargo',
+      'sku': 'CG-1',
+      'category': 'Pantalones cargo',
+      'brand': 'Test',
+      'price': 10000,
+      'images': <String>[],
+      'variants': [
+        {'size': 'M', 'color': 'Negro', 'colorHex': '#1E1E1E', 'stock': 4},
+      ],
+      'status': 'activo',
+      'createdAt': stamp.toIso8601String(),
+      'updatedAt': stamp.toIso8601String(),
+      'deletedAt': null,
+    });
+    expect(product.category?.isCustom, isTrue);
+    expect(product.categoryLabel, 'Pantalones cargo');
+    expect(product.toMap()['category'], 'Pantalones cargo');
+  });
+
   test('garment swatches are common distinct colors', () {
     final names = [for (final color in Swatches.all) color.name];
     expect(Swatches.all.length, greaterThanOrEqualTo(12));
@@ -165,6 +196,53 @@ void main() {
     expect(
       ApparelCategory.forLine(ApparelLine.ropa).length,
       greaterThanOrEqualTo(20),
+    );
+  });
+
+  test('mergeVisible keeps used categories and custom extras', () {
+    expect(
+      ApparelCategory.mergeVisible(
+        predefined: ApparelCategory.values,
+        used: const [ApparelCategory.jeans, ApparelCategory.remeras],
+      ),
+      [ApparelCategory.remeras, ApparelCategory.jeans],
+    );
+    expect(
+      ApparelCategory.mergeVisible(
+        predefined: ApparelCategory.forLine(ApparelLine.calzado),
+        used: [
+          ApparelCategory.remeras,
+          ApparelCategory.custom('Pantalones cargo'),
+          ApparelCategory.botas,
+        ],
+      ),
+      [ApparelCategory.botas, ApparelCategory.custom('Pantalones cargo')],
+    );
+    expect(
+      ApparelCategory.mergeChoices(
+        predefined: ApparelCategory.forLine(ApparelLine.calzado),
+        used: [ApparelCategory.custom('Pantalones cargo')],
+      ),
+      containsAll([
+        ApparelCategory.zapatillas,
+        ApparelCategory.custom('Pantalones cargo'),
+      ]),
+    );
+    expect(
+      ApparelCategory.mergeVisible(
+        predefined: ApparelCategory.values,
+        used: const [
+          ApparelCategory.remeras,
+          ApparelCategory.jeans,
+          ApparelCategory.jeans,
+          ApparelCategory.musculosas,
+        ],
+      ),
+      [
+        ApparelCategory.jeans,
+        ApparelCategory.remeras,
+        ApparelCategory.musculosas,
+      ],
     );
   });
 
@@ -299,7 +377,14 @@ void main() {
       ApparelSizes.all,
       containsAll(['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'Único']),
     );
-    expect(ApparelSizes.all.take(6).toList(), ['XXS', 'XS', 'S', 'M', 'L', 'XL']);
+    expect(ApparelSizes.all.take(6).toList(), [
+      'XXS',
+      'XS',
+      'S',
+      'M',
+      'L',
+      'XL',
+    ]);
     expect(ApparelSizes.isCustom('M'), isFalse);
     expect(ApparelSizes.isCustom('44'), isTrue);
     expect(ApparelSizes.resolve('M'), 'M');

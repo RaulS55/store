@@ -190,6 +190,12 @@ void main() {
     expect(find.text('¿A qué pedido lo agregamos?'), findsOneWidget);
     expect(find.byKey(ValueKey('order-target-${order.id}')), findsOneWidget);
     expect(find.text('Nuevo pedido'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('order-target-new'))).dy,
+      lessThan(
+        tester.getTopLeft(find.byKey(ValueKey('order-target-${order.id}'))).dy,
+      ),
+    );
   });
 
   testWidgets('several open orders put the last used first', (tester) async {
@@ -218,13 +224,69 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('¿A qué pedido lo agregamos?'), findsOneWidget);
+    final nuevo = tester.getTopLeft(
+      find.byKey(const ValueKey('order-target-new')),
+    );
     final lastUsed = tester.getTopLeft(
       find.byKey(ValueKey('order-target-${second.id}')),
     );
     final other = tester.getTopLeft(
       find.byKey(ValueKey('order-target-${first.id}')),
     );
+    expect(nuevo.dy, lessThan(lastUsed.dy));
     expect(lastUsed.dy, lessThan(other.dy));
     expect(find.textContaining('último usado'), findsOneWidget);
+  });
+
+  testWidgets('order picker search keeps new order first and filters', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct());
+    final monica = await seedTestCustomer(store);
+    final ana = await seedTestCustomer(
+      store,
+      customer: testCustomer(id: 'c-ana', name: 'Ana López'),
+    );
+    final first = store.createOrder(monica);
+    final second = store.createOrder(ana);
+
+    await tester.pumpWidget(_app(store));
+    await tester.pump();
+
+    await tester.tap(find.text('Agregar al pedido'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('order-target-search')), findsOneWidget);
+    expect(find.byKey(ValueKey('order-target-${first.id}')), findsOneWidget);
+    expect(find.byKey(ValueKey('order-target-${second.id}')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('order-target-search')),
+      'ana',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nuevo pedido'), findsOneWidget);
+    expect(find.byKey(ValueKey('order-target-${first.id}')), findsNothing);
+    expect(find.byKey(ValueKey('order-target-${second.id}')), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('order-target-new'))).dy,
+      lessThan(
+        tester.getTopLeft(find.byKey(ValueKey('order-target-${second.id}'))).dy,
+      ),
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('order-target-search')),
+      'no existe',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nuevo pedido'), findsOneWidget);
+    expect(find.text('No hay pedidos con ese nombre'), findsOneWidget);
+    expect(find.byKey(ValueKey('order-target-${second.id}')), findsNothing);
   });
 }

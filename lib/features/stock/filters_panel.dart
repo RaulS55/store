@@ -184,21 +184,23 @@ class _FiltersEditorState extends State<FiltersEditor> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 18),
-                  _Label('Público'),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final audience in ApparelAudience.values)
-                        FilterChip(
-                          label: Text(audience.label),
-                          selected: _draft.audiences.contains(audience),
-                          onSelected: (_) => _toggleAudience(audience),
-                          showCheckmark: true,
-                        ),
-                    ],
-                  ),
+                  if (store.showAudienceFilter) ...[
+                    const SizedBox(height: 18),
+                    _Label('Público'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final audience in store.visibleAudiences)
+                          FilterChip(
+                            label: Text(audience.label),
+                            selected: _draft.audiences.contains(audience),
+                            onSelected: (_) => _toggleAudience(audience),
+                            showCheckmark: true,
+                          ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 18),
                   _Label('Talle en prenda'),
                   Wrap(
@@ -382,6 +384,9 @@ class AudienceFilterChips extends StatelessWidget {
     return AnimatedBuilder(
       animation: host,
       builder: (context, _) {
+        if (!host.showAudienceFilter) {
+          return const SizedBox.shrink();
+        }
         final chips = [
           _AudienceChip(
             key: const ValueKey('audience-chip-all'),
@@ -389,7 +394,7 @@ class AudienceFilterChips extends StatelessWidget {
             selected: host.chipAudience == null,
             onSelected: (_) => host.selectChipAudience(null),
           ),
-          for (final audience in ApparelAudience.values)
+          for (final audience in host.visibleAudiences)
             _AudienceChip(
               key: ValueKey('audience-chip-${audience.name}'),
               label: audience.label,
@@ -486,12 +491,14 @@ class WebFilterBar extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            AudienceFilterChips(
-              host: store,
-              scrollable: false,
-              padding: EdgeInsets.zero,
-            ),
-            const SizedBox(height: 12),
+            if (store.showAudienceFilter) ...[
+              AudienceFilterChips(
+                host: store,
+                scrollable: false,
+                padding: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [

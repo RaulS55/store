@@ -10,33 +10,23 @@ import '../../models/order.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_confirm_dialog.dart';
 import '../../widgets/app_snack_bar.dart';
+import '../../widgets/search_field.dart';
 import '../customers/customer_sheets.dart';
 
 export '../customers/customer_sheets.dart' show showCustomerPicker;
 
 Future<DraftOrder?> showOrderTargetSheet(BuildContext context) async {
   final store = context.read<AppStore>();
-  final targets = store.addTargetOrders;
   final selected = await showModalBottomSheet<Object>(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true,
     builder: (context) {
-      return ListView(
-        children: [
-          const ListTile(title: Text('¿A qué pedido lo agregamos?')),
-          for (var i = 0; i < targets.length; i++)
-            _OrderTargetTile(
-              order: targets[i],
-              preferred: i == 0 && store.lastAddedOrderId == targets[i].id,
-            ),
-          ListTile(
-            key: const ValueKey('order-target-new'),
-            leading: const Icon(Icons.add, color: AppColors.terracotta),
-            title: const Text('Nuevo pedido'),
-            subtitle: const Text('Elegí un cliente y creá el pedido'),
-            onTap: () => Navigator.pop(context, 'new'),
-          ),
-        ],
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: const _OrderTargetSheet(),
       );
     },
   );
@@ -55,6 +45,80 @@ Future<DraftOrder?> showOrderTargetSheet(BuildContext context) async {
     return context.read<AppStore>().createOrder(customer);
   }
   return null;
+}
+
+class _OrderTargetSheet extends StatefulWidget {
+  const _OrderTargetSheet();
+
+  @override
+  State<_OrderTargetSheet> createState() => _OrderTargetSheetState();
+}
+
+class _OrderTargetSheetState extends State<_OrderTargetSheet> {
+  final _query = TextEditingController();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<AppStore>();
+    final query = _query.text.trim().toLowerCase();
+    final targets = [
+      for (final order in store.addTargetOrders)
+        if (query.isEmpty || _matchesOrder(order, query)) order,
+    ];
+
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.72,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const ListTile(title: Text('¿A qué pedido lo agregamos?')),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: SearchField(
+              key: const ValueKey('order-target-search'),
+              controller: _query,
+              hint: 'Buscar cliente o pedido...',
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              children: [
+                ListTile(
+                  key: const ValueKey('order-target-new'),
+                  leading: const Icon(Icons.add, color: AppColors.terracotta),
+                  title: const Text('Nuevo pedido'),
+                  subtitle: const Text('Elegí un cliente y creá el pedido'),
+                  onTap: () => Navigator.pop(context, 'new'),
+                ),
+                if (targets.isEmpty && query.isNotEmpty)
+                  const ListTile(
+                    title: Text('No hay pedidos con ese nombre'),
+                  )
+                else
+                  for (final order in targets)
+                    _OrderTargetTile(
+                      order: order,
+                      preferred: store.lastAddedOrderId == order.id,
+                    ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+bool _matchesOrder(DraftOrder order, String query) {
+  return order.customer.name.toLowerCase().contains(query) ||
+      order.orderNumber.toLowerCase().contains(query);
 }
 
 class _OrderTargetTile extends StatelessWidget {

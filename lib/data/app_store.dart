@@ -108,8 +108,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   List<Customer> get customers => List.unmodifiable(_customers);
   List<Lot> get lots => List.unmodifiable(_lots);
 
-  @override
-  List<ApparelCategory> get visibleCategories {
+  List<ApparelCategory> get _predefinedCategories {
     switch (rubro) {
       case CompanyRubro.ropa:
         return ApparelCategory.forLine(ApparelLine.ropa);
@@ -120,10 +119,24 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     }
   }
 
+  @override
+  List<ApparelCategory> get visibleCategories {
+    return ApparelCategory.mergeVisible(
+      predefined: _predefinedCategories,
+      used: [
+        for (final product in _products)
+          if (product.category != null) product.category!,
+      ],
+    );
+  }
+
   List<ApparelCategory> categoryChoices({ApparelCategory? current}) {
-    final visible = visibleCategories;
-    if (current == null || visible.contains(current)) return visible;
-    return [...visible, current];
+    final choices = ApparelCategory.mergeChoices(
+      predefined: _predefinedCategories,
+      used: usedCategories,
+    );
+    if (current == null || choices.contains(current)) return choices;
+    return [...choices, current];
   }
 
   List<ApparelCategory> get usedCategories {
@@ -158,7 +171,25 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
           category.name.toLowerCase().contains(q);
       if (matches && seen.add(category)) result.add(category);
     }
+    final hasExact = result.any(
+      (category) =>
+          category.label.toLowerCase() == q || category.name.toLowerCase() == q,
+    );
+    if (!hasExact) {
+      result.add(ApparelCategory.custom(query.trim()));
+    }
     return result;
+  }
+
+  ApparelCategory? resolveCategory(String raw) {
+    final query = raw.trim();
+    if (query.isEmpty) return null;
+    final known = ApparelCategory.match(query);
+    if (known != null) return known;
+    for (final category in usedCategories) {
+      if (category.label.toLowerCase() == query.toLowerCase()) return category;
+    }
+    return ApparelCategory.custom(query);
   }
 
   void bindCompany(String? companyId, {bool watchLots = false}) {
@@ -446,6 +477,9 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   }
 
   @override
+  List<ApparelAudience> get visibleAudiences => audiencesOf(_products);
+
+  @override
   List<String> get allSizes => sizesOf(_products);
 
   @override
@@ -458,6 +492,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
             product: product,
             searchQuery: searchQuery,
             visibleCategories: visibleCategories,
+            visibleAudiences: visibleAudiences,
             chipCategory: chipCategory,
             chipAudience: chipAudience,
             filters: filters,

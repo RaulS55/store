@@ -249,6 +249,19 @@ void main() {
     expect(store.filteredProducts, isNotEmpty);
   });
 
+  test('custom category products stay in the catalog', () async {
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-custom',
+        category: ApparelCategory.custom('Pantalones cargo'),
+      ),
+    );
+    store.setRubro(CompanyRubro.calzado);
+    expect(store.filteredProducts, isNotEmpty);
+    expect(store.filteredProducts.first.categoryLabel, 'Pantalones cargo');
+  });
+
   testWidgets('category field is optional and suggests used values', (
     tester,
   ) async {
@@ -268,6 +281,47 @@ void main() {
     await tester.enterText(category, 'Rem');
     await tester.pumpAndSettle();
     expect(find.text('Remeras'), findsWidgets);
+  });
+
+  test('used categories include custom labels from saved products', () async {
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct(category: ApparelCategory.custom('Pantalones cargo')),
+    );
+
+    expect(store.usedCategories, [ApparelCategory.custom('Pantalones cargo')]);
+    expect(
+      store.categorySuggestions(query: 'cargo'),
+      contains(ApparelCategory.custom('Pantalones cargo')),
+    );
+    expect(
+      store.visibleCategories,
+      contains(ApparelCategory.custom('Pantalones cargo')),
+    );
+    expect(
+      store.resolveCategory('pantalones cargo')?.label,
+      'Pantalones cargo',
+    );
+  });
+
+  testWidgets('product form saves a typed custom category', (tester) async {
+    _setTallView(tester);
+    final store = AppStore();
+    await store.upsertProduct(testProduct(id: 'p-own'));
+    await tester.pumpWidget(_formApp(store, productId: 'p-own'));
+
+    await tester.enterText(
+      find.byKey(const ValueKey('product-category')),
+      'Pantalones cargo',
+    );
+    await tester.pump();
+
+    await tester.ensureVisible(find.text('Guardar prenda'));
+    await tester.tap(find.text('Guardar prenda'));
+    await tester.pump();
+
+    expect(store.productById('p-own')!.categoryLabel, 'Pantalones cargo');
+    expect(store.productById('p-own')!.category?.isCustom, isTrue);
   });
 
   test('used brands come from saved products', () async {

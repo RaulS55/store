@@ -6,6 +6,7 @@ import 'package:store_app/data/local/catalog_cart_cache.dart';
 import 'package:store_app/data/local/hive_catalog_cache.dart';
 import 'package:store_app/data/order_share.dart';
 import 'package:store_app/data/product_access.dart';
+import 'package:store_app/data/product_filter_host.dart';
 import 'package:store_app/data/session_exception.dart';
 import 'package:store_app/models/company.dart';
 import 'package:store_app/models/filters.dart';
@@ -481,6 +482,138 @@ void main() {
       expect(store.visibleProducts.map((p) => p.id).toSet(), {'p-m', 'p-h'});
     },
   );
+
+  test('guest catalog filters only list categories with garments', () async {
+    final companies = FakeCompanyAccess()..companies['co1'] = _company();
+    final products = FakeProductAccess();
+    await products.saveProduct('co1', testProduct());
+    await products.saveProduct(
+      'co1',
+      testProduct(
+        id: 'p-jeans',
+        name: 'Jean',
+        sku: 'TST-0002',
+        category: ApparelCategory.jeans,
+      ),
+    );
+    await products.saveProduct(
+      'co1',
+      testProduct(
+        id: 'p-out',
+        name: 'Musculosa sin stock',
+        sku: 'TST-0003',
+        category: ApparelCategory.musculosas,
+        stock: 0,
+      ),
+    );
+    final store = await _store(
+      companies: companies,
+      products: products,
+      customers: FakeCustomerAccess(),
+      orders: FakeOrderAccess(),
+    );
+    addTearDown(store.dispose);
+
+    expect(store.visibleCategories, [
+      ApparelCategory.remeras,
+      ApparelCategory.jeans,
+    ]);
+    expect(store.visibleCategories, isNot(contains(ApparelCategory.musculosas)));
+  });
+
+  test('guest catalog lists categories and audiences with more garments first', () async {
+    final companies = FakeCompanyAccess()..companies['co1'] = _company();
+    final products = FakeProductAccess();
+    await products.saveProduct('co1', testProduct(id: 'p-r1'));
+    await products.saveProduct(
+      'co1',
+      testProduct(
+        id: 'p-j1',
+        sku: 'TST-0002',
+        category: ApparelCategory.jeans,
+      ),
+    );
+    await products.saveProduct(
+      'co1',
+      testProduct(
+        id: 'p-j2',
+        sku: 'TST-0003',
+        category: ApparelCategory.jeans,
+      ),
+    );
+    await products.saveProduct(
+      'co1',
+      testProduct(
+        id: 'p-m1',
+        sku: 'TST-0004',
+        category: ApparelCategory.jeans,
+        audience: ApparelAudience.mujer,
+      ),
+    );
+    await products.saveProduct(
+      'co1',
+      testProduct(
+        id: 'p-m2',
+        sku: 'TST-0005',
+        category: ApparelCategory.jeans,
+        audience: ApparelAudience.mujer,
+      ),
+    );
+    await products.saveProduct(
+      'co1',
+      testProduct(
+        id: 'p-h1',
+        sku: 'TST-0006',
+        category: ApparelCategory.jeans,
+        audience: ApparelAudience.hombre,
+      ),
+    );
+    final store = await _store(
+      companies: companies,
+      products: products,
+      customers: FakeCustomerAccess(),
+      orders: FakeOrderAccess(),
+    );
+    addTearDown(store.dispose);
+
+    expect(store.visibleCategories, [
+      ApparelCategory.jeans,
+      ApparelCategory.remeras,
+    ]);
+    expect(store.visibleAudiences, [
+      ApparelAudience.mujer,
+      ApparelAudience.hombre,
+    ]);
+  });
+
+  test('guest catalog hides audience when only one public is used', () async {
+    final companies = FakeCompanyAccess()..companies['co1'] = _company();
+    final products = FakeProductAccess();
+    await products.saveProduct(
+      'co1',
+      testProduct(audience: ApparelAudience.mujer),
+    );
+    await products.saveProduct(
+      'co1',
+      testProduct(
+        id: 'p-out',
+        name: 'Hombre sin stock',
+        sku: 'TST-0002',
+        audience: ApparelAudience.hombre,
+        stock: 0,
+      ),
+    );
+    final store = await _store(
+      companies: companies,
+      products: products,
+      customers: FakeCustomerAccess(),
+      orders: FakeOrderAccess(),
+    );
+    addTearDown(store.dispose);
+
+    expect(store.visibleAudiences, [ApparelAudience.mujer]);
+    expect(store.showAudienceFilter, isFalse);
+  });
 }
 
 class _HangingCompanyAccess extends FakeCompanyAccess {
