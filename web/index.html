@@ -18,7 +18,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual">
   <meta name="theme-color" content="#F8F9FA">
   <meta name="description" content="Gestioná indumentaria y calzado">
 
@@ -50,6 +50,8 @@
   <link rel="manifest" href="manifest.json">
   <style>
     html, body {
+      position: fixed;
+      inset: 0;
       width: 100%;
       height: 100%;
       margin: 0;
@@ -58,7 +60,7 @@
       background: #F8F9FA;
     }
     #flutter-app {
-      position: absolute;
+      position: fixed;
       top: 0;
       left: 0;
       width: 100%;
@@ -114,58 +116,84 @@
   <div id="flutter-app"></div>
   <script>
     (function () {
-      var lastHeight = 0;
-      function viewportHeight() {
-        var visual = window.visualViewport && window.visualViewport.height;
-        var inner = window.innerHeight || 0;
-        var client = document.documentElement.clientHeight || 0;
-        return Math.max(visual || 0, inner, client);
-      }
-      function syncViewportHeight() {
-        var next = viewportHeight();
-        if (next > lastHeight + 0.5) {
-          lastHeight = next;
-          document.documentElement.style.height = next + 'px';
-          return true;
-        }
-        return false;
-      }
-      function notifyFlutterViewport(force) {
-        var changed = syncViewportHeight();
-        if (changed || force) {
-          window.dispatchEvent(new Event('resize'));
-        }
-      }
+      var app = document.getElementById('flutter-app');
+      var fullHeight = 0;
+
       function hideAppSplash() {
         var el = document.getElementById('app-splash');
         if (el) el.remove();
       }
-      syncViewportHeight();
-      window.addEventListener('load', function () {
-        notifyFlutterViewport(true);
-      });
-      window.addEventListener('pageshow', function () {
-        notifyFlutterViewport(true);
-      });
-      window.addEventListener('orientationchange', function () {
-        lastHeight = 0;
-        setTimeout(function () {
-          notifyFlutterViewport(true);
-        }, 250);
-      });
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', function () {
-          notifyFlutterViewport(false);
-        });
+
+      function isEditing() {
+        var el = document.activeElement;
+        if (!el) return false;
+        var tag = el.tagName;
+        return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable === true;
       }
-      window.addEventListener('flutter-first-frame', function () {
-        hideAppSplash();
-        notifyFlutterViewport(true);
-        [50, 150, 400, 800].forEach(function (ms) {
+
+      function visualHeight() {
+        var viewport = window.visualViewport;
+        return viewport && viewport.height ? viewport.height : 0;
+      }
+
+      function layoutHeight() {
+        return Math.round(Math.max(window.innerHeight || 0, visualHeight()));
+      }
+
+      // The keyboard OK/Done button often leaves the visual viewport short and
+      // scrolled. Remember the height from before it opened and put it back.
+      function targetHeight() {
+        var visual = visualHeight();
+        var full = layoutHeight();
+        var keyboard = isEditing() && fullHeight > 0 && (fullHeight - (visual || full)) > 80;
+        if (keyboard) return Math.round(visual || full);
+        if (!full) return fullHeight;
+        if (!fullHeight || full >= fullHeight - 80) {
+          fullHeight = full;
+          return full;
+        }
+        return fullHeight;
+      }
+
+      function applyViewport() {
+        var next = targetHeight();
+        if (!next) return;
+        var px = next + 'px';
+        document.documentElement.style.height = px;
+        document.body.style.height = px;
+        if (app) {
+          app.style.height = px;
+          app.style.top = '0px';
+        }
+        if (window.scrollX !== 0 || window.scrollY !== 0) {
+          window.scrollTo(0, 0);
+        }
+      }
+
+      function restoreAfterKeyboard() {
+        [0, 50, 150, 350, 700].forEach(function (ms) {
           setTimeout(function () {
-            notifyFlutterViewport(true);
+            if (!isEditing()) applyViewport();
           }, ms);
         });
+      }
+
+      applyViewport();
+      window.addEventListener('load', applyViewport);
+      window.addEventListener('pageshow', applyViewport);
+      window.addEventListener('resize', applyViewport);
+      window.addEventListener('orientationchange', function () {
+        fullHeight = 0;
+        setTimeout(applyViewport, 250);
+      });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', applyViewport);
+        window.visualViewport.addEventListener('scroll', applyViewport);
+      }
+      document.addEventListener('focusout', restoreAfterKeyboard);
+      window.addEventListener('flutter-first-frame', function () {
+        hideAppSplash();
+        restoreAfterKeyboard();
       });
       setTimeout(hideAppSplash, 30000);
     })();
