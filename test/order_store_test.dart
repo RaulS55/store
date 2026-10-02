@@ -99,6 +99,34 @@ void main() {
     expect(saved.toMap()['sena'], 2500);
   });
 
+  test('setOrderSena persists a deposit on an open order', () async {
+    final access = FakeOrderAccess();
+    final store = AppStore(
+      orderAccess: access,
+      customers: FakeCustomerAccess(),
+      products: FakeProductAccess(),
+    );
+    addTearDown(store.dispose);
+    store.bindCompany('co1');
+    await _flush();
+    final order = await seedTestOrder(store);
+    await _flush();
+
+    expect(store.setOrderSena(order.id, 2500), isTrue);
+    await _flush();
+    expect(order.sena, 2500);
+    expect(order.hasSena, isTrue);
+    expect(order.remaining, 7500);
+    final saved = access.orders['co1']![order.id]!;
+    expect(saved.sena, 2500);
+    expect(saved.status, OrderStatus.borrador);
+
+    expect(store.closeOrder(order.id), isTrue);
+    await _flush();
+    expect(order.sena, 2500);
+    expect(access.orders['co1']![order.id]!.sena, 2500);
+  });
+
   test('a second store sees open and closed orders from access', () async {
     final access = FakeOrderAccess();
     final customers = FakeCustomerAccess();

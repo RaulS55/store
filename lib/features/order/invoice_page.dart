@@ -167,7 +167,9 @@ class InvoicePage extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          for (final line in order.sortedLines) ...[
+                          for (final group in InvoiceDocument.groupedLines(
+                            order.sortedLines,
+                          )) ...[
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -179,7 +181,7 @@ class InvoicePage extends StatelessWidget {
                                     children: [
                                       Text(
                                         InvoiceDocument.lineTitle(
-                                          line,
+                                          group.first,
                                           includeProductCode:
                                               includeProductCode,
                                         ),
@@ -190,21 +192,24 @@ class InvoicePage extends StatelessWidget {
                                               fontWeight: FontWeight.w600,
                                             ),
                                       ),
-                                      Text(
-                                        InvoiceDocument.lineDetail(line),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(
-                                              color: AppColors.mutedText,
-                                            ),
-                                      ),
+                                      for (final line in group.lines)
+                                        Text(
+                                          InvoiceDocument.combinationDetail(
+                                            line,
+                                          ),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelSmall
+                                              ?.copyWith(
+                                                color: AppColors.mutedText,
+                                              ),
+                                        ),
                                     ],
                                   ),
                                 ),
                                 Expanded(
                                   child: Text(
-                                    '${line.quantity}',
+                                    '${group.quantity}',
                                     textAlign: TextAlign.center,
                                     style: Theme.of(
                                       context,
@@ -214,7 +219,7 @@ class InvoicePage extends StatelessWidget {
                                 Expanded(
                                   flex: 2,
                                   child: Text(
-                                    MoneyFormat.detailed(line.unitPrice),
+                                    MoneyFormat.detailed(group.unitPrice),
                                     textAlign: TextAlign.right,
                                     style: Theme.of(
                                       context,
@@ -224,7 +229,7 @@ class InvoicePage extends StatelessWidget {
                                 Expanded(
                                   flex: 2,
                                   child: Text(
-                                    MoneyFormat.detailed(line.lineTotal),
+                                    MoneyFormat.detailed(group.total),
                                     textAlign: TextAlign.right,
                                     style: Theme.of(
                                       context,

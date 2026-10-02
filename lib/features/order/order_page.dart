@@ -141,6 +141,7 @@ class _OrderHeader extends StatelessWidget {
           ),
         ),
         _StatusBadge(order: order),
+        if (!order.isClosed) OrderSenaButton(order: order),
         ShareOrderButton(order: order, shareInvoice: shareInvoice),
         if (!order.isClosed) CancelOrderButton(order: order),
       ],
@@ -925,9 +926,10 @@ class _Totals extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = [
-      ('Subtotal', MoneyFormat.detailed(order.subtotal), false),
-      if (order.ivaEnabled)
+      if (order.ivaEnabled) ...[
+        ('Subtotal', MoneyFormat.detailed(order.subtotal), false),
         (order.ivaLabel, MoneyFormat.detailed(order.iva), false),
+      ],
       ('Total', MoneyFormat.detailed(order.total), true),
       if (order.hasSena) ...[
         ('Seña', MoneyFormat.detailed(order.sena ?? 0), false),

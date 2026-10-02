@@ -50,6 +50,27 @@ void main() {
       findsOneWidget,
     );
     expect(find.byIcon(Icons.chevron_right), findsNothing);
+    expect(find.text('Subtotal'), findsNothing);
+    expect(find.text('Total'), findsOneWidget);
+  });
+
+  testWidgets('order totals show subtotal only when IVA is enabled', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+    expect(find.text('Subtotal'), findsNothing);
+
+    store.setIvaEnabled(true);
+    await tester.pump();
+    expect(find.text('Subtotal'), findsOneWidget);
+    expect(find.textContaining('IVA ('), findsOneWidget);
+    expect(find.text('Total'), findsOneWidget);
   });
 
   testWidgets('changing the order customer asks for confirmation', (
@@ -126,6 +147,7 @@ void main() {
     expect(find.text('Cerrar pedido'), findsOneWidget);
     expect(find.byKey(const ValueKey('cancel-order')), findsOneWidget);
     expect(find.byKey(const ValueKey('share-order')), findsOneWidget);
+    expect(find.byKey(const ValueKey('edit-order-sena')), findsOneWidget);
 
     final stock = tester.getRect(
       find.byKey(const ValueKey('save-order-stock')),
@@ -167,6 +189,7 @@ void main() {
     expect(find.byKey(const ValueKey('cancel-order')), findsNothing);
     expect(find.text('Cancelar pedido'), findsNothing);
     expect(find.byKey(const ValueKey('share-order')), findsOneWidget);
+    expect(find.byKey(const ValueKey('edit-order-sena')), findsNothing);
     expect(find.byKey(const ValueKey('save-order-stock')), findsNothing);
     expect(find.text('WhatsApp'), findsOneWidget);
     expect(find.byKey(const ValueKey('reopen-order')), findsOneWidget);
@@ -201,6 +224,64 @@ void main() {
     expect(shared?.isClosed, isFalse);
     expect(includeCode, isTrue);
     expect(find.text('No se pudo compartir la factura.'), findsNothing);
+  });
+
+  testWidgets('open orders can load a deposit from the app bar', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    expect(find.text('Seña'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('edit-order-sena')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Cantidad ya pagada. Se usa al facturar y al cerrar el pedido.',
+      ),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('edit-order-sena-field')),
+      '2500',
+    );
+    await tester.tap(find.text('Guardar'));
+    await tester.pumpAndSettle();
+
+    expect(order.sena, 2500);
+    expect(find.text('Seña'), findsOneWidget);
+    expect(find.text('Restante'), findsOneWidget);
+    expect(find.text(r'$2.500,00'), findsOneWidget);
+    expect(find.text(r'$7.500,00'), findsOneWidget);
+  });
+
+  testWidgets('closing an order prefills the loaded deposit', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    store.setSenaAmount(5000);
+    expect(store.setOrderSena(order.id, 2500), isTrue);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Cerrar pedido'));
+    await tester.tap(find.text('Cerrar pedido'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('order-sena-field')))
+          .controller!
+          .text,
+      '2.500',
+    );
   });
 
   testWidgets('empty orders cannot share an invoice pdf', (tester) async {

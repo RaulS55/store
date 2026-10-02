@@ -66,8 +66,10 @@ Future<Uint8List> buildInvoicePdf(
           pw.SizedBox(height: 8),
           _tableHeader(),
           pw.SizedBox(height: 8),
-          for (final line in order.sortedLines) ...[
-            _lineRow(line, includeProductCode: showCode),
+          for (final group in InvoiceDocument.groupedLines(
+            order.sortedLines,
+          )) ...[
+            _groupRow(group, includeProductCode: showCode),
             pw.SizedBox(height: 10),
           ],
           pw.Divider(color: _border, thickness: 1),
@@ -189,7 +191,10 @@ pw.Widget _tableHeader() {
   );
 }
 
-pw.Widget _lineRow(OrderLine line, {required bool includeProductCode}) {
+pw.Widget _groupRow(
+  InvoiceLineGroup group, {
+  required bool includeProductCode,
+}) {
   return pw.Row(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
@@ -200,7 +205,7 @@ pw.Widget _lineRow(OrderLine line, {required bool includeProductCode}) {
           children: [
             pw.Text(
               InvoiceDocument.lineTitle(
-                line,
+                group.first,
                 includeProductCode: includeProductCode,
               ),
               style: pw.TextStyle(
@@ -209,16 +214,17 @@ pw.Widget _lineRow(OrderLine line, {required bool includeProductCode}) {
                 color: _charcoal,
               ),
             ),
-            pw.Text(
-              InvoiceDocument.lineDetail(line),
-              style: const pw.TextStyle(fontSize: 8.5, color: _muted),
-            ),
+            for (final line in group.lines)
+              pw.Text(
+                InvoiceDocument.combinationDetail(line),
+                style: const pw.TextStyle(fontSize: 8.5, color: _muted),
+              ),
           ],
         ),
       ),
       pw.Expanded(
         child: pw.Text(
-          '${line.quantity}',
+          '${group.quantity}',
           textAlign: pw.TextAlign.center,
           style: const pw.TextStyle(fontSize: 9.5, color: _charcoal),
         ),
@@ -226,7 +232,7 @@ pw.Widget _lineRow(OrderLine line, {required bool includeProductCode}) {
       pw.Expanded(
         flex: 2,
         child: pw.Text(
-          MoneyFormat.detailed(line.unitPrice),
+          MoneyFormat.detailed(group.unitPrice),
           textAlign: pw.TextAlign.right,
           style: const pw.TextStyle(fontSize: 9.5, color: _charcoal),
         ),
@@ -234,7 +240,7 @@ pw.Widget _lineRow(OrderLine line, {required bool includeProductCode}) {
       pw.Expanded(
         flex: 2,
         child: pw.Text(
-          MoneyFormat.detailed(line.lineTotal),
+          MoneyFormat.detailed(group.total),
           textAlign: pw.TextAlign.right,
           style: const pw.TextStyle(fontSize: 9.5, color: _charcoal),
         ),

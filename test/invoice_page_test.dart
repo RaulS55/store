@@ -7,6 +7,7 @@ import 'package:store_app/data/session_store.dart';
 import 'package:store_app/features/order/invoice_page.dart';
 import 'package:store_app/features/order/order_actions.dart';
 import 'package:store_app/models/order.dart';
+import 'package:store_app/models/product.dart';
 import 'package:store_app/routing/app_router.dart';
 
 import 'fakes/catalog_harness.dart';
@@ -60,6 +61,69 @@ void main() {
     expect(find.text('CUIT'), findsOneWidget);
     expect(find.text('Condición'), findsOneWidget);
     expect(find.text('TST-0001 - REMERA TEST'), findsOneWidget);
+  });
+
+  testWidgets('open invoice shows the loaded deposit', (tester) async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.setOrderSena(order.id, 2500), isTrue);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp(home: InvoicePage(orderId: order.id)),
+      ),
+    );
+
+    expect(find.text('Facturar pedido'), findsOneWidget);
+    expect(find.text('Seña'), findsOneWidget);
+    expect(find.text('Restante'), findsOneWidget);
+    expect(find.text(r'$2.500,00'), findsOneWidget);
+    expect(find.text(r'$7.500,00'), findsOneWidget);
+  });
+
+  testWidgets('invoice groups variants of the same product', (tester) async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(
+      testProduct().copyWith(
+        variants: const [
+          ProductVariant(
+            size: 'M',
+            color: 'Negro',
+            colorHex: '#1E1E1E',
+            stock: 10,
+          ),
+          ProductVariant(
+            size: 'L',
+            color: 'Rojo',
+            colorHex: '#C62828',
+            stock: 10,
+          ),
+        ],
+      ),
+    );
+    final product = store.productById('p-test')!;
+    final customer = await seedTestCustomer(store);
+    final order = store.createOrder(customer);
+    store.addToOrder(product, product.variants[0], quantity: 2);
+    store.addToOrder(product, product.variants[1]);
+    expect(store.closeOrder(order.id), isTrue);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp(home: InvoicePage(orderId: order.id)),
+      ),
+    );
+
+    expect(find.text('TST-0001 - REMERA TEST'), findsOneWidget);
+    expect(find.text('Remeras · Talle M · Negro ×2'), findsOneWidget);
+    expect(find.text('Remeras · Talle L · Rojo'), findsOneWidget);
+    expect(find.text(r'$10.000,00'), findsOneWidget);
+    expect(find.text(r'$30.000,00'), findsWidgets);
+    expect(find.text('Remeras · Talle M · Negro'), findsNothing);
   });
 
   testWidgets('invoice hides empty tax fields', (tester) async {

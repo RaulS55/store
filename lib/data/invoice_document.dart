@@ -2,6 +2,21 @@ import '../models/customer.dart';
 import '../models/order.dart';
 import 'formatters.dart';
 
+class InvoiceLineGroup {
+  const InvoiceLineGroup(this.lines);
+
+  final List<OrderLine> lines;
+
+  OrderLine get first => lines.first;
+
+  int get quantity => lines.fold(0, (sum, line) => sum + line.quantity);
+
+  double get unitPrice => first.unitPrice;
+
+  double get total =>
+      lines.fold<double>(0, (sum, line) => sum + line.lineTotal);
+}
+
 class InvoiceDocument {
   static const brand = 'MODA STOCK';
   static const subtitle = 'RESUMEN DE FACTURA';
@@ -24,6 +39,29 @@ class InvoiceDocument {
 
   static String? condition(Customer customer) => customer.taxCondition?.label;
 
+  static List<InvoiceLineGroup> groupedLines(Iterable<OrderLine> lines) {
+    final groups = <InvoiceLineGroup>[];
+    List<OrderLine>? current;
+    for (final line in lines) {
+      if (current == null) {
+        current = [line];
+        continue;
+      }
+      final last = current.last;
+      if (last.product.id == line.product.id &&
+          last.unitPrice == line.unitPrice) {
+        current.add(line);
+      } else {
+        groups.add(InvoiceLineGroup(current));
+        current = [line];
+      }
+    }
+    if (current != null && current.isNotEmpty) {
+      groups.add(InvoiceLineGroup(current));
+    }
+    return groups;
+  }
+
   static String lineTitle(OrderLine line, {required bool includeProductCode}) {
     return [
       if (includeProductCode && line.product.sku.trim().isNotEmpty)
@@ -38,6 +76,12 @@ class InvoiceDocument {
       'Talle ${line.variant.size}',
       line.variant.color,
     ].join(' · ');
+  }
+
+  static String combinationDetail(OrderLine line) {
+    final detail = lineDetail(line);
+    if (line.quantity <= 1) return detail;
+    return '$detail ×${line.quantity}';
   }
 
   static String filename(DraftOrder order) {

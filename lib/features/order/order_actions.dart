@@ -202,6 +202,112 @@ class _ShareOrderButtonState extends State<ShareOrderButton> {
   }
 }
 
+Future<void> editOrderSenaFlow(BuildContext context, DraftOrder order) async {
+  if (!order.isActive) return;
+  final amount = await showDialog<double>(
+    context: context,
+    builder: (context) => _EditOrderSenaDialog(order: order),
+  );
+  if (amount == null || !context.mounted) return;
+  context.read<AppStore>().setOrderSena(order.id, amount);
+}
+
+class OrderSenaButton extends StatelessWidget {
+  const OrderSenaButton({super.key, required this.order});
+
+  final DraftOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    final paid = order.hasSena;
+    return IconButton(
+      key: const ValueKey('edit-order-sena'),
+      tooltip: paid
+          ? 'Seña ${MoneyFormat.compact(order.sena ?? 0)}'
+          : 'Cargar seña',
+      onPressed: () => editOrderSenaFlow(context, order),
+      style: paid
+          ? IconButton.styleFrom(foregroundColor: AppColors.terracotta)
+          : null,
+      icon: const Icon(Icons.payments_outlined),
+    );
+  }
+}
+
+class _EditOrderSenaDialog extends StatefulWidget {
+  const _EditOrderSenaDialog({required this.order});
+
+  final DraftOrder order;
+
+  @override
+  State<_EditOrderSenaDialog> createState() => _EditOrderSenaDialogState();
+}
+
+class _EditOrderSenaDialogState extends State<_EditOrderSenaDialog> {
+  late final TextEditingController _sena;
+
+  @override
+  void initState() {
+    super.initState();
+    _sena = TextEditingController(
+      text: MoneyFormat.grouped(widget.order.sena ?? 0),
+    );
+  }
+
+  @override
+  void dispose() {
+    _sena.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    Navigator.pop(context, MoneyFormat.parse(_sena.text) ?? 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Seña'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Cantidad ya pagada. Se usa al facturar y al cerrar el pedido.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const ValueKey('edit-order-sena-field'),
+            controller: _sena,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [MoneyFormat.inputFormatter],
+            decoration: const InputDecoration(
+              labelText: 'Seña',
+              prefixText: '\$ ',
+            ),
+            onSubmitted: (_) => _save(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _save,
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
+
 class CancelOrderButton extends StatelessWidget {
   const CancelOrderButton({super.key, required this.order});
 

@@ -613,6 +613,17 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     notifyListeners();
   }
 
+  bool setOrderSena(String orderId, double amount) {
+    final order = orderById(orderId);
+    if (order == null || !order.isActive) return false;
+    final next = _normalizeSena(amount);
+    if (order.sena == next) return true;
+    order.sena = next;
+    notifyListeners();
+    unawaited(_persistOrder(order));
+    return true;
+  }
+
   void setRubro(CompanyRubro next) {
     if (rubro == next) return;
     rubro = next;
@@ -1154,7 +1165,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     final order = orderById(orderId);
     if (order == null || order.isClosed || order.lines.isEmpty) return false;
     if (saveOrderStock(orderId) == SaveStockResult.insufficient) return false;
-    order.sena = _normalizeSena(sena ?? 0);
+    order.sena = _normalizeSena(sena ?? order.sena ?? 0);
     order.status = OrderStatus.cerrado;
     order.closedAt = DateTime.now().toUtc();
     orders.removeWhere((item) => item.id == orderId);
