@@ -48,6 +48,12 @@ enum CompanyRole {
     CompanyRole.employee => false,
   };
 
+  bool get canViewBusinessStats => switch (this) {
+    CompanyRole.owner => true,
+    CompanyRole.administrator => true,
+    CompanyRole.employee => false,
+  };
+
   static const assignable = [CompanyRole.administrator, CompanyRole.employee];
 
   static CompanyRole fromStorage(String value) {

@@ -349,6 +349,30 @@ Future<void> saveOrderStockFlow(BuildContext context, DraftOrder order) async {
   ).showSnackBar(AppSnackBar(content: Text(message)));
 }
 
+Future<void> resetOrderStockFlow(BuildContext context, DraftOrder order) async {
+  if (order.stockNeedsSave || order.stockReservations.isEmpty) return;
+  final confirmed = await showAppConfirmDialog(
+    context: context,
+    title: 'Restablecer stock',
+    message:
+        'La reserva de stock de este pedido se va a quitar y volverá a estar disponible.',
+    confirmLabel: 'Aceptar',
+    icon: Icons.inventory_2_outlined,
+  );
+  if (!confirmed || !context.mounted) return;
+  final ok = context.read<AppStore>().resetOrderStock(order.id);
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    AppSnackBar(
+      content: Text(
+        ok
+            ? 'La reserva se quitó. El stock volvió a estar disponible.'
+            : 'No se pudo restablecer el stock.',
+      ),
+    ),
+  );
+}
+
 Future<void> sendOrderWhatsApp(BuildContext context, DraftOrder order) async {
   if (order.lines.isEmpty) return;
   final includeProductCode = context

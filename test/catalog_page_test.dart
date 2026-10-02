@@ -95,6 +95,11 @@ void main() {
     expect(find.text('Remera mujer'), findsOneWidget);
     expect(find.text('Jean hombre'), findsNothing);
 
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Remeras'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remera mujer'), findsOneWidget);
+    expect(find.text('Jean hombre'), findsOneWidget);
+
     await tester.tap(find.widgetWithText(ChoiceChip, 'Todo'));
     await tester.pumpAndSettle();
     expect(find.text('Remera mujer'), findsOneWidget);

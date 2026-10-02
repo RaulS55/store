@@ -93,6 +93,15 @@ void main() {
     expect(product.toMap()['audience'], 'mujer');
   });
 
+  test('audience includes baby and youth', () {
+    expect(ApparelAudience.fromStorage('bebe').label, 'Bebé');
+    expect(ApparelAudience.fromStorage('juvenil').label, 'Juvenil');
+    expect(
+      [for (final audience in ApparelAudience.values) audience.label],
+      containsAll(['Hombre', 'Mujer', 'Infantil', 'Bebé', 'Juvenil', 'Unisex']),
+    );
+  });
+
   test('Product.fromMap treats an empty category as optional', () {
     final product = Product.fromMap('p1', {
       'id': 'p1',

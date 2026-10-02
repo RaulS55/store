@@ -60,15 +60,21 @@ class OrderShare {
     return openUri(whatsappUri(order, includeProductCode: includeProductCode));
   }
 
-  static String catalogMessage(DraftOrder order, {bool updated = false}) {
+  static String catalogMessage(
+    DraftOrder order, {
+    bool updated = false,
+    List<OrderLine>? addedLines,
+  }) {
     final headline = updated
         ? 'Actualicé el pedido ${order.orderNumber}:'
         : 'Quiero este pedido ${order.orderNumber}:';
+    final lines = OrderLine.sorted(addedLines ?? order.lines);
+    final total = lines.fold<double>(0, (sum, line) => sum + line.lineTotal);
     final buffer = StringBuffer()
       ..writeln('Hola, soy ${order.customer.name}.')
       ..writeln(headline)
       ..writeln();
-    for (final line in order.sortedLines) {
+    for (final line in lines) {
       buffer.writeln(
         '• ${line.quantity}× ${line.product.name} '
         '(${line.variant.size} · ${line.variant.color}) — '
@@ -77,7 +83,7 @@ class OrderShare {
     }
     buffer
       ..writeln()
-      ..writeln('Total: ${MoneyFormat.detailed(order.total)}');
+      ..writeln('Total: ${MoneyFormat.detailed(total)}');
     return buffer.toString();
   }
 
@@ -85,11 +91,15 @@ class OrderShare {
     DraftOrder order,
     String? phone, {
     bool updated = false,
+    List<OrderLine>? addedLines,
   }) {
-    if (order.lines.isEmpty) return null;
+    final lines = addedLines ?? order.lines;
+    if (lines.isEmpty) return null;
     final digits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
     if (digits.isEmpty) return null;
-    final text = Uri.encodeComponent(catalogMessage(order, updated: updated));
+    final text = Uri.encodeComponent(
+      catalogMessage(order, updated: updated, addedLines: addedLines),
+    );
     return Uri.parse('https://wa.me/$digits?text=$text');
   }
 

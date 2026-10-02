@@ -138,6 +138,8 @@ void main() {
 
       final first = await store.submit(name: '  Juan Pérez  ');
       expect(store.cartCount, 2);
+      expect(store.pendingCartLines, isEmpty);
+      expect(store.requestedCartLines.single.quantity, 2);
       expect(store.openOrder?.orderId, first.order.id);
       expect(first.updated, isFalse);
       expect(first.order.isCatalog, isTrue);
@@ -164,7 +166,14 @@ void main() {
       );
       expect(orders.orders['co1']!.values.single.id, first.order.id);
 
-      store.setLineQty(store.cartLines.single.lineKey, 3);
+      final key = store.requestedCartLines.single.lineKey;
+      store.setLineQty(key, 1);
+      store.removeLine(key);
+      expect(store.requestedCartLines.single.quantity, 2);
+      expect(store.pendingCartLines, isEmpty);
+
+      store.addToCart(product, product.variants.first);
+      expect(store.pendingCartLines.single.quantity, 1);
       final second = await store.submit(name: 'Ana');
       expect(second.updated, isTrue);
       expect(second.order.id, first.order.id);
@@ -172,9 +181,25 @@ void main() {
       expect(orders.orders['co1']!.length, 1);
       expect(orders.orders['co1']!.values.single.lines.single.quantity, 3);
       expect(customers.customers['co1']!.length, 1);
+      expect(store.pendingCartLines, isEmpty);
+      expect(store.requestedCartLines.single.quantity, 3);
       expect(
         OrderShare.catalogMessage(second.order, updated: true),
         contains('Actualicé el pedido ${second.order.orderNumber}'),
+      );
+      expect(
+        OrderShare.catalogMessage(
+          second.order,
+          updated: true,
+          addedLines: [
+            OrderLine(
+              product: product,
+              variant: product.variants.first,
+              quantity: 1,
+            ),
+          ],
+        ),
+        contains('1×'),
       );
     },
   );
@@ -208,7 +233,11 @@ void main() {
     addTearDown(secondStore.dispose);
     expect(secondStore.openOrder?.orderNumber, first.order.orderNumber);
     expect(secondStore.cartCount, 1);
-    secondStore.setLineQty(secondStore.cartLines.single.lineKey, 2);
+    expect(secondStore.pendingCartLines, isEmpty);
+    secondStore.addToCart(
+      secondStore.visibleProducts.single,
+      secondStore.visibleProducts.single.variants.first,
+    );
     final second = await secondStore.submit(name: 'Juan');
     expect(second.updated, isTrue);
     expect(second.order.id, first.order.id);
@@ -216,7 +245,7 @@ void main() {
     expect(orders.orders['co1']!.values.single.lines.single.quantity, 2);
   });
 
-  test('submit opens a new order after the business closes the previous one', () async {
+  test('closing the order from the business clears the client cart', () async {
     final companies = FakeCompanyAccess()..companies['co1'] = _company();
     final products = FakeProductAccess();
     await products.saveProduct('co1', testProduct());
@@ -232,16 +261,95 @@ void main() {
     final product = store.visibleProducts.single;
     store.addToCart(product, product.variants.first);
     final first = await store.submit(name: 'Juan');
+    store.addToCart(product, product.variants.first);
+    expect(store.pendingCartLines, isNotEmpty);
+
     orders.orders['co1']![first.order.id]!.status = OrderStatus.cerrado;
     orders.orders['co1']![first.order.id]!.closedAt = DateTime.utc(2026, 9, 26);
+    orders.emitOrder('co1', first.order.id);
+    await Future<void>.delayed(Duration.zero);
 
-    store.setLineQty(store.cartLines.single.lineKey, 2);
-    final second = await store.submit(name: 'Juan');
-    expect(second.updated, isFalse);
-    expect(second.replacedClosed, isTrue);
-    expect(second.order.id, isNot(first.order.id));
-    expect(orders.orders['co1']!.length, 2);
-    expect(store.openOrder?.orderId, second.order.id);
+    expect(store.openOrder, isNull);
+    expect(store.cartCount, 0);
+    expect(store.pendingCartLines, isEmpty);
+    expect(store.requestedCartLines, isEmpty);
+    expect(orders.orders['co1']!.length, 1);
+  });
+
+  test(
+    'submit does not open a new order if the previous one was closed',
+    () async {
+      final companies = FakeCompanyAccess()..companies['co1'] = _company();
+      final products = FakeProductAccess();
+      await products.saveProduct('co1', testProduct());
+      final customers = FakeCustomerAccess();
+      final orders = FakeOrderAccess();
+      final store = await _store(
+        companies: companies,
+        products: products,
+        customers: customers,
+        orders: orders,
+      );
+      addTearDown(store.dispose);
+      final product = store.visibleProducts.single;
+      store.addToCart(product, product.variants.first);
+      final first = await store.submit(name: 'Juan');
+      store.addToCart(product, product.variants.first);
+      orders.orders['co1']![first.order.id]!.status = OrderStatus.cerrado;
+      orders.orders['co1']![first.order.id]!.closedAt = DateTime.utc(
+        2026,
+        9,
+        26,
+      );
+
+      await expectLater(
+        store.submit(name: 'Juan'),
+        throwsA(
+          isA<SessionException>().having(
+            (error) => error.message,
+            'message',
+            contains('cerró el pedido'),
+          ),
+        ),
+      );
+      expect(store.openOrder, isNull);
+      expect(store.cartCount, 0);
+      expect(orders.orders['co1']!.length, 1);
+    },
+  );
+
+  test('removing a line in the business drops it from Ya solicitado', () async {
+    final companies = FakeCompanyAccess()..companies['co1'] = _company();
+    final products = FakeProductAccess();
+    await products.saveProduct('co1', testProduct());
+    await products.saveProduct(
+      'co1',
+      testProduct(id: 'p-jean', name: 'Jean test', sku: 'TST-0002'),
+    );
+    final customers = FakeCustomerAccess();
+    final orders = FakeOrderAccess();
+    final store = await _store(
+      companies: companies,
+      products: products,
+      customers: customers,
+      orders: orders,
+    );
+    addTearDown(store.dispose);
+    final shirt = store.productById('p-test')!;
+    final jean = store.productById('p-jean')!;
+    store.addToCart(shirt, shirt.variants.first);
+    store.addToCart(jean, jean.variants.first);
+    final first = await store.submit(name: 'Juan');
+    expect(store.requestedCartLines, hasLength(2));
+
+    final remote = orders.orders['co1']![first.order.id]!;
+    remote.lines.removeWhere((line) => line.product.id == 'p-jean');
+    orders.emitOrder('co1', first.order.id);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(store.requestedCartLines, hasLength(1));
+    expect(store.requestedCartLines.single.product.id, 'p-test');
+    expect(store.openOrder?.orderId, first.order.id);
   });
 
   test('submit without a company phone still saves the order', () async {

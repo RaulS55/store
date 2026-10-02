@@ -6,6 +6,7 @@ import 'package:store_app/data/app_store.dart';
 import 'package:store_app/data/session_store.dart';
 import 'package:store_app/features/stock/stock_page.dart';
 import 'package:store_app/routing/app_router.dart';
+import 'package:store_app/models/product.dart';
 import 'package:store_app/theme/tokens.dart';
 
 import 'fakes/catalog_harness.dart';
@@ -143,5 +144,90 @@ void main() {
           decoration.color == AppColors.terracotta;
     });
     expect(leakedInks, isEmpty);
+  });
+
+  testWidgets('stock main chips filter by audience', (tester) async {
+    tester.view.physicalSize = const Size(400, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-m',
+        name: 'Remera mujer',
+        audience: ApparelAudience.mujer,
+      ),
+    );
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-h',
+        name: 'Jean hombre',
+        sku: 'TST-0002',
+        audience: ApparelAudience.hombre,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: const MaterialApp(home: Scaffold(body: StockPage())),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('audience-chip-mujer')), findsOneWidget);
+    expect(find.byKey(const ValueKey('audience-chip-hombre')), findsOneWidget);
+    expect(find.text('Remera mujer'), findsOneWidget);
+    expect(find.text('Jean hombre'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('audience-chip-mujer')));
+    await tester.pump();
+
+    expect(store.chipAudience, ApparelAudience.mujer);
+    expect(find.text('Remera mujer'), findsOneWidget);
+    expect(find.text('Jean hombre'), findsNothing);
+  });
+
+  testWidgets('stock category chip toggles back to all', (tester) async {
+    tester.view.physicalSize = const Size(400, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(
+      testProduct(id: 'p-m', name: 'Remera mujer'),
+    );
+    await store.upsertProduct(
+      testProduct(
+        id: 'p-j',
+        name: 'Jean hombre',
+        sku: 'TST-0002',
+        category: ApparelCategory.jeans,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: const MaterialApp(home: Scaffold(body: StockPage())),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Remeras'));
+    await tester.pump();
+    expect(store.chipCategory, ApparelCategory.remeras);
+    expect(find.text('Jean hombre'), findsNothing);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Remeras'));
+    await tester.pump();
+    expect(store.chipCategory, isNull);
+    expect(find.text('Remera mujer'), findsOneWidget);
+    expect(find.text('Jean hombre'), findsOneWidget);
   });
 }

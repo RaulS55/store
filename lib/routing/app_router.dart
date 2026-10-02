@@ -20,6 +20,7 @@ import '../features/order/orders_page.dart';
 import '../features/product/product_detail_page.dart';
 import '../features/product/product_form_page.dart';
 import '../features/settings/settings_page.dart';
+import '../features/stats/stats_page.dart';
 import '../features/stock/stock_page.dart';
 import '../features/team/team_page.dart';
 import '../widgets/app_shell.dart';
@@ -166,6 +167,11 @@ GoRouter createRouter(
             ],
           ),
           GoRoute(
+            path: '/estadisticas',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: StatsPage()),
+          ),
+          GoRoute(
             path: '/equipo',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: TeamPage()),
@@ -209,6 +215,9 @@ String? sessionRedirect(SessionStore session, String path, {String? resume}) {
       return '/';
     }
     if (path == '/equipo' && !session.canViewTeam) return '/';
+    if (path == '/estadisticas' && !session.canViewBusinessStats) {
+      return '/';
+    }
     if ((path == '/montones' || path.startsWith('/lotes')) &&
         !session.canManageLots) {
       return '/';

@@ -55,6 +55,8 @@ class SessionStore extends ChangeNotifier {
       _membership?.role.canEditCompanySettings ?? false;
   bool get canManageLots => _membership?.role.canManageLots ?? false;
   bool get canViewLotStats => _membership?.role.canViewLotStats ?? false;
+  bool get canViewBusinessStats =>
+      _membership?.role.canViewBusinessStats ?? false;
   bool get needsCompany => isReady && hasIdentity && !isSignedIn;
 
   AuthIdentity? get identity => _identity;

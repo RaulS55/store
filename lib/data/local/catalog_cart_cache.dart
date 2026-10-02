@@ -8,21 +8,24 @@ class CatalogCartLine {
     required this.size,
     required this.color,
     required this.quantity,
+    this.requested = false,
   });
 
   final String productId;
   final String size;
   final String color;
   final int quantity;
+  final bool requested;
 
   String get lineKey => '$productId::$size|$color';
 
-  CatalogCartLine copyWith({int? quantity}) {
+  CatalogCartLine copyWith({int? quantity, bool? requested}) {
     return CatalogCartLine(
       productId: productId,
       size: size,
       color: color,
       quantity: quantity ?? this.quantity,
+      requested: requested ?? this.requested,
     );
   }
 
@@ -32,6 +35,7 @@ class CatalogCartLine {
       'size': size,
       'color': color,
       'quantity': quantity,
+      'requested': requested,
     };
   }
 
@@ -41,6 +45,7 @@ class CatalogCartLine {
       size: map['size'] as String? ?? '',
       color: map['color'] as String? ?? '',
       quantity: (map['quantity'] as num?)?.toInt() ?? 0,
+      requested: map['requested'] as bool? ?? false,
     );
   }
 }

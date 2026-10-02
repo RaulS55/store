@@ -382,6 +382,53 @@ void main() {
     expect(order.isActive, isTrue);
   });
 
+  test('resetOrderStock returns reserved units to available stock', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+    expect(store.productById('p-test')!.variants.first.stock, 9);
+    expect(order.stockReservations, isNotEmpty);
+
+    expect(store.resetOrderStock(order.id), isTrue);
+    expect(store.productById('p-test')!.variants.first.stock, 10);
+    expect(order.stockReservations, isEmpty);
+    expect(order.stockNeedsSave, isTrue);
+    expect(store.resetOrderStock(order.id), isFalse);
+  });
+
+  test(
+    'lineSellableStock drops to zero when another order reserves the last unit',
+    () async {
+      final store = AppStore();
+      addTearDown(store.dispose);
+      await store.upsertProduct(testProduct(stock: 1));
+      final product = store.productById('p-test')!;
+      final firstCustomer = await seedTestCustomer(store);
+      final secondCustomer = await seedTestCustomer(
+        store,
+        customer: testCustomer(id: 'c-2', name: 'Carla Pérez'),
+      );
+      final first = store.createOrder(firstCustomer);
+      expect(
+        store.addToOrder(product, product.variants.first, orderId: first.id),
+        isTrue,
+      );
+      final second = store.createOrder(secondCustomer);
+      expect(
+        store.addToOrder(product, product.variants.first, orderId: second.id),
+        isTrue,
+      );
+      expect(store.lineSellableStock(second.id, second.lines.first), 1);
+
+      expect(store.saveOrderStock(first.id), SaveStockResult.saved);
+      expect(store.closeOrder(first.id), isTrue);
+      expect(store.productById('p-test')!.variants.first.stock, 0);
+      expect(store.lineSellableStock(second.id, second.lines.first), 0);
+      expect(store.saveOrderStock(second.id), SaveStockResult.insufficient);
+    },
+  );
+
   test('deleteOrder returns stock reserved by the open order', () async {
     final store = AppStore();
     addTearDown(store.dispose);

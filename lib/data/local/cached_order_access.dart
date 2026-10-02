@@ -35,6 +35,11 @@ class CachedOrderAccess implements OrderAccess {
   }
 
   @override
+  Stream<DraftOrder?> watchOrder(String companyId, String orderId) {
+    return _remote.watchOrder(companyId, orderId);
+  }
+
+  @override
   Future<void> saveOrder(String companyId, DraftOrder order) {
     return _cached.save(companyId, order);
   }

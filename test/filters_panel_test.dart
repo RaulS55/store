@@ -97,6 +97,14 @@ void main() {
       expect(find.text('42'), findsNothing);
       expect(find.text('Poco stock'), findsOneWidget);
       expect(find.text('Solo bajo stock'), findsNothing);
+      expect(find.byKey(const ValueKey('audience-chip-all')), findsOneWidget);
+      expect(find.byKey(const ValueKey('audience-chip-mujer')), findsOneWidget);
+      expect(find.byKey(const ValueKey('audience-chip-bebe')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('audience-chip-juvenil')),
+        findsOneWidget,
+      );
+      expect(find.text('Público'), findsNothing);
 
       await tester.tap(find.widgetWithText(FilterChip, 'Poco stock'));
       await tester.pump();
@@ -108,4 +116,32 @@ void main() {
       expect(chip.showCheckmark, isFalse);
     },
   );
+
+  testWidgets('web filter bar audience chips select the public', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final store = AppStore();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: const Scaffold(body: WebFilterBar()),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('audience-chip-mujer')));
+    await tester.pump();
+    expect(store.chipAudience, ApparelAudience.mujer);
+
+    await tester.tap(find.byKey(const ValueKey('audience-chip-all')));
+    await tester.pump();
+    expect(store.chipAudience, isNull);
+  });
 }

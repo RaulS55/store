@@ -360,7 +360,12 @@ service cloud.firestore {
       }
 
       match /orders/{orderId} {
-        allow read: if isMember(companyId);
+        allow get: if isMember(companyId)
+          || (
+            resource.data.source == 'catalog'
+            && resource.data.deletedAt == null
+          );
+        allow list: if isMember(companyId);
         allow create: if (isMember(companyId) && hasSyncFields(orderId))
           || isCatalogOrderCreate(orderId);
         allow update: if (

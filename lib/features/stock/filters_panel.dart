@@ -337,6 +337,113 @@ class _FiltersEditorState extends State<FiltersEditor> {
   }
 }
 
+ChipThemeData compactFilterChipTheme(BuildContext context) {
+  final theme = Theme.of(context);
+  return theme.chipTheme.copyWith(
+    labelStyle: theme.textTheme.labelMedium,
+    padding: const EdgeInsets.symmetric(horizontal: 6),
+    labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+    showCheckmark: false,
+  );
+}
+
+class CompactFilterChips extends StatelessWidget {
+  const CompactFilterChips({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        visualDensity: VisualDensity.compact,
+        chipTheme: compactFilterChipTheme(context),
+      ),
+      child: child,
+    );
+  }
+}
+
+class AudienceFilterChips extends StatelessWidget {
+  const AudienceFilterChips({
+    super.key,
+    required this.host,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16),
+    this.scrollable = true,
+  });
+
+  final ProductFilterHost host;
+  final EdgeInsetsGeometry padding;
+  final bool scrollable;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: host,
+      builder: (context, _) {
+        final chips = [
+          _AudienceChip(
+            key: const ValueKey('audience-chip-all'),
+            label: 'Todos',
+            selected: host.chipAudience == null,
+            onSelected: (_) => host.selectChipAudience(null),
+          ),
+          for (final audience in ApparelAudience.values)
+            _AudienceChip(
+              key: ValueKey('audience-chip-${audience.name}'),
+              label: audience.label,
+              selected: host.chipAudience == audience,
+              onSelected: (selected) =>
+                  host.selectChipAudience(selected ? audience : null),
+            ),
+        ];
+        if (!scrollable) {
+          return Padding(
+            padding: padding,
+            child: Wrap(spacing: 8, runSpacing: 8, children: chips),
+          );
+        }
+        return SizedBox(
+          height: 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            primary: false,
+            padding: padding,
+            children: [
+              for (final chip in chips)
+                Padding(padding: const EdgeInsets.only(right: 8), child: chip),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AudienceChip extends StatelessWidget {
+  const _AudienceChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      showCheckmark: false,
+      onSelected: onSelected,
+    );
+  }
+}
+
 class WebFilterBar extends StatelessWidget {
   const WebFilterBar({super.key, this.host});
 
@@ -347,108 +454,100 @@ class WebFilterBar extends StatelessWidget {
     final store = host ?? context.watch<AppStore>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+    return CompactFilterChips(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.tune, size: 18, color: AppColors.terracotta),
-              const SizedBox(width: 8),
-              Text(
-                'Filtros avanzados',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const Spacer(),
-              if (!store.filters.isEmpty)
-                TextButton(
-                  onPressed: store.clearFilters,
-                  child: const Text('Limpiar filtros'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.tune, size: 18, color: AppColors.terracotta),
+                const SizedBox(width: 8),
+                Text(
+                  'Filtros avanzados',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    _DropdownWrap(
-                      label: 'Categoría',
-                      child: DropdownButton<ApparelCategory?>(
-                        value:
-                            store.visibleCategories.contains(store.chipCategory)
-                            ? store.chipCategory
-                            : null,
-                        hint: const Text('Todas'),
-                        underline: const SizedBox.shrink(),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('Todas'),
-                          ),
-                          for (final c in store.visibleCategories)
-                            DropdownMenuItem(value: c, child: Text(c.label)),
-                        ],
-                        onChanged: store.selectChipCategory,
-                      ),
-                    ),
-                    _DropdownWrap(
-                      label: 'Público',
-                      child: DropdownButton<ApparelAudience?>(
-                        value: store.chipAudience,
-                        hint: const Text('Todos'),
-                        underline: const SizedBox.shrink(),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('Todos'),
-                          ),
-                          for (final audience in ApparelAudience.values)
-                            DropdownMenuItem(
-                              value: audience,
-                              child: Text(audience.label),
+                const Spacer(),
+                if (!store.filters.isEmpty)
+                  TextButton(
+                    onPressed: store.clearFilters,
+                    child: const Text('Limpiar filtros'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            AudienceFilterChips(
+              host: store,
+              scrollable: false,
+              padding: EdgeInsets.zero,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _DropdownWrap(
+                        label: 'Categoría',
+                        child: DropdownButton<ApparelCategory?>(
+                          value:
+                              store.visibleCategories.contains(
+                                store.chipCategory,
+                              )
+                              ? store.chipCategory
+                              : null,
+                          hint: const Text('Todas'),
+                          underline: const SizedBox.shrink(),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Todas'),
                             ),
-                        ],
-                        onChanged: store.selectChipAudience,
+                            for (final c in store.visibleCategories)
+                              DropdownMenuItem(value: c, child: Text(c.label)),
+                          ],
+                          onChanged: store.selectChipCategory,
+                        ),
                       ),
-                    ),
-                    _FilterChipRow(store: store),
-                    FilterChip(
-                      label: const Text('Poco stock'),
-                      selected: store.filters.onlyLowStock,
-                      showCheckmark: false,
-                      selectedColor: AppColors.terracottaChip,
-                      onSelected: (v) => store.applyFilters(
-                        store.filters.copyWith(onlyLowStock: v),
+                      _FilterChipRow(store: store),
+                      FilterChip(
+                        label: const Text('Poco stock'),
+                        selected: store.filters.onlyLowStock,
+                        showCheckmark: false,
+                        selectedColor: AppColors.terracottaChip,
+                        onSelected: (v) => store.applyFilters(
+                          store.filters.copyWith(onlyLowStock: v),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              FilledButton(
-                onPressed: () => showFiltersSheet(context, host: store),
-                style: FilledButton.styleFrom(minimumSize: const Size(140, 40)),
-                child: const Text('Aplicar filtros'),
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 12),
+                FilledButton(
+                  onPressed: () => showFiltersSheet(context, host: store),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(140, 40),
+                  ),
+                  child: const Text('Aplicar filtros'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

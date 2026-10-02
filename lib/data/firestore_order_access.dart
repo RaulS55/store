@@ -55,18 +55,48 @@ class FirestoreOrderAccess implements IncrementalOrderAccess {
   }
 
   @override
+  Stream<DraftOrder?> watchOrder(String companyId, String orderId) {
+    return _orders(companyId).doc(orderId).snapshots().map((snap) {
+      if (!snap.exists) return null;
+      final data = snap.data();
+      if (data == null) return null;
+      final order = DraftOrder.fromMap(snap.id, data);
+      if (order.isDeleted) return null;
+      return order;
+    });
+  }
+
+  @override
   Future<void> saveOrder(String companyId, DraftOrder order) {
     return _orders(companyId).doc(order.id).set(order.toMap());
   }
 
   @override
   Future<void> updateCatalogOrder(String companyId, DraftOrder order) async {
+    final ref = _orders(companyId).doc(order.id);
     try {
-      await _orders(companyId).doc(order.id).update({
-        'lines': [for (final line in order.lines) line.toMap()],
-        'customer': order.customer.toMap(),
-        'updatedAt': order.updatedAt.toUtc().toIso8601String(),
+      await _db.runTransaction((tx) async {
+        final snap = await tx.get(ref);
+        final data = snap.data();
+        if (!snap.exists || data == null) {
+          throw const CatalogOrderLockedException();
+        }
+        final existing = DraftOrder.fromMap(snap.id, data);
+        if (!existing.isCatalog || !existing.isActive || existing.isDeleted) {
+          throw const CatalogOrderLockedException();
+        }
+        final merged = OrderLine.mergeAdded(existing.lines, order.lines);
+        if (merged.isEmpty) {
+          throw const CatalogOrderLockedException();
+        }
+        tx.update(ref, {
+          'lines': [for (final line in merged) line.toMap()],
+          'customer': order.customer.toMap(),
+          'updatedAt': order.updatedAt.toUtc().toIso8601String(),
+        });
       });
+    } on CatalogOrderLockedException {
+      rethrow;
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied' || error.code == 'not-found') {
         throw const CatalogOrderLockedException();

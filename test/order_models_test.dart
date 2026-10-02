@@ -295,4 +295,26 @@ void main() {
     expect(order.isCatalog, isTrue);
     expect(order.toMap()['source'], 'catalog');
   });
+
+  test('OrderLine.mergeAdded sums the same variant and appends new ones', () {
+    final shirt = testProduct(id: 'p-shirt', name: 'Remera');
+    final jean = testProduct(id: 'p-jean', name: 'Jean');
+    final current = [
+      OrderLine(product: shirt, variant: shirt.variants.first, quantity: 2),
+    ];
+    final added = [
+      OrderLine(product: shirt, variant: shirt.variants.first, quantity: 1),
+      OrderLine(product: jean, variant: jean.variants.first, quantity: 3),
+    ];
+    final merged = OrderLine.mergeAdded(current, added);
+    expect(merged, hasLength(2));
+    expect(
+      merged.firstWhere((line) => line.product.id == 'p-shirt').quantity,
+      3,
+    );
+    expect(
+      merged.firstWhere((line) => line.product.id == 'p-jean').quantity,
+      3,
+    );
+  });
 }

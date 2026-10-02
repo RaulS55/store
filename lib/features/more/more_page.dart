@@ -55,6 +55,14 @@ class MorePage extends StatelessWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.go('/lotes'),
             ),
+          if (session.canViewBusinessStats)
+            ListTile(
+              leading: const Icon(Icons.bar_chart_outlined),
+              title: const Text('Estadísticas'),
+              subtitle: const Text('Prendas en stock y ventas de la app'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go('/estadisticas'),
+            ),
           ListTile(
             leading: const Icon(Icons.settings_outlined),
             title: const Text('Configuración'),

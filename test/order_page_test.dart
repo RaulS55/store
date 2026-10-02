@@ -195,7 +195,7 @@ void main() {
     expect(order.isActive, isTrue);
     expect(store.productById('p-test')!.variants.first.stock, stockAfterClose);
     expect(find.text('Armar pedido'), findsOneWidget);
-    expect(find.text('Stock guardado'), findsOneWidget);
+    expect(find.text('Restablecer stock'), findsOneWidget);
     expect(find.text('Cambiar'), findsOneWidget);
     expect(
       find.text('Pedido reabierto. El stock sigue reservado.'),
@@ -223,8 +223,8 @@ void main() {
     await tester.pump();
 
     expect(store.productById('p-test')!.variants.first.stock, 9);
-    expect(find.text('Stock guardado'), findsOneWidget);
-    expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
+    expect(find.text('Restablecer stock'), findsOneWidget);
+    expect(tester.widget<OutlinedButton>(button).onPressed, isNotNull);
     expect(
       find.text('Stock reservado. El disponible ya se actualizó.'),
       findsOneWidget,
@@ -290,5 +290,117 @@ void main() {
     expect(find.byKey(const ValueKey('edit-line-price')), findsNothing);
     expect(find.text(r'$8.000,00'), findsWidgets);
     expect(find.text(r'Lista: $10.000,00'), findsOneWidget);
+  });
+
+  testWidgets(
+    'an unreserved line shows out of stock after another order takes the last unit',
+    (tester) async {
+      _setPhoneView(tester);
+      final store = AppStore();
+      addTearDown(store.dispose);
+      await store.upsertProduct(testProduct(stock: 1));
+      final product = store.productById('p-test')!;
+      final firstCustomer = await seedTestCustomer(store);
+      final secondCustomer = await seedTestCustomer(
+        store,
+        customer: testCustomer(id: 'c-2', name: 'Carla Pérez'),
+      );
+      final first = store.createOrder(firstCustomer);
+      expect(
+        store.addToOrder(product, product.variants.first, orderId: first.id),
+        isTrue,
+      );
+      final second = store.createOrder(secondCustomer);
+      expect(
+        store.addToOrder(product, product.variants.first, orderId: second.id),
+        isTrue,
+      );
+      expect(store.saveOrderStock(first.id), SaveStockResult.saved);
+      expect(store.closeOrder(first.id), isTrue);
+
+      await tester.pumpWidget(_app(store, second.id));
+      await tester.pump();
+
+      expect(find.text('Sin stock'), findsOneWidget);
+      expect(find.text(product.name), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a reserved line does not show out of stock when live units are zero',
+    (tester) async {
+      _setPhoneView(tester);
+      final store = AppStore();
+      addTearDown(store.dispose);
+      await store.upsertProduct(testProduct(stock: 1));
+      final product = store.productById('p-test')!;
+      final customer = await seedTestCustomer(store);
+      final order = store.createOrder(customer);
+      expect(
+        store.addToOrder(product, product.variants.first, orderId: order.id),
+        isTrue,
+      );
+      expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+      expect(store.productById('p-test')!.variants.first.stock, 0);
+
+      await tester.pumpWidget(_app(store, order.id));
+      await tester.pump();
+
+      expect(find.text('Sin stock'), findsNothing);
+      expect(find.text('Restablecer stock'), findsOneWidget);
+    },
+  );
+
+  testWidgets('reset stock asks for confirmation and returns reserved units', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    final button = find.byKey(const ValueKey('save-order-stock'));
+    expect(find.text('Restablecer stock'), findsOneWidget);
+    expect(store.productById('p-test')!.variants.first.stock, 9);
+
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Restablecer stock'), findsWidgets);
+    expect(
+      find.text(
+        'La reserva de stock de este pedido se va a quitar y volverá a estar disponible.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Aceptar'), findsOneWidget);
+    expect(find.text('Cancelar'), findsOneWidget);
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+
+    expect(store.productById('p-test')!.variants.first.stock, 9);
+    expect(order.stockReservations, isNotEmpty);
+    expect(find.text('Guardar stock'), findsNothing);
+
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aceptar'));
+    await tester.pumpAndSettle();
+
+    expect(store.productById('p-test')!.variants.first.stock, 10);
+    expect(order.stockReservations, isEmpty);
+    expect(order.stockNeedsSave, isTrue);
+    expect(find.text('Guardar stock'), findsOneWidget);
+    expect(
+      find.text('La reserva se quitó. El stock volvió a estar disponible.'),
+      findsOneWidget,
+    );
   });
 }

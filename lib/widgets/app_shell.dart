@@ -38,6 +38,12 @@ class AppShell extends StatelessWidget {
       Icons.inventory_2_rounded,
       Icons.inventory_2_outlined,
     ),
+    _Dest(
+      '/estadisticas',
+      'Estadísticas',
+      Icons.bar_chart_rounded,
+      Icons.bar_chart_outlined,
+    ),
     _Dest('/equipo', 'Equipo', Icons.groups_rounded, Icons.groups_outlined),
     _Dest('/config', 'Config', Icons.settings_rounded, Icons.settings_outlined),
   ];
@@ -81,6 +87,7 @@ class AppShell extends StatelessWidget {
   static bool _canShow(SessionStore session, _Dest dest) {
     if (dest.path == '/equipo') return session.canViewTeam;
     if (dest.path == '/lotes') return session.canManageLots;
+    if (dest.path == '/estadisticas') return session.canViewBusinessStats;
     return true;
   }
 }

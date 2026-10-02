@@ -96,7 +96,14 @@ class _StockPageState extends State<StockPage> {
               ),
             ),
             SliverToBoxAdapter(
-              child: _CategoryChips(chips: store.visibleCategories),
+              child: CompactFilterChips(
+                child: Column(
+                  children: [
+                    _CategoryChips(chips: store.visibleCategories),
+                    AudienceFilterChips(host: store),
+                  ],
+                ),
+              ),
             ),
             if (products.isEmpty)
               SliverFillRemaining(
@@ -309,19 +316,18 @@ class _CategoryChips extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
     return SizedBox(
-      height: 44,
+      height: 40,
       child: ListView(
         scrollDirection: Axis.horizontal,
+        primary: false,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              avatar: store.chipCategory == null
-                  ? const Icon(Icons.check, size: 16)
-                  : null,
               label: const Text('Todo'),
               selected: store.chipCategory == null,
+              showCheckmark: false,
               onSelected: (_) => store.selectChipCategory(null),
             ),
           ),
@@ -331,7 +337,9 @@ class _CategoryChips extends StatelessWidget {
               child: ChoiceChip(
                 label: Text(category.label),
                 selected: store.chipCategory == category,
-                onSelected: (_) => store.selectChipCategory(category),
+                showCheckmark: false,
+                onSelected: (selected) =>
+                    store.selectChipCategory(selected ? category : null),
               ),
             ),
         ],

@@ -138,6 +138,32 @@ class OrderLine {
   static List<OrderLine> sorted(Iterable<OrderLine> lines) {
     return [...lines]..sort(compare);
   }
+
+  /// Adds [added] onto [current] by [lineKey], summing quantities.
+  static List<OrderLine> mergeAdded(
+    Iterable<OrderLine> current,
+    Iterable<OrderLine> added, {
+    int maxLines = 50,
+  }) {
+    final byKey = <String, OrderLine>{};
+    for (final line in current) {
+      if (line.quantity <= 0) continue;
+      byKey[line.lineKey] = line;
+    }
+    for (final line in added) {
+      if (line.quantity <= 0) continue;
+      final existing = byKey[line.lineKey];
+      if (existing == null) {
+        if (byKey.length >= maxLines) continue;
+        byKey[line.lineKey] = line;
+      } else {
+        byKey[line.lineKey] = existing.copyWith(
+          quantity: existing.quantity + line.quantity,
+        );
+      }
+    }
+    return sorted(byKey.values);
+  }
 }
 
 class DraftOrder {

@@ -325,6 +325,8 @@ void main() {
     expect(mujer, findsOneWidget);
     expect(find.widgetWithText(ChoiceChip, 'Hombre'), findsOneWidget);
     expect(find.widgetWithText(ChoiceChip, 'Infantil'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Bebé'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Juvenil'), findsOneWidget);
     expect(find.widgetWithText(ChoiceChip, 'Unisex'), findsOneWidget);
 
     await tester.tap(mujer);

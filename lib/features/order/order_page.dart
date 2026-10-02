@@ -127,7 +127,7 @@ class _MobileOrder extends StatelessWidget {
                 Expanded(
                   child: Text(
                     order.isClosed ? 'Pedido cerrado' : 'Armar pedido',
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.start,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -322,7 +322,7 @@ class _OrderActions extends StatelessWidget {
       stockHint = 'Confirmá la reserva para actualizar el stock disponible.';
     } else if (stockSaved) {
       stockHint =
-          'Reserva confirmada. Se vuelve a habilitar si modificás el pedido.';
+          'Reserva confirmada. Restablecé el stock para devolverlo al disponible.';
     } else {
       stockHint = null;
     }
@@ -334,11 +334,18 @@ class _OrderActions extends StatelessWidget {
       context,
     ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600);
 
+    final stockEnabled = order.stockNeedsSave || stockSaved;
     final stockButton = OutlinedButton(
       key: const ValueKey('save-order-stock'),
-      onPressed: order.stockNeedsSave
-          ? () => saveOrderStockFlow(context, order)
-          : null,
+      onPressed: !stockEnabled
+          ? null
+          : () {
+              if (order.stockNeedsSave) {
+                saveOrderStockFlow(context, order);
+              } else {
+                resetOrderStockFlow(context, order);
+              }
+            },
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.terracotta,
         minimumSize: compact ? actionSize : const Size.fromHeight(48),
@@ -347,9 +354,7 @@ class _OrderActions extends StatelessWidget {
         visualDensity: compact ? VisualDensity.compact : null,
         textStyle: actionStyle,
         side: BorderSide(
-          color: order.stockNeedsSave
-              ? AppColors.terracotta
-              : AppColors.lightBorder,
+          color: stockEnabled ? AppColors.terracotta : AppColors.lightBorder,
         ),
       ),
       child: FittedBox(
@@ -358,11 +363,11 @@ class _OrderActions extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              stockSaved ? Icons.check : Icons.inventory_2_outlined,
+              stockSaved ? Icons.restart_alt : Icons.inventory_2_outlined,
               size: 18,
             ),
             const SizedBox(width: 6),
-            Text(stockSaved ? 'Stock guardado' : 'Guardar stock'),
+            Text(stockSaved ? 'Restablecer stock' : 'Guardar stock'),
           ],
         ),
       ),
@@ -651,6 +656,8 @@ class _LineTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final available = store.lineSellableStock(orderId, line);
+    final outOfStock = !readOnly && available <= 0;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -658,7 +665,9 @@ class _LineTile extends StatelessWidget {
         color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(AppRadii.md),
         border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          color: outOfStock
+              ? AppColors.stockLow.withValues(alpha: 0.45)
+              : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
         ),
       ),
       child: Row(
@@ -694,6 +703,16 @@ class _LineTile extends StatelessWidget {
                   '${line.variant.size} · ${line.variant.color}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                if (outOfStock)
+                  Text(
+                    'Sin stock',
+                    key: ValueKey('line-stock-warning-${line.lineKey}'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.stockLow,
+                      fontWeight: FontWeight.w600,
+                      height: 1.1,
+                    ),
+                  ),
               ],
             ),
           ),

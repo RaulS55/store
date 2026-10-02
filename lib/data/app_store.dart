@@ -7,6 +7,7 @@ import '../models/company.dart';
 import '../models/customer.dart';
 import '../models/filters.dart';
 import '../models/lot.dart';
+import '../models/company_stats.dart';
 import '../models/lot_stats.dart';
 import '../models/order.dart';
 import '../models/product.dart';
@@ -539,6 +540,16 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     );
   }
 
+  CompanyStats statsForCompany({DateTime? from, DateTime? to}) {
+    return computeCompanyStats(
+      products: _products,
+      openOrders: orders,
+      closedOrders: closedOrders,
+      from: from,
+      to: to,
+    );
+  }
+
   DraftOrder? orderById(String id) {
     for (final order in orders) {
       if (order.id == id) return order;
@@ -985,14 +996,18 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     return live + order.reservedQuantity(productId, size, color);
   }
 
-  int lineQuantityCap(String orderId, OrderLine line) {
-    final room = sellableStock(
+  int lineSellableStock(String orderId, OrderLine line) {
+    return sellableStock(
       orderId: orderId,
       productId: line.product.id,
       size: line.variant.size,
       color: line.variant.color,
       fallback: line.variant.stock,
     );
+  }
+
+  int lineQuantityCap(String orderId, OrderLine line) {
+    final room = lineSellableStock(orderId, line);
     return room < line.quantity ? line.quantity : room;
   }
 
@@ -1123,6 +1138,16 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     notifyListeners();
     unawaited(_persistOrder(order));
     return SaveStockResult.saved;
+  }
+
+  bool resetOrderStock(String orderId) {
+    final order = orderById(orderId);
+    if (order == null || !order.isActive) return false;
+    if (order.stockReservations.isEmpty) return false;
+    _returnReservedStock(order);
+    notifyListeners();
+    unawaited(_persistOrder(order));
+    return true;
   }
 
   bool closeOrder(String orderId, {double? sena}) {

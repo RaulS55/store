@@ -95,6 +95,8 @@ enum ApparelAudience {
   hombre('Hombre'),
   mujer('Mujer'),
   infantil('Infantil'),
+  bebe('Bebé'),
+  juvenil('Juvenil'),
   unisex('Unisex');
 
   const ApparelAudience(this.label);
