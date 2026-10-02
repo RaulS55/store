@@ -316,8 +316,8 @@ void main() {
     );
     await tester.pump();
 
-    await tester.ensureVisible(find.text('Guardar prenda'));
-    await tester.tap(find.text('Guardar prenda'));
+    await tester.ensureVisible(find.byKey(const ValueKey('save-product')));
+    await tester.tap(find.byKey(const ValueKey('save-product')));
     await tester.pump();
 
     expect(store.productById('p-own')!.categoryLabel, 'Pantalones cargo');
@@ -392,6 +392,33 @@ void main() {
     expect(tester.widget<ChoiceChip>(mujer).selected, isFalse);
   });
 
+  testWidgets('edit form shows a save button in the header', (tester) async {
+    _setTallView(tester);
+    final store = AppStore();
+    await store.upsertProduct(testProduct(id: 'p-own', name: 'Campera'));
+    await tester.pumpWidget(_formApp(store, productId: 'p-own'));
+
+    expect(find.byKey(const ValueKey('save-product-appbar')), findsOneWidget);
+    expect(find.text('Guardar prenda'), findsNWidgets(2));
+
+    await tester.enterText(
+      _fieldWithHint('Ej. Campera de cuero'),
+      'Campera XL',
+    );
+    await tester.tap(find.byKey(const ValueKey('save-product-appbar')));
+    await tester.pump();
+
+    expect(store.productById('p-own')!.name, 'Campera XL');
+  });
+
+  testWidgets('new product form keeps save only at the bottom', (tester) async {
+    _setTallView(tester);
+    await tester.pumpWidget(_formApp(AppStore()));
+
+    expect(find.byKey(const ValueKey('save-product-appbar')), findsNothing);
+    expect(find.text('Guardar prenda'), findsOneWidget);
+  });
+
   testWidgets('form header paints an opaque background', (tester) async {
     _setTallView(tester);
     await tester.pumpWidget(_formApp(AppStore()));
@@ -458,8 +485,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Portada'), findsOneWidget);
-    await tester.ensureVisible(find.text('Guardar prenda'));
-    await tester.tap(find.text('Guardar prenda'));
+    await tester.ensureVisible(find.byKey(const ValueKey('save-product')));
+    await tester.tap(find.byKey(const ValueKey('save-product')));
     await tester.pump();
 
     expect(store.productById('p-img')!.images, ['img-c', 'img-a', 'img-b']);
@@ -537,8 +564,8 @@ void main() {
 
     expect(find.byKey(const ValueKey('product-lot')), findsNothing);
 
-    await tester.ensureVisible(find.text('Guardar prenda'));
-    await tester.tap(find.text('Guardar prenda'));
+    await tester.ensureVisible(find.byKey(const ValueKey('save-product')));
+    await tester.tap(find.byKey(const ValueKey('save-product')));
     await tester.pump();
 
     expect(store.productById('p-own')!.lotId, 'l1');

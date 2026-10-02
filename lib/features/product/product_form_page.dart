@@ -245,6 +245,8 @@ class _ProductFormPageState extends State<ProductFormPage> {
             subtitle: wide && !isEditing
                 ? 'Completá los datos de la nueva prenda y sumala al catálogo.'
                 : null,
+            onSave: isEditing ? _save : null,
+            saving: _saving,
           ),
           if (_error != null)
             Padding(
@@ -301,6 +303,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
         ),
         const SizedBox(height: 20),
         FilledButton.icon(
+          key: const ValueKey('save-product'),
           onPressed: _saving ? null : _save,
           icon: _saving
               ? const SizedBox(
@@ -341,6 +344,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
           child: SizedBox(
             width: 220,
             child: FilledButton.icon(
+              key: const ValueKey('save-product'),
               onPressed: _saving ? null : _save,
               icon: _saving
                   ? const SizedBox(
@@ -542,17 +546,24 @@ class _ProductFormPageState extends State<ProductFormPage> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.title, this.subtitle});
+  const _Header({
+    required this.title,
+    this.subtitle,
+    this.onSave,
+    this.saving = false,
+  });
 
   final String title;
   final String? subtitle;
+  final VoidCallback? onSave;
+  final bool saving;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
         child: Row(
           children: [
             IconButton(
@@ -570,6 +581,8 @@ class _Header extends StatelessWidget {
                 children: [
                   Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -585,7 +598,20 @@ class _Header extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 48),
+            if (onSave != null)
+              TextButton(
+                key: const ValueKey('save-product-appbar'),
+                onPressed: saving ? null : onSave,
+                child: saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Guardar prenda'),
+              )
+            else
+              const SizedBox(width: 48),
           ],
         ),
       ),
