@@ -42,6 +42,8 @@ void main() {
     expect(stats.garmentUnits, 0);
     expect(stats.availableUnits, 0);
     expect(stats.reservedUnits, 0);
+    expect(stats.availableValue, 0);
+    expect(stats.reservedValue, 0);
     expect(stats.garmentValue, 0);
     expect(stats.soldUnits, 0);
     expect(stats.soldValue, 0);
@@ -59,6 +61,8 @@ void main() {
     expect(stats.garmentUnits, 10);
     expect(stats.availableUnits, 10);
     expect(stats.reservedUnits, 0);
+    expect(stats.availableValue, 160000);
+    expect(stats.reservedValue, 0);
     expect(stats.garmentValue, 160000);
     expect(stats.soldUnits, 0);
     expect(stats.soldValue, 0);
@@ -96,6 +100,8 @@ void main() {
     expect(stats.reservedUnits, 0);
     expect(stats.garmentUnits, 7);
     expect(stats.soldValue, 15000);
+    expect(stats.availableValue, 105000);
+    expect(stats.reservedValue, 0);
     expect(stats.garmentValue, 105000);
   });
 
@@ -113,7 +119,28 @@ void main() {
     expect(stats.reservedUnits, 2);
     expect(stats.garmentUnits, 8);
     expect(stats.soldUnits, 0);
+    expect(stats.availableValue, 90000);
+    expect(stats.reservedValue, 30000);
     expect(stats.garmentValue, 120000);
+    expect(stats.soldValue, 0);
+  });
+
+  test('reserved stock uses the sale override when present', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final product = testProduct(id: 'p1', stock: 8, price: 15000);
+    await store.upsertProduct(product);
+    final order = await seedTestOrder(store, product: product);
+    store.setLineQty(order.id, order.lines.first.lineKey, 2);
+    store.setLineUnitPrice(order.id, order.lines.first.lineKey, 10000);
+    expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+
+    final stats = store.statsForCompany();
+    expect(stats.availableUnits, 6);
+    expect(stats.reservedUnits, 2);
+    expect(stats.soldUnits, 0);
+    expect(stats.availableValue, 90000);
+    expect(stats.reservedValue, 20000);
     expect(stats.soldValue, 0);
   });
 

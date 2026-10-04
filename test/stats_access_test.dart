@@ -137,7 +137,7 @@ void main() {
     router.go('/estadisticas');
     await tester.pumpAndSettle();
 
-    expect(find.text('En prendas'), findsNothing);
+    expect(find.text('Sin vender'), findsNothing);
     expect(router.state.uri.path, '/');
   });
 
@@ -181,12 +181,49 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Estadísticas'), findsWidgets);
-    expect(find.text('En prendas'), findsOneWidget);
-    expect(find.text('Vendido'), findsOneWidget);
+    expect(find.text('Sin vender'), findsOneWidget);
+    expect(find.text('Reservadas'), findsOneWidget);
+    expect(find.text('Vendidas'), findsOneWidget);
     expect(find.text('7 unidades'), findsOneWidget);
     expect(find.text('\$105.000'), findsOneWidget);
+    expect(find.text('0 unidades'), findsOneWidget);
+    expect(find.text('\$0'), findsOneWidget);
     expect(find.text('3 unidades'), findsOneWidget);
     expect(find.text('\$45.000'), findsOneWidget);
+  });
+
+  testWidgets('owner can see reserved totals separate from unsold stock', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final product = testProduct(id: 'p1', stock: 8, price: 15000);
+    await store.upsertProduct(product);
+    final order = await seedTestOrder(store, product: product);
+    store.setLineQty(order.id, order.lines.first.lineKey, 2);
+    expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/estadisticas');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sin vender'), findsOneWidget);
+    expect(find.text('6 unidades'), findsOneWidget);
+    expect(find.text('\$90.000'), findsOneWidget);
+    expect(find.text('Reservadas'), findsOneWidget);
+    expect(find.text('2 unidades'), findsOneWidget);
+    expect(find.text('\$30.000'), findsOneWidget);
+    expect(find.text('Vendidas'), findsOneWidget);
+    expect(find.text('0 unidades'), findsOneWidget);
+    expect(find.text('\$0'), findsOneWidget);
   });
 
   testWidgets('this month filter keeps stock and hides older sales', (
@@ -212,6 +249,8 @@ void main() {
 
     expect(find.text('7 unidades'), findsOneWidget);
     expect(find.text('\$105.000'), findsOneWidget);
+    expect(find.text('0 unidades'), findsOneWidget);
+    expect(find.text('\$0'), findsOneWidget);
     expect(find.text('1 unidad'), findsOneWidget);
     expect(find.text('\$15.000'), findsOneWidget);
     expect(find.text('3 unidades'), findsNothing);
@@ -237,7 +276,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/estadisticas');
-    expect(find.text('En prendas'), findsOneWidget);
+    expect(find.text('Sin vender'), findsOneWidget);
+    expect(find.text('Reservadas'), findsOneWidget);
+    expect(find.text('Vendidas'), findsOneWidget);
     expect(find.text('0 unidades'), findsWidgets);
     expect(find.text('\$0'), findsWidgets);
   });

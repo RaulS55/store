@@ -79,18 +79,24 @@ class _StatsPageState extends State<StatsPage> {
     final range = _range;
     final stats = store.statsForCompany(from: range?.from, to: range?.to);
     final wide = AppBreakpoints.isWide(context);
-    final garments = _StatCard(
-      title: 'En prendas',
-      icon: Icons.checkroom_outlined,
-      subtitle: stats.reservedUnits == 0
-          ? 'Stock actual en la app.'
-          : 'Stock actual, incluye ${stats.reservedUnits} reservada${stats.reservedUnits == 1 ? '' : 's'}.',
-      units: stats.garmentUnits,
-      value: stats.garmentValue,
+    final unsold = _StatCard(
+      title: 'Sin vender',
+      icon: Icons.inventory_2_outlined,
+      subtitle: 'Stock disponible en la app.',
+      units: stats.availableUnits,
+      value: stats.availableValue,
       accent: AppColors.terracotta,
     );
+    final reserved = _StatCard(
+      title: 'Reservadas',
+      icon: Icons.bookmark_outline,
+      subtitle: 'Stock en pedidos abiertos.',
+      units: stats.reservedUnits,
+      value: stats.reservedValue,
+      accent: AppColors.warning,
+    );
     final sold = _StatCard(
-      title: 'Vendido',
+      title: 'Vendidas',
       icon: Icons.sell_outlined,
       subtitle: _soldSubtitle,
       units: stats.soldUnits,
@@ -110,13 +116,26 @@ class _StatsPageState extends State<StatsPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Total en prendas y ventas registradas en la app.',
+            'Totales de prendas sin vender, reservadas y vendidas.',
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: AppColors.slate),
           ),
           const SizedBox(height: 16),
-          garments,
+          if (wide)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: unsold),
+                const SizedBox(width: 12),
+                Expanded(child: reserved),
+              ],
+            )
+          else ...[
+            unsold,
+            const SizedBox(height: 12),
+            reserved,
+          ],
           const SizedBox(height: 16),
           Text(
             'Ventas por fecha',

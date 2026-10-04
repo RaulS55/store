@@ -530,21 +530,69 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
+  test('lot suggestions filter by name and date', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertLot(testLot(id: 'l1', name: 'Lote feria'));
+    await store.upsertLot(testLot(id: 'l2', name: 'Lote depósito'));
+
+    expect(store.lotSuggestions(''), hasLength(2));
+    expect(store.lotSuggestions('fer').map((lot) => lot.id), ['l1']);
+    expect(store.resolveLot('Lote feria')?.id, 'l1');
+    expect(store.resolveLot('lote depósito')?.id, 'l2');
+    expect(store.resolveLot('no existe'), isNull);
+  });
+
   testWidgets('owner can assign a lot on the product form', (tester) async {
     _setTallView(tester);
     final store = AppStore();
     addTearDown(store.dispose);
     await store.upsertLot(testLot(id: 'l1', name: 'Lote feria'));
+    await store.upsertLot(testLot(id: 'l2', name: 'Lote depósito'));
     final session = await signedInOwnerSession();
     addTearDown(session.dispose);
 
     await tester.pumpWidget(_formApp(store, session: session));
     await tester.pump();
 
-    expect(find.byKey(const ValueKey('product-lot')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('product-lot')));
+    final lot = find.byKey(const ValueKey('product-lot'));
+    expect(lot, findsOneWidget);
+    await tester.tap(lot);
     await tester.pumpAndSettle();
     expect(find.text('Lote feria').hitTestable(), findsWidgets);
+    expect(find.text('Lote depósito').hitTestable(), findsWidgets);
+
+    await tester.enterText(lot, 'fer');
+    await tester.pumpAndSettle();
+    expect(find.text('Lote feria').hitTestable(), findsWidgets);
+    expect(find.text('Lote depósito').hitTestable(), findsNothing);
+  });
+
+  testWidgets('owner form saves the typed lot', (tester) async {
+    _setTallView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct(id: 'p-own'));
+    await store.upsertLot(testLot(id: 'l1', name: 'Lote feria'));
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+
+    await tester.pumpWidget(
+      _formApp(store, productId: 'p-own', session: session),
+    );
+    await tester.pump();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('product-lot')),
+      'Lote feria',
+    );
+    await tester.pump();
+
+    await tester.ensureVisible(find.byKey(const ValueKey('save-product')));
+    await tester.tap(find.byKey(const ValueKey('save-product')));
+    await tester.pump();
+
+    expect(store.productById('p-own')!.lotId, 'l1');
   });
 
   testWidgets('employee form hides the lot and keeps it on save', (

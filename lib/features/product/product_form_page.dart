@@ -8,6 +8,7 @@ import '../../data/formatters.dart';
 import '../../data/gallery_picker.dart';
 import '../../data/image_compress.dart';
 import '../../data/session_store.dart';
+import '../../models/lot.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_snack_bar.dart';
@@ -40,7 +41,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
   String _categoryQuery = '';
   String _brandQuery = '';
   ApparelAudience? _audience;
-  String _lotId = '';
+  String _lotQuery = '';
   final List<_ProductImageDraft> _images = [];
   String? _error;
   late final String _productId;
@@ -62,7 +63,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
     _categoryQuery = existing?.categoryLabel ?? '';
     _brandQuery = existing?.brand ?? '';
     _audience = existing?.audience;
-    _lotId = existing?.lotId ?? '';
+    _lotQuery = store.lotById(existing?.lotId ?? '')?.displayName ?? '';
     _draft = VariantDraft(
       sizes: existing?.sizes,
       colors: existing?.colors,
@@ -194,7 +195,9 @@ class _ProductFormPageState extends State<ProductFormPage> {
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
         deletedAt: existing?.deletedAt,
-        lotId: canAssignLot ? _lotId : (existing?.lotId ?? ''),
+        lotId: canAssignLot
+            ? (store.resolveLot(_lotQuery)?.id ?? '')
+            : (existing?.lotId ?? ''),
       );
       await store.upsertProduct(product);
       if (!mounted) return;
@@ -494,27 +497,30 @@ class _ProductFormPageState extends State<ProductFormPage> {
       if (context.watch<SessionStore?>()?.canManageLots ?? false)
         _LabeledField(
           label: 'Lote',
-          child: Builder(
-            builder: (context) {
-              final lots = context.watch<AppStore>().lots;
-              final value = lots.any((lot) => lot.id == _lotId) ? _lotId : '';
-              return DropdownButtonFormField<String>(
-                key: const ValueKey('product-lot'),
-                initialValue: value,
-                isExpanded: true,
-                decoration: const InputDecoration(hintText: 'Sin lote'),
-                items: [
-                  const DropdownMenuItem(value: '', child: Text('Sin lote')),
-                  for (final lot in lots)
-                    DropdownMenuItem(
-                      value: lot.id,
-                      child: Text(lot.displayName),
-                    ),
-                ],
-                onChanged: (selected) =>
-                    setState(() => _lotId = selected ?? ''),
-              );
+          child: Autocomplete<Lot>(
+            initialValue: TextEditingValue(text: _lotQuery),
+            displayStringForOption: (lot) => lot.displayName,
+            optionsBuilder: (value) {
+              return context.read<AppStore>().lotSuggestions(value.text);
             },
+            onSelected: (lot) {
+              _lotQuery = lot.displayName;
+            },
+            fieldViewBuilder:
+                (context, controller, focusNode, onFieldSubmitted) {
+                  return TextFormField(
+                    key: const ValueKey('product-lot'),
+                    controller: controller,
+                    focusNode: focusNode,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      hintText: 'Ej. Lote feria',
+                    ),
+                    onChanged: (value) => _lotQuery = value,
+                    onFieldSubmitted: (_) => onFieldSubmitted(),
+                    validator: _lotValidator,
+                  );
+                },
           ),
         ),
     ];
@@ -540,6 +546,14 @@ class _ProductFormPageState extends State<ProductFormPage> {
     if (required != null) return required;
     if (MoneyFormat.parse(value!) == null) {
       return 'Ingresá un número';
+    }
+    return null;
+  }
+
+  String? _lotValidator(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    if (context.read<AppStore>().resolveLot(value) == null) {
+      return 'Elegí un lote de la lista';
     }
     return null;
   }

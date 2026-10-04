@@ -566,6 +566,35 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     return null;
   }
 
+  List<Lot> lotSuggestions(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return List<Lot>.unmodifiable(_lots);
+    return [
+      for (final lot in _lots)
+        if (_lotMatchesQuery(lot, q)) lot,
+    ];
+  }
+
+  Lot? resolveLot(String raw) {
+    final query = raw.trim();
+    if (query.isEmpty) return null;
+    final q = query.toLowerCase();
+    for (final lot in _lots) {
+      if (lot.displayName.toLowerCase() == q) return lot;
+    }
+    for (final lot in _lots) {
+      final name = lot.name.trim();
+      if (name.isNotEmpty && name.toLowerCase() == q) return lot;
+    }
+    return null;
+  }
+
+  bool _lotMatchesQuery(Lot lot, String q) {
+    return lot.displayName.toLowerCase().contains(q) ||
+        lot.name.toLowerCase().contains(q) ||
+        lot.dateLabel.toLowerCase().contains(q);
+  }
+
   LotStats statsForLot(Lot lot) {
     return computeLotStats(
       lot: lot,

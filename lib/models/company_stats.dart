@@ -6,6 +6,8 @@ class CompanyStats {
     required this.garmentUnits,
     required this.availableUnits,
     required this.reservedUnits,
+    required this.availableValue,
+    required this.reservedValue,
     required this.garmentValue,
     required this.soldUnits,
     required this.soldValue,
@@ -14,6 +16,8 @@ class CompanyStats {
   final int garmentUnits;
   final int availableUnits;
   final int reservedUnits;
+  final double availableValue;
+  final double reservedValue;
   final double garmentValue;
   final int soldUnits;
   final double soldValue;
@@ -102,6 +106,8 @@ CompanyStats computeCompanyStats({
     garmentUnits: availableUnits + reservedUnits,
     availableUnits: availableUnits,
     reservedUnits: reservedUnits,
+    availableValue: availableValue,
+    reservedValue: reservedValue,
     garmentValue: availableValue + reservedValue,
     soldUnits: soldUnits,
     soldValue: soldValue,
