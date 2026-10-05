@@ -645,6 +645,8 @@ class Product {
 
   int get stock => variants.fold(0, (sum, variant) => sum + variant.stock);
 
+  bool get isOutOfStock => stock <= 0;
+
   bool get isLowStock =>
       stock <= lowStockThreshold || variants.any((v) => v.isLow);
 

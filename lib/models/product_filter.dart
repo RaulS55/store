@@ -17,8 +17,17 @@ bool matchesProductFilters({
             .toLowerCase();
     if (!hay.contains(q)) return false;
   }
+  if (product.isOutOfStock) {
+    if (!filters.onlyOutOfStock && !productMatchesNameOrCode(product, q)) {
+      return false;
+    }
+  } else if (filters.onlyOutOfStock) {
+    return false;
+  }
   final category = product.category;
-  if (category != null && !visibleCategories.contains(category)) {
+  if (category != null &&
+      !visibleCategories.contains(category) &&
+      !(product.isOutOfStock && productMatchesNameOrCode(product, q))) {
     return false;
   }
   if (chipCategory != null &&
@@ -61,7 +70,11 @@ bool matchesProductFilters({
           !filters.brands.contains(product.brand))) {
     return false;
   }
-  if (filters.onlyLowStock && !product.isLowStock) return false;
+  if (filters.onlyLowStock &&
+      !filters.onlyOutOfStock &&
+      (product.isOutOfStock || !product.isLowStock)) {
+    return false;
+  }
   if (filters.minPrice != null && product.price < filters.minPrice!) {
     return false;
   }
@@ -69,6 +82,26 @@ bool matchesProductFilters({
     return false;
   }
   return true;
+}
+
+bool productMatchesNameOrCode(Product product, String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return false;
+  return product.name.toLowerCase().contains(q) ||
+      product.sku.toLowerCase().contains(q);
+}
+
+List<Product> withOutOfStockLast(Iterable<Product> products) {
+  final inStock = <Product>[];
+  final outOfStock = <Product>[];
+  for (final product in products) {
+    if (product.isOutOfStock) {
+      outOfStock.add(product);
+    } else {
+      inStock.add(product);
+    }
+  }
+  return [...inStock, ...outOfStock];
 }
 
 List<String> brandsOf(Iterable<Product> products) {

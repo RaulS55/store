@@ -87,11 +87,7 @@ void main() {
       testProduct(id: 'p-m', audience: ApparelAudience.mujer),
     );
     await store.upsertProduct(
-      testProduct(
-        id: 'p-h',
-        sku: 'TST-0002',
-        audience: ApparelAudience.hombre,
-      ),
+      testProduct(id: 'p-h', sku: 'TST-0002', audience: ApparelAudience.hombre),
     );
     await tester.pumpWidget(_app(store));
 
@@ -110,9 +106,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final store = AppStore();
-    await store.upsertProduct(
-      testProduct(audience: ApparelAudience.mujer),
-    );
+    await store.upsertProduct(testProduct(audience: ApparelAudience.mujer));
     await tester.pumpWidget(_app(store));
 
     expect(find.text('Público'), findsNothing);
@@ -144,7 +138,9 @@ void main() {
       expect(find.text('40'), findsNothing);
       expect(find.text('42'), findsNothing);
       expect(find.text('Poco stock'), findsOneWidget);
+      expect(find.text('Sin stock'), findsOneWidget);
       expect(find.text('Solo bajo stock'), findsNothing);
+      expect(find.text('Solo sin stock'), findsNothing);
       expect(find.byKey(const ValueKey('audience-chip-all')), findsNothing);
       expect(find.byKey(const ValueKey('audience-chip-mujer')), findsNothing);
       expect(find.text('Público'), findsNothing);
@@ -157,6 +153,15 @@ void main() {
       );
       expect(chip.selected, isTrue);
       expect(chip.showCheckmark, isFalse);
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Sin stock'));
+      await tester.pump();
+
+      final outChip = tester.widget<FilterChip>(
+        find.widgetWithText(FilterChip, 'Sin stock'),
+      );
+      expect(outChip.selected, isTrue);
+      expect(outChip.showCheckmark, isFalse);
     },
   );
 
@@ -173,11 +178,7 @@ void main() {
       testProduct(id: 'p-m', audience: ApparelAudience.mujer),
     );
     await store.upsertProduct(
-      testProduct(
-        id: 'p-h',
-        sku: 'TST-0002',
-        audience: ApparelAudience.hombre,
-      ),
+      testProduct(id: 'p-h', sku: 'TST-0002', audience: ApparelAudience.hombre),
     );
     await tester.pumpWidget(
       ChangeNotifierProvider.value(

@@ -518,73 +518,79 @@ void main() {
       ApparelCategory.remeras,
       ApparelCategory.jeans,
     ]);
-    expect(store.visibleCategories, isNot(contains(ApparelCategory.musculosas)));
+    expect(
+      store.visibleCategories,
+      isNot(contains(ApparelCategory.musculosas)),
+    );
   });
 
-  test('guest catalog lists categories and audiences with more garments first', () async {
-    final companies = FakeCompanyAccess()..companies['co1'] = _company();
-    final products = FakeProductAccess();
-    await products.saveProduct('co1', testProduct(id: 'p-r1'));
-    await products.saveProduct(
-      'co1',
-      testProduct(
-        id: 'p-j1',
-        sku: 'TST-0002',
-        category: ApparelCategory.jeans,
-      ),
-    );
-    await products.saveProduct(
-      'co1',
-      testProduct(
-        id: 'p-j2',
-        sku: 'TST-0003',
-        category: ApparelCategory.jeans,
-      ),
-    );
-    await products.saveProduct(
-      'co1',
-      testProduct(
-        id: 'p-m1',
-        sku: 'TST-0004',
-        category: ApparelCategory.jeans,
-        audience: ApparelAudience.mujer,
-      ),
-    );
-    await products.saveProduct(
-      'co1',
-      testProduct(
-        id: 'p-m2',
-        sku: 'TST-0005',
-        category: ApparelCategory.jeans,
-        audience: ApparelAudience.mujer,
-      ),
-    );
-    await products.saveProduct(
-      'co1',
-      testProduct(
-        id: 'p-h1',
-        sku: 'TST-0006',
-        category: ApparelCategory.jeans,
-        audience: ApparelAudience.hombre,
-      ),
-    );
-    final store = await _store(
-      companies: companies,
-      products: products,
-      customers: FakeCustomerAccess(),
-      orders: FakeOrderAccess(),
-    );
-    addTearDown(store.dispose);
+  test(
+    'guest catalog lists categories and audiences with more garments first',
+    () async {
+      final companies = FakeCompanyAccess()..companies['co1'] = _company();
+      final products = FakeProductAccess();
+      await products.saveProduct('co1', testProduct(id: 'p-r1'));
+      await products.saveProduct(
+        'co1',
+        testProduct(
+          id: 'p-j1',
+          sku: 'TST-0002',
+          category: ApparelCategory.jeans,
+        ),
+      );
+      await products.saveProduct(
+        'co1',
+        testProduct(
+          id: 'p-j2',
+          sku: 'TST-0003',
+          category: ApparelCategory.jeans,
+        ),
+      );
+      await products.saveProduct(
+        'co1',
+        testProduct(
+          id: 'p-m1',
+          sku: 'TST-0004',
+          category: ApparelCategory.jeans,
+          audience: ApparelAudience.mujer,
+        ),
+      );
+      await products.saveProduct(
+        'co1',
+        testProduct(
+          id: 'p-m2',
+          sku: 'TST-0005',
+          category: ApparelCategory.jeans,
+          audience: ApparelAudience.mujer,
+        ),
+      );
+      await products.saveProduct(
+        'co1',
+        testProduct(
+          id: 'p-h1',
+          sku: 'TST-0006',
+          category: ApparelCategory.jeans,
+          audience: ApparelAudience.hombre,
+        ),
+      );
+      final store = await _store(
+        companies: companies,
+        products: products,
+        customers: FakeCustomerAccess(),
+        orders: FakeOrderAccess(),
+      );
+      addTearDown(store.dispose);
 
-    expect(store.visibleCategories, [
-      ApparelCategory.jeans,
-      ApparelCategory.remeras,
-    ]);
-    expect(store.visibleAudiences, [
-      ApparelAudience.mujer,
-      ApparelAudience.hombre,
-    ]);
-  });
+      expect(store.visibleCategories, [
+        ApparelCategory.jeans,
+        ApparelCategory.remeras,
+      ]);
+      expect(store.visibleAudiences, [
+        ApparelAudience.mujer,
+        ApparelAudience.hombre,
+      ]);
+    },
+  );
 
   test('guest catalog hides audience when only one public is used', () async {
     final companies = FakeCompanyAccess()..companies['co1'] = _company();
@@ -613,6 +619,44 @@ void main() {
 
     expect(store.visibleAudiences, [ApparelAudience.mujer]);
     expect(store.showAudienceFilter, isFalse);
+  });
+
+  test('guest catalog hides out of stock until name or code search', () async {
+    final companies = FakeCompanyAccess()..companies['co1'] = _company();
+    final products = FakeProductAccess();
+    await products.saveProduct(
+      'co1',
+      testProduct(id: 'p-in', name: 'Remera lisa', brand: 'Urban'),
+    );
+    await products.saveProduct(
+      'co1',
+      testProduct(
+        id: 'p-out',
+        name: 'Remera vieja',
+        sku: 'OUT-0001',
+        category: ApparelCategory.musculosas,
+        brand: 'Urban',
+        stock: 0,
+      ),
+    );
+    final store = await _store(
+      companies: companies,
+      products: products,
+      customers: FakeCustomerAccess(),
+      orders: FakeOrderAccess(),
+    );
+    addTearDown(store.dispose);
+
+    expect(store.visibleProducts.map((p) => p.id), ['p-in']);
+
+    store.setSearch('remera');
+    expect(store.visibleProducts.map((p) => p.id), ['p-in', 'p-out']);
+
+    store.setSearch('out-0001');
+    expect(store.visibleProducts.map((p) => p.id), ['p-out']);
+
+    store.setSearch('urban');
+    expect(store.visibleProducts.map((p) => p.id), ['p-in']);
   });
 }
 

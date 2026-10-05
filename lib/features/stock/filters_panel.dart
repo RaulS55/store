@@ -275,6 +275,16 @@ class _FiltersEditorState extends State<FiltersEditor> {
                     activeThumbColor: Colors.white,
                     activeTrackColor: AppColors.terracotta,
                   ),
+                  SwitchListTile(
+                    value: _draft.onlyOutOfStock,
+                    onChanged: (v) => setState(
+                      () => _draft = _draft.copyWith(onlyOutOfStock: v),
+                    ),
+                    title: const Text('Solo sin stock'),
+                    contentPadding: EdgeInsets.zero,
+                    activeThumbColor: Colors.white,
+                    activeTrackColor: AppColors.terracotta,
+                  ),
                   const SizedBox(height: 8),
                   _Label('Rango de precio'),
                   const SizedBox(height: 8),
@@ -538,6 +548,15 @@ class WebFilterBar extends StatelessWidget {
                         selectedColor: AppColors.terracottaChip,
                         onSelected: (v) => store.applyFilters(
                           store.filters.copyWith(onlyLowStock: v),
+                        ),
+                      ),
+                      FilterChip(
+                        label: const Text('Sin stock'),
+                        selected: store.filters.onlyOutOfStock,
+                        showCheckmark: false,
+                        selectedColor: AppColors.terracottaChip,
+                        onSelected: (v) => store.applyFilters(
+                          store.filters.copyWith(onlyOutOfStock: v),
                         ),
                       ),
                     ],

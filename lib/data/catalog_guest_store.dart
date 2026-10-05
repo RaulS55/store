@@ -94,13 +94,18 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
   bool get notFound => _booted && _company == null;
   bool get isBusy => _busy;
 
-  List<Product> get products {
+  List<Product> get _activeProducts {
     return [
       for (final product in _allProducts)
-        if (!product.isDeleted &&
-            product.status == ProductStatus.activo &&
-            product.stock > 0)
+        if (!product.isDeleted && product.status == ProductStatus.activo)
           product,
+    ];
+  }
+
+  List<Product> get products {
+    return [
+      for (final product in _activeProducts)
+        if (!product.isOutOfStock) product,
     ];
   }
 
@@ -135,8 +140,8 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
   List<SwatchColor> get allColors => colorsOf(products);
 
   List<Product> get visibleProducts {
-    return [
-      for (final product in products)
+    return withOutOfStockLast([
+      for (final product in _activeProducts)
         if (matchesProductFilters(
           product: product,
           searchQuery: searchQuery,
@@ -147,7 +152,7 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
           filters: filters,
         ))
           product,
-    ];
+    ]);
   }
 
   Product? productById(String id) {

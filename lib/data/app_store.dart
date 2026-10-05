@@ -514,7 +514,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
           return a.stock.compareTo(b.stock);
       }
     });
-    return list;
+    return withOutOfStockLast(list);
   }
 
   int get filteredCount => filteredProducts.length;
