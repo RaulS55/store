@@ -153,7 +153,7 @@ void main() {
     await tester.pumpWidget(_app(VariantDraft()));
 
     expect(find.text('Óxido'), findsNothing);
-    expect(find.byTooltip('Agregar Marrón'), findsOneWidget);
+    expect(find.byTooltip('Agregar Chocolate'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(ActionChip, 'Color'));
     await tester.pumpAndSettle();

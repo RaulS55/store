@@ -151,100 +151,108 @@ class _WebShell extends StatelessWidget {
     return Scaffold(
       body: Row(
         children: [
-          Container(
+          SizedBox(
             width: 248,
-            decoration: BoxDecoration(
+            child: Material(
               color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-              border: Border(
-                right: BorderSide(
-                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    right: BorderSide(
+                      color: isDark
+                          ? AppColors.darkBorder
+                          : AppColors.lightBorder,
+                    ),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(20, 22, 20, 18),
+                      child: BrandLogo(),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        itemCount: destinations.length,
+                        itemBuilder: (context, index) {
+                          final dest = destinations[index];
+                          final active = index == selected;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: ListTile(
+                              onTap: () => context.go(dest.path),
+                              selected: active,
+                              leading: Icon(
+                                active ? dest.selected : dest.unselected,
+                                color: active
+                                    ? AppColors.terracotta
+                                    : AppColors.slate,
+                              ),
+                              title: Text(dest.label),
+                              selectedTileColor: isDark
+                                  ? AppColors.terracotta.withValues(alpha: 0.18)
+                                  : AppColors.terracottaChip,
+                              textColor: active
+                                  ? AppColors.terracotta
+                                  : Theme.of(context).colorScheme.onSurface,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppRadii.md,
+                                ),
+                              ),
+                              dense: true,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: AppColors.terracottaSoft,
+                            child: Text(
+                              initial,
+                              style: const TextStyle(
+                                color: AppColors.terracotta,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                Text(
+                                  role,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: AppColors.mutedText),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Cerrar sesión',
+                            onPressed: session.isBusy ? null : session.signOut,
+                            icon: const Icon(Icons.logout, size: 20),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 22, 20, 18),
-                  child: BrandLogo(),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    itemCount: destinations.length,
-                    itemBuilder: (context, index) {
-                      final dest = destinations[index];
-                      final active = index == selected;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: ListTile(
-                          onTap: () => context.go(dest.path),
-                          selected: active,
-                          leading: Icon(
-                            active ? dest.selected : dest.unselected,
-                            color: active
-                                ? AppColors.terracotta
-                                : AppColors.slate,
-                          ),
-                          title: Text(dest.label),
-                          selectedTileColor: isDark
-                              ? AppColors.terracotta.withValues(alpha: 0.18)
-                              : AppColors.terracottaChip,
-                          textColor: active
-                              ? AppColors.terracotta
-                              : Theme.of(context).colorScheme.onSurface,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadii.md),
-                          ),
-                          dense: true,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: AppColors.terracottaSoft,
-                        child: Text(
-                          initial,
-                          style: const TextStyle(
-                            color: AppColors.terracotta,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              name,
-                              style: Theme.of(context).textTheme.labelLarge
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                            Text(
-                              role,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: AppColors.mutedText),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Cerrar sesión',
-                        onPressed: session.isBusy ? null : session.signOut,
-                        icon: const Icon(Icons.logout, size: 20),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ),
           ),
           Expanded(child: child),

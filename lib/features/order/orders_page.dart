@@ -6,18 +6,40 @@ import '../../data/app_store.dart';
 import '../../models/order.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_snack_bar.dart';
+import '../../widgets/search_field.dart';
 import 'order_actions.dart';
 import 'order_card.dart';
 
-class OrdersPage extends StatelessWidget {
+class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
+
+  @override
+  State<OrdersPage> createState() => _OrdersPageState();
+}
+
+class _OrdersPageState extends State<OrdersPage> {
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
     final wide = AppBreakpoints.isWide(context);
-    final openOrders = store.orders;
-    final closedOrders = store.closedOrders;
+    final query = _search.text.trim().toLowerCase();
+    final openOrders = [
+      for (final order in store.orders)
+        if (_matchesOrderQuery(order, query)) order,
+    ];
+    final closedOrders = [
+      for (final order in store.closedOrders)
+        if (_matchesOrderQuery(order, query)) order,
+    ];
+    final searching = query.isNotEmpty;
     return DefaultTabController(
       length: 2,
       child: SafeArea(
@@ -31,25 +53,27 @@ class OrdersPage extends StatelessWidget {
                 wide ? 24 : 20,
                 8,
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Pedidos',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
+              child: wide
+                  ? Row(
+                      children: [
+                        Expanded(child: _title(context)),
+                        SizedBox(width: 360, child: _searchField()),
+                        const SizedBox(width: 8),
+                        _newOrderButton(context),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: _title(context)),
+                            _newOrderButton(context),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _searchField(),
+                      ],
                     ),
-                  ),
-                  FilledButton.icon(
-                    onPressed: () => _newOrder(context),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 48),
-                    ),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Nuevo pedido'),
-                  ),
-                ],
-              ),
             ),
             TabBar(
               labelColor: AppColors.terracotta,
@@ -75,7 +99,9 @@ class OrdersPage extends StatelessWidget {
                 children: [
                   _OrdersList(
                     orders: openOrders,
-                    empty: const _EmptyOrders(),
+                    empty: searching
+                        ? const _EmptyOrderSearch()
+                        : const _EmptyOrders(),
                     onTap: (order) {
                       store.setActiveOrder(order.id);
                       context.go('/pedido/${order.id}');
@@ -83,7 +109,9 @@ class OrdersPage extends StatelessWidget {
                   ),
                   _OrdersList(
                     orders: closedOrders,
-                    empty: const _EmptyClosedOrders(),
+                    empty: searching
+                        ? const _EmptyOrderSearch()
+                        : const _EmptyClosedOrders(),
                     showStatus: true,
                     itemKey: (order) => ValueKey('closed-order-${order.id}'),
                     onTap: (order) => context.push(invoiceRoute(order.id)),
@@ -104,18 +132,64 @@ class OrdersPage extends StatelessWidget {
     final existing = store.openOrderForCustomer(customer.id);
     final order = store.createOrder(customer);
     if (existing != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const AppSnackBar(
-          content: Text('Este cliente ya tiene un pedido abierto.'),
-        ),
+      AppSnackBar.show(
+        context,
+        content: Text('Este cliente ya tiene un pedido abierto.'),
       );
     }
     context.go('/pedido/${order.id}');
+  }
+
+  Widget _title(BuildContext context) {
+    return Text(
+      'Pedidos',
+      style: Theme.of(
+        context,
+      ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+    );
+  }
+
+  Widget _searchField() {
+    return SearchField(
+      key: const ValueKey('orders-search'),
+      controller: _search,
+      hint: 'Buscar cliente o número de pedido...',
+      onChanged: (_) => setState(() {}),
+    );
+  }
+
+  Widget _newOrderButton(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: () => _newOrder(context),
+      style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+      icon: const Icon(Icons.add, size: 18),
+      label: const Text('Nuevo pedido'),
+    );
   }
 }
 
 String _tabLabel(String label, int count) {
   return count == 0 ? label : '$label ($count)';
+}
+
+bool _matchesOrderQuery(DraftOrder order, String query) {
+  if (query.isEmpty) return true;
+  if (order.customer.name.toLowerCase().contains(query)) return true;
+  if (order.orderNumber.toLowerCase().contains(query)) return true;
+  if (_digitsContain(order.customer.phone, query)) return true;
+  if (_digitsContain(order.customer.cuit, query)) return true;
+  for (final line in order.lines) {
+    if (line.product.name.toLowerCase().contains(query)) return true;
+  }
+  return false;
+}
+
+bool _digitsContain(String? value, String query) {
+  if (value == null || value.isEmpty) return false;
+  if (value.toLowerCase().contains(query)) return true;
+  final digits = value.replaceAll(RegExp(r'\D'), '');
+  final queryDigits = query.replaceAll(RegExp(r'\D'), '');
+  return queryDigits.isNotEmpty && digits.contains(queryDigits);
 }
 
 class _OrdersList extends StatelessWidget {
@@ -177,6 +251,38 @@ class _EmptyOrders extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               'Creá un pedido y asignalo a un cliente.',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyOrderSearch extends StatelessWidget {
+  const _EmptyOrderSearch();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.search_off, color: AppColors.mutedText, size: 40),
+            const SizedBox(height: 12),
+            Text(
+              'No encontramos pedidos',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Probá con otro cliente o número de pedido.',
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,

@@ -166,12 +166,31 @@ void main() {
     final names = [for (final color in Swatches.all) color.name];
     expect(Swatches.all.length, greaterThanOrEqualTo(12));
     expect(names.toSet().length, Swatches.all.length);
-    expect(names, containsAll(['Negro', 'Blanco', 'Gris', 'Beige', 'Marrón']));
-    expect(names, contains('Celeste'));
+    expect(names, containsAll(['Negro', 'Blanco', 'Gris', 'Beige', 'Chocolate']));
+    expect(
+      names,
+      containsAll([
+        'Celeste',
+        'Violeta',
+        'Hueso',
+        'Gris oscuro',
+        'Naranja',
+        'Militar',
+        'Caqui',
+      ]),
+    );
     expect(Swatches.celeste.isCustom, isFalse);
+    expect(Swatches.violeta.isCustom, isFalse);
+    expect(Swatches.hueso.isCustom, isFalse);
+    expect(Swatches.grisOscuro.isCustom, isFalse);
+    expect(Swatches.naranja.isCustom, isFalse);
+    expect(Swatches.militar.isCustom, isFalse);
+    expect(Swatches.caqui.isCustom, isFalse);
     expect(names, isNot(contains('Óxido')));
     expect(names, isNot(contains('Terracota')));
-    expect(Swatches.marron.isCustom, isFalse);
+    expect(names, isNot(contains('Crudo')));
+    expect(names, isNot(contains('Mostaza')));
+    expect(Swatches.chocolate.isCustom, isFalse);
     expect(Swatches.resolve('Lila').isCustom, isTrue);
     expect(Swatches.resolve('Negro'), Swatches.negro);
   });
@@ -375,7 +394,7 @@ void main() {
     expect(ApparelSizes.all.toSet().length, ApparelSizes.all.length);
     expect(
       ApparelSizes.all,
-      containsAll(['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'Único']),
+      containsAll(['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'Talle único']),
     );
     expect(ApparelSizes.all.take(6).toList(), [
       'XXS',
@@ -389,6 +408,9 @@ void main() {
     expect(ApparelSizes.isCustom('44'), isTrue);
     expect(ApparelSizes.resolve('M'), 'M');
     expect(ApparelSizes.resolve('Oversize'), 'Oversize');
+    expect(ApparelSizes.resolve('Único'), 'Talle único');
+    expect(ApparelSizes.resolve('talle unico'), 'Talle único');
+    expect(ApparelSizes.isCustom('Único'), isFalse);
   });
 
   test('upsert writes products with sync fields', () async {

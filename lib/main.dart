@@ -19,10 +19,12 @@ import 'data/firebase_bootstrap.dart';
 import 'data/firebase_image_access.dart';
 import 'data/firestore_company_access.dart';
 import 'data/firestore_customer_access.dart';
+import 'data/firestore_expense_access.dart';
 import 'data/firestore_lot_access.dart';
 import 'data/firestore_order_access.dart';
 import 'data/firestore_product_access.dart';
 import 'data/local/cached_customer_access.dart';
+import 'data/local/cached_expense_access.dart';
 import 'data/local/cached_lot_access.dart';
 import 'data/local/cached_order_access.dart';
 import 'data/local/cached_product_access.dart';
@@ -97,9 +99,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
       unawaited(_showCachedCatalogBrand(cacheFuture));
       step = 'firebase';
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp(
-          options: firebaseOptionsForHost(),
-        );
+        await Firebase.initializeApp(options: firebaseOptionsForHost());
       }
       await configureFirebaseForPlatform();
       step = 'cache';
@@ -121,6 +121,10 @@ class _ModaStockAppState extends State<ModaStockApp> {
         customers: CachedCustomerAccess(remote: customerAccess, cache: cache),
         orderAccess: CachedOrderAccess(remote: orderAccess, cache: cache),
         lotAccess: CachedLotAccess(remote: FirestoreLotAccess(), cache: cache),
+        expenseAccess: CachedExpenseAccess(
+          remote: FirestoreExpenseAccess(),
+          cache: cache,
+        ),
         images: FirebaseImageAccess(),
         imageCache: imageCache,
       );

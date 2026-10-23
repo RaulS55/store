@@ -56,14 +56,44 @@ void main() {
     expect(store.filteredProducts.map((p) => p.id), ['p-in']);
   });
 
-  test('stock filter lists only out of stock garments', () async {
+  test('stock filter includes out of stock garments', () async {
     final store = AppStore();
     await store.upsertProduct(testProduct(id: 'p-in', name: 'Remera lisa'));
     await store.upsertProduct(
       testProduct(id: 'p-out', name: 'Remera vieja', sku: 'OUT-0001', stock: 0),
     );
 
-    store.applyFilters(const ProductFilters(onlyOutOfStock: true));
-    expect(store.filteredProducts.map((p) => p.id), ['p-out']);
+    store.applyFilters(const ProductFilters(includeOutOfStock: true));
+    expect(store.filteredProducts.map((p) => p.id), ['p-in', 'p-out']);
+  });
+
+  test('stock low stock filter still hides out of stock garments', () async {
+    final store = AppStore();
+    await store.upsertProduct(testProduct(id: 'p-ok', name: 'Remera lisa'));
+    await store.upsertProduct(
+      testProduct(id: 'p-low', name: 'Remera poca', sku: 'LOW-0001', stock: 2),
+    );
+    await store.upsertProduct(
+      testProduct(id: 'p-out', name: 'Remera vieja', sku: 'OUT-0001', stock: 0),
+    );
+
+    store.applyFilters(const ProductFilters(onlyLowStock: true));
+    expect(store.filteredProducts.map((p) => p.id), ['p-low']);
+  });
+
+  test('stock low stock filter can also include out of stock', () async {
+    final store = AppStore();
+    await store.upsertProduct(testProduct(id: 'p-ok', name: 'Remera lisa'));
+    await store.upsertProduct(
+      testProduct(id: 'p-low', name: 'Remera poca', sku: 'LOW-0001', stock: 2),
+    );
+    await store.upsertProduct(
+      testProduct(id: 'p-out', name: 'Remera vieja', sku: 'OUT-0001', stock: 0),
+    );
+
+    store.applyFilters(
+      const ProductFilters(onlyLowStock: true, includeOutOfStock: true),
+    );
+    expect(store.filteredProducts.map((p) => p.id), ['p-low', 'p-out']);
   });
 }

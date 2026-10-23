@@ -18,11 +18,9 @@ bool matchesProductFilters({
     if (!hay.contains(q)) return false;
   }
   if (product.isOutOfStock) {
-    if (!filters.onlyOutOfStock && !productMatchesNameOrCode(product, q)) {
+    if (!filters.includeOutOfStock && !productMatchesNameOrCode(product, q)) {
       return false;
     }
-  } else if (filters.onlyOutOfStock) {
-    return false;
   }
   final category = product.category;
   if (category != null &&
@@ -71,8 +69,9 @@ bool matchesProductFilters({
     return false;
   }
   if (filters.onlyLowStock &&
-      !filters.onlyOutOfStock &&
-      (product.isOutOfStock || !product.isLowStock)) {
+      (product.isOutOfStock
+          ? !filters.includeOutOfStock
+          : !product.isLowStock)) {
     return false;
   }
   if (filters.minPrice != null && product.price < filters.minPrice!) {

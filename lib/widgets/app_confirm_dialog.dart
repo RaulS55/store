@@ -112,10 +112,7 @@ class AppConfirmDialog extends StatelessWidget {
                     child: FilledButton(
                       onPressed: () => Navigator.of(context).pop(true),
                       style: buttonStyle,
-                      child: Text(
-                        confirmLabel,
-                        textAlign: TextAlign.center,
-                      ),
+                      child: Text(confirmLabel, textAlign: TextAlign.center),
                     ),
                   ),
                 ],

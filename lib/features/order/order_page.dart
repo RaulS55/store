@@ -655,10 +655,9 @@ class _CustomerTile extends StatelessWidget {
     if (selected.id == current.id) return;
     final ok = context.read<AppStore>().selectCustomer(order.id, selected);
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const AppSnackBar(
-          content: Text('Este cliente ya tiene un pedido abierto.'),
-        ),
+      AppSnackBar.show(
+        context,
+        content: Text('Este cliente ya tiene un pedido abierto.'),
       );
     }
   }

@@ -127,7 +127,7 @@ class VariantPicker extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Los talles se agrupan por color. Podés elegir varios del mismo.',
+          'Los talles se agrupan por color. El número de cada talle es lo que queda.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: AppColors.mutedText,
           ),
@@ -202,13 +202,28 @@ class _SizeChip extends StatelessWidget {
       );
     }
     return FilterChip(
-      label: Text(
-        out ? '$label  ·  0' : label,
-        style: TextStyle(
-          decoration: out ? TextDecoration.lineThrough : null,
-          color: out ? AppColors.mutedText : null,
-          fontWeight: FontWeight.w600,
-        ),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              decoration: out ? TextDecoration.lineThrough : null,
+              color: out ? AppColors.mutedText : null,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (!out) ...[
+            const SizedBox(width: 6),
+            Text(
+              stock > 10 ? '+9u' : '${stock}u',
+              style: const TextStyle(
+                color: AppColors.charcoal,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ],
       ),
       selected: selected && !out,
       showCheckmark: false,
@@ -298,9 +313,11 @@ class _ColorGroup extends StatelessWidget {
                 ),
                 Text(
                   out ? 'sin stock' : '$stock u.',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: out ? AppColors.stockLow : AppColors.mutedText,
-                    fontWeight: FontWeight.w600,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: out
+                        ? AppColors.stockLow
+                        : theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -349,7 +366,7 @@ class _StockLine extends StatelessWidget {
         : !available
         ? 'Esos talles no tienen stock en este color'
         : variants.length == 1
-        ? 'Stock disponible: ${variants.first.stock} u.'
+        ? '${variants.first.size} ${variants.first.color}: ${variants.first.stock} u.'
         : '${variants.length} talles · stock mínimo: ${variants.map((v) => v.stock).reduce((a, b) => a < b ? a : b)} u.';
     return Row(
       children: [

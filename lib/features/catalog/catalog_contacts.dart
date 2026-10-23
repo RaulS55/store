@@ -17,7 +17,7 @@ class CatalogContactLink {
 
   final String id;
   final String label;
-  final IconData icon;
+  final FaIconData icon;
   final Uri uri;
   final Color? color;
 }
@@ -110,7 +110,7 @@ class CatalogContacts extends StatelessWidget {
             for (final link in links)
               ActionChip(
                 key: ValueKey(link.id),
-                avatar: Icon(link.icon, size: 18, color: link.color),
+                avatar: FaIcon(link.icon, size: 18, color: link.color),
                 label: Text(link.label),
                 onPressed: () => _open(context, link),
               ),
@@ -123,8 +123,6 @@ class CatalogContacts extends StatelessWidget {
   Future<void> _open(BuildContext context, CatalogContactLink link) async {
     final ok = await OrderShare.openUri(link.uri);
     if (!context.mounted || ok) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      AppSnackBar(content: Text('No se pudo abrir ${link.label}.')),
-    );
+    AppSnackBar.show(context, content: Text('No se pudo abrir ${link.label}.'));
   }
 }

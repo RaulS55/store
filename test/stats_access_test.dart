@@ -13,7 +13,7 @@ import 'fakes/catalog_harness.dart';
 import 'fakes/session_harness.dart';
 
 void _setPhoneView(WidgetTester tester) {
-  tester.view.physicalSize = const Size(400, 900);
+  tester.view.physicalSize = const Size(400, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -184,12 +184,18 @@ void main() {
     expect(find.text('Sin vender'), findsOneWidget);
     expect(find.text('Reservadas'), findsOneWidget);
     expect(find.text('Vendidas'), findsOneWidget);
+    expect(find.text('Gasto en lotes'), findsOneWidget);
+    expect(find.text('Ganancia esperada bruta'), findsOneWidget);
+    expect(find.text('Ganancia esperada real'), findsOneWidget);
+    expect(find.text('Ganancia con otros gastos'), findsOneWidget);
+    expect(find.text('Otros gastos'), findsWidgets);
     expect(find.text('7 unidades'), findsOneWidget);
     expect(find.text('\$105.000'), findsOneWidget);
     expect(find.text('0 unidades'), findsOneWidget);
-    expect(find.text('\$0'), findsOneWidget);
+    expect(find.text('\$0'), findsWidgets);
     expect(find.text('3 unidades'), findsOneWidget);
     expect(find.text('\$45.000'), findsOneWidget);
+    expect(find.text('\$150.000'), findsNWidgets(3));
   });
 
   testWidgets('owner can see reserved totals separate from unsold stock', (
@@ -223,7 +229,8 @@ void main() {
     expect(find.text('\$30.000'), findsOneWidget);
     expect(find.text('Vendidas'), findsOneWidget);
     expect(find.text('0 unidades'), findsOneWidget);
-    expect(find.text('\$0'), findsOneWidget);
+    expect(find.text('\$0'), findsWidgets);
+    expect(find.text('\$120.000'), findsNWidgets(3));
   });
 
   testWidgets('this month filter keeps stock and hides older sales', (
@@ -250,11 +257,84 @@ void main() {
     expect(find.text('7 unidades'), findsOneWidget);
     expect(find.text('\$105.000'), findsOneWidget);
     expect(find.text('0 unidades'), findsOneWidget);
-    expect(find.text('\$0'), findsOneWidget);
+    expect(find.text('\$0'), findsWidgets);
     expect(find.text('1 unidad'), findsOneWidget);
     expect(find.text('\$15.000'), findsOneWidget);
+    expect(find.text('\$150.000'), findsNWidgets(3));
     expect(find.text('3 unidades'), findsNothing);
     expect(find.text('\$45.000'), findsNothing);
+  });
+
+  testWidgets('owner can see lot spend and expected profit', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertLot(testLot(id: 'l1', cost: 40000, soldElsewhere: 10000));
+    await store.upsertExpense(
+      testExpense(id: 'e1', amount: 15000, note: 'Viaje'),
+    );
+    await store.upsertProduct(
+      testProduct(id: 'p1', lotId: 'l1', stock: 8, price: 15000),
+    );
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/estadisticas');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Gasto en lotes'), findsOneWidget);
+    expect(find.text('\$40.000'), findsOneWidget);
+    expect(find.text('Ganancia esperada bruta'), findsOneWidget);
+    expect(find.text('\$130.000'), findsOneWidget);
+    expect(find.text('Ganancia esperada real'), findsOneWidget);
+    expect(find.text('\$90.000'), findsOneWidget);
+    expect(find.text('Ganancia con otros gastos'), findsOneWidget);
+    expect(find.text('\$75.000'), findsOneWidget);
+    expect(find.text('Viaje'), findsOneWidget);
+    expect(find.text('\$15.000'), findsWidgets);
+  });
+
+  testWidgets('owner can add an other expense from stats', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/estadisticas');
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const ValueKey('new-expense')));
+    await tester.tap(find.byKey(const ValueKey('new-expense')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('expense-amount')),
+      '25000',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('expense-note')),
+      'Sueldo',
+    );
+    await tester.tap(find.byKey(const ValueKey('save-expense')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sueldo'), findsOneWidget);
+    expect(store.expenses, hasLength(1));
+    expect(store.expenses.single.amount, 25000);
+    expect(store.statsForCompany().otherExpenses, 25000);
   });
 
   testWidgets('administrator can open estadisticas', (tester) async {

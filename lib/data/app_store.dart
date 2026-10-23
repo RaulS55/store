@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../models/company.dart';
 import '../models/customer.dart';
+import '../models/expense.dart';
 import '../models/filters.dart';
 import '../models/lot.dart';
 import '../models/company_stats.dart';
@@ -13,6 +14,7 @@ import '../models/order.dart';
 import '../models/product.dart';
 import '../models/product_filter.dart';
 import 'customer_access.dart';
+import 'expense_access.dart';
 import 'image_access.dart';
 import 'image_compress.dart';
 import 'lot_access.dart';
@@ -45,6 +47,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     CustomerAccess? customers,
     OrderAccess? orderAccess,
     LotAccess? lotAccess,
+    ExpenseAccess? expenseAccess,
     ImageAccess? images,
     ProductImageCache? imageCache,
     void Function(String message)? log,
@@ -52,6 +55,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
        _customerAccess = customers,
        _orderAccess = orderAccess,
        _lotAccess = lotAccess,
+       _expenseAccess = expenseAccess,
        _imageAccess = images,
        _imageCache = imageCache ?? ProductImageCache(),
        _log = log ?? debugPrint;
@@ -60,6 +64,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   final CustomerAccess? _customerAccess;
   final OrderAccess? _orderAccess;
   final LotAccess? _lotAccess;
+  final ExpenseAccess? _expenseAccess;
   final ImageAccess? _imageAccess;
   final ProductImageCache _imageCache;
   final void Function(String message) _log;
@@ -67,6 +72,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   StreamSubscription<List<Customer>>? _customersSub;
   StreamSubscription<List<DraftOrder>>? _ordersSub;
   StreamSubscription<List<Lot>>? _lotsSub;
+  StreamSubscription<List<Expense>>? _expensesSub;
   String? _companyId;
   bool _watchLots = false;
 
@@ -74,6 +80,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   List<Product> _products = [];
   List<Customer> _customers = [];
   List<Lot> _lots = [];
+  List<Expense> _expenses = [];
   final List<DraftOrder> orders = [];
   final List<DraftOrder> closedOrders = [];
 
@@ -93,6 +100,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   int _draftSeq = 0;
   int _customerSeq = 0;
   int _lotSeq = 0;
+  int _expenseSeq = 0;
   String? activeOrderId;
   String? lastAddedOrderId;
 
@@ -107,6 +115,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   List<Product> get products => List.unmodifiable(_products);
   List<Customer> get customers => List.unmodifiable(_customers);
   List<Lot> get lots => List.unmodifiable(_lots);
+  List<Expense> get expenses => List.unmodifiable(_expenses);
 
   List<ApparelCategory> get _predefinedCategories {
     switch (rubro) {
@@ -200,14 +209,17 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
       _customersSub?.cancel();
       _ordersSub?.cancel();
       _lotsSub?.cancel();
+      _expensesSub?.cancel();
       _productsSub = null;
       _customersSub = null;
       _ordersSub = null;
       _lotsSub = null;
+      _expensesSub = null;
       _companyId = companyId;
       _products = [];
       _customers = [];
       _lots = [];
+      _expenses = [];
       orders.clear();
       closedOrders.clear();
       activeOrderId = null;
@@ -217,9 +229,12 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
       notifyListeners();
     } else if (_watchLots != watchLots) {
       _lotsSub?.cancel();
+      _expensesSub?.cancel();
       _lotsSub = null;
+      _expensesSub = null;
       if (!watchLots) {
         _lots = [];
+        _expenses = [];
         notifyListeners();
       }
     }
@@ -275,7 +290,10 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
             );
       }
     }
-    if (watchLots) _subscribeLots(companyId);
+    if (watchLots) {
+      _subscribeLots(companyId);
+      _subscribeExpenses(companyId);
+    }
   }
 
   void _subscribeLots(String companyId) {
@@ -294,6 +312,26 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
           },
           onError: (Object error) {
             _log('Lots watch failed: $error');
+          },
+        );
+  }
+
+  void _subscribeExpenses(String companyId) {
+    if (_expensesSub != null) return;
+    final expenseAccess = _expenseAccess;
+    if (expenseAccess == null) return;
+    _expensesSub = expenseAccess
+        .watchExpenses(companyId)
+        .listen(
+          (list) {
+            _expenses = [
+              for (final expense in list)
+                if (!expense.isDeleted) expense,
+            ];
+            notifyListeners();
+          },
+          onError: (Object error) {
+            _log('Expenses watch failed: $error');
           },
         );
   }
@@ -409,6 +447,23 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     final access = _lotAccess;
     if (companyId == null || access == null) return;
     await access.saveLot(companyId, lot);
+  }
+
+  Expense _stampExpense(Expense expense) {
+    final now = DateTime.now().toUtc();
+    final existing = expenseById(expense.id);
+    return expense.copyWith(
+      createdAt: existing?.createdAt ?? expense.createdAt,
+      updatedAt: now,
+      deletedAt: existing?.deletedAt ?? expense.deletedAt,
+    );
+  }
+
+  Future<void> _persistExpense(Expense expense) async {
+    final companyId = _companyId;
+    final access = _expenseAccess;
+    if (companyId == null || access == null) return;
+    await access.saveExpense(companyId, expense);
   }
 
   void _syncCustomerInOrders(Customer customer) {
@@ -609,6 +664,8 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
       products: _products,
       openOrders: orders,
       closedOrders: closedOrders,
+      lots: _lots,
+      expenses: _expenses,
       from: from,
       to: to,
     );
@@ -994,6 +1051,37 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     );
     await _persistLot(next);
     _lots.removeWhere((lot) => lot.id == lotId);
+    notifyListeners();
+  }
+
+  Expense? expenseById(String id) {
+    if (id.trim().isEmpty) return null;
+    for (final expense in _expenses) {
+      if (expense.id == id) return expense;
+    }
+    return null;
+  }
+
+  Future<void> upsertExpense(Expense expense) async {
+    final next = _stampExpense(expense);
+    final index = _expenses.indexWhere((item) => item.id == next.id);
+    if (index >= 0) {
+      _expenses[index] = next;
+    } else {
+      _expenses.insert(0, next);
+    }
+    notifyListeners();
+    await _persistExpense(next);
+  }
+
+  Future<void> deleteExpense(String expenseId) async {
+    final existing = expenseById(expenseId);
+    if (existing == null) return;
+    final next = _stampExpense(
+      existing.copyWith(deletedAt: DateTime.now().toUtc()),
+    );
+    await _persistExpense(next);
+    _expenses.removeWhere((expense) => expense.id == expenseId);
     notifyListeners();
   }
 
@@ -1463,12 +1551,23 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     return 'l$_lotSeq';
   }
 
+  String nextExpenseId() {
+    final companyId = _companyId;
+    final access = _expenseAccess;
+    if (companyId != null && access != null) {
+      return access.nextExpenseId(companyId);
+    }
+    _expenseSeq += 1;
+    return 'e$_expenseSeq';
+  }
+
   @override
   void dispose() {
     _productsSub?.cancel();
     _customersSub?.cancel();
     _ordersSub?.cancel();
     _lotsSub?.cancel();
+    _expensesSub?.cancel();
     super.dispose();
   }
 }

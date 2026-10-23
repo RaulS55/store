@@ -88,79 +88,72 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
     }).toList();
     final canCreate = _name.text.trim().isNotEmpty && !_saving;
 
-    return ColoredBox(
-      color: Colors.white,
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.72,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Nuevo pedido',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.72,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Nuevo pedido',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Elegí un cliente o escribí un nombre para crear uno nuevo.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Elegí un cliente o escribí un nombre para crear uno nuevo.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _name,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.done,
+                  onChanged: (_) => setState(() {}),
+                  onSubmitted: (_) => _create(store),
+                  decoration: const InputDecoration(
+                    hintText: 'Nombre del cliente',
+                    prefixIcon: Icon(Icons.person_outline, size: 20),
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _name,
-                    textCapitalization: TextCapitalization.words,
-                    textInputAction: TextInputAction.done,
-                    onChanged: (_) => setState(() {}),
-                    onSubmitted: (_) => _create(store),
-                    decoration: const InputDecoration(
-                      hintText: 'Nombre del cliente',
-                      prefixIcon: Icon(Icons.person_outline, size: 20),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  FilledButton(
-                    onPressed: canCreate ? () => _create(store) : null,
-                    child: const Text('Crear pedido'),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 10),
+                FilledButton(
+                  onPressed: canCreate ? () => _create(store) : null,
+                  child: const Text('Crear pedido'),
+                ),
+              ],
             ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView(
-                children: [
-                  const ListTile(title: Text('Clientes guardados')),
-                  if (hits.isEmpty)
-                    const ListTile(
-                      title: Text('No hay clientes con ese nombre'),
-                    )
-                  else
-                    for (final customer in hits)
-                      ListTile(
-                        enabled: !widget.blockedCustomerIds.contains(
-                          customer.id,
-                        ),
-                        title: Text(customer.name),
-                        subtitle: _pickerSubtitle(store, customer) == null
-                            ? null
-                            : Text(_pickerSubtitle(store, customer)!),
-                        onTap: widget.blockedCustomerIds.contains(customer.id)
-                            ? null
-                            : () => _select(customer),
-                      ),
-                ],
-              ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView(
+              children: [
+                const ListTile(title: Text('Clientes guardados')),
+                if (hits.isEmpty)
+                  const ListTile(title: Text('No hay clientes con ese nombre'))
+                else
+                  for (final customer in hits)
+                    ListTile(
+                      enabled: !widget.blockedCustomerIds.contains(customer.id),
+                      title: Text(customer.name),
+                      subtitle: _pickerSubtitle(store, customer) == null
+                          ? null
+                          : Text(_pickerSubtitle(store, customer)!),
+                      onTap: widget.blockedCustomerIds.contains(customer.id)
+                          ? null
+                          : () => _select(customer),
+                    ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -201,8 +194,9 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
       debugPrint('$stack');
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const AppSnackBar(content: Text('No se pudo guardar el cliente.')),
+      AppSnackBar.show(
+        context,
+        content: Text('No se pudo guardar el cliente.'),
       );
     }
   }
@@ -374,8 +368,9 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
       debugPrint('$stack');
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const AppSnackBar(content: Text('No se pudo guardar el cliente.')),
+      AppSnackBar.show(
+        context,
+        content: Text('No se pudo guardar el cliente.'),
       );
     }
   }

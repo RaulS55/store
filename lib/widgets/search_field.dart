@@ -18,6 +18,35 @@ class SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fieldController = controller;
+    if (fieldController == null) {
+      return _field(context, suffix: trailing);
+    }
+    return ListenableBuilder(
+      listenable: fieldController,
+      builder: (context, _) {
+        return _field(context, suffix: _suffix(fieldController));
+      },
+    );
+  }
+
+  Widget? _suffix(TextEditingController fieldController) {
+    if (fieldController.text.isEmpty) return trailing;
+    final clear = IconButton(
+      key: const ValueKey('search-clear'),
+      tooltip: 'Limpiar búsqueda',
+      onPressed: () {
+        fieldController.clear();
+        onChanged('');
+      },
+      icon: const Icon(Icons.close, size: 18, color: AppColors.mutedText),
+    );
+    final extra = trailing;
+    if (extra == null) return clear;
+    return Row(mainAxisSize: MainAxisSize.min, children: [clear, extra]);
+  }
+
+  Widget _field(BuildContext context, {required Widget? suffix}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return TextField(
       controller: controller,
@@ -30,7 +59,7 @@ class SearchField extends StatelessWidget {
           size: 20,
           color: AppColors.mutedText,
         ),
-        suffixIcon: trailing,
+        suffixIcon: suffix,
         filled: true,
         fillColor: isDark ? AppColors.darkElevated : AppColors.lightSurface,
         contentPadding: const EdgeInsets.symmetric(

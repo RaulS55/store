@@ -120,6 +120,63 @@ void main() {
     expect(find.text('Total a facturar'), findsOneWidget);
   });
 
+  testWidgets('orders page search filters open orders by customer', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final monica = await seedTestCustomer(store);
+    final ana = await seedTestCustomer(
+      store,
+      customer: testCustomer(id: 'c-ana', name: 'Ana López'),
+    );
+    store.createOrder(monica);
+    store.createOrder(ana);
+
+    await tester.pumpWidget(_pageApp(store));
+    await tester.pump();
+
+    expect(find.text('Mónica Fernández'), findsOneWidget);
+    expect(find.text('Ana López'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const ValueKey('orders-search')), 'Ana');
+    await tester.pump();
+
+    expect(find.text('Ana López'), findsOneWidget);
+    expect(find.text('Mónica Fernández'), findsNothing);
+    expect(find.text('Abiertos (1)'), findsOneWidget);
+  });
+
+  testWidgets('orders page search can clear and restore the list', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final closed = await seedTestOrder(store);
+    expect(store.closeOrder(closed.id), isTrue);
+    final open = await seedTestOrder(store);
+
+    await tester.pumpWidget(_pageApp(store));
+    await tester.pump();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('orders-search')),
+      'sin-resultados',
+    );
+    await tester.pump();
+
+    expect(find.text('No encontramos pedidos'), findsAtLeastNWidgets(1));
+    expect(find.textContaining(open.orderNumber), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('search-clear')));
+    await tester.pump();
+
+    expect(find.textContaining(open.orderNumber), findsOneWidget);
+    expect(find.text('No encontramos pedidos'), findsNothing);
+  });
+
   testWidgets('more page no longer lists closed orders', (tester) async {
     _setPhoneView(tester);
     final store = AppStore();

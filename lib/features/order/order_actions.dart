@@ -98,9 +98,7 @@ class _OrderTargetSheetState extends State<_OrderTargetSheet> {
                   onTap: () => Navigator.pop(context, 'new'),
                 ),
                 if (targets.isEmpty && query.isNotEmpty)
-                  const ListTile(
-                    title: Text('No hay pedidos con ese nombre'),
-                  )
+                  const ListTile(title: Text('No hay pedidos con ese nombre'))
                 else
                   for (final order in targets)
                     _OrderTargetTile(
@@ -169,28 +167,30 @@ Future<void> cancelOrderWithConfirm({
   );
   if (!confirmed || !context.mounted) return;
   final store = context.read<AppStore>();
-  final messenger = ScaffoldMessenger.of(context);
   final router = GoRouter.of(context);
+  final overlay = Overlay.of(context, rootOverlay: true);
   await WidgetsBinding.instance.endOfFrame;
   if (!context.mounted) return;
   router.go('/pedido');
   try {
     final ok = await store.deleteOrder(order.id);
     if (!ok) {
-      messenger.showSnackBar(
-        const AppSnackBar(content: Text('No se pudo cancelar el pedido.')),
+      AppSnackBar.present(
+        overlay,
+        content: const Text('No se pudo cancelar el pedido.'),
       );
       return;
     }
   } catch (error, stack) {
     debugPrint('Order cancel failed: $error');
     debugPrint('$stack');
-    messenger.showSnackBar(
-      const AppSnackBar(content: Text('No se pudo cancelar el pedido.')),
+    AppSnackBar.present(
+      overlay,
+      content: const Text('No se pudo cancelar el pedido.'),
     );
     return;
   }
-  messenger.showSnackBar(const AppSnackBar(content: Text('Pedido cancelado')));
+  AppSnackBar.present(overlay, content: const Text('Pedido cancelado'));
 }
 
 typedef InvoiceSharer =
@@ -243,8 +243,9 @@ class _ShareOrderButtonState extends State<ShareOrderButton> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (ok) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const AppSnackBar(content: Text('No se pudo compartir la factura.')),
+    AppSnackBar.show(
+      context,
+      content: Text('No se pudo compartir la factura.'),
     );
   }
 
@@ -403,10 +404,9 @@ Future<void> closeOrderFlow(BuildContext context, DraftOrder order) async {
   final ok = context.read<AppStore>().closeOrder(orderId, sena: sena);
   if (!context.mounted) return;
   if (!ok) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const AppSnackBar(
-        content: Text('No hay stock suficiente para cerrar el pedido.'),
-      ),
+    AppSnackBar.show(
+      context,
+      content: Text('No hay stock suficiente para cerrar el pedido.'),
     );
     return;
   }
@@ -499,24 +499,21 @@ Future<void> reopenOrderFlow(BuildContext context, DraftOrder order) async {
   );
   if (!confirmed || !context.mounted) return;
   final orderId = order.id;
-  final messenger = ScaffoldMessenger.of(context);
   final router = GoRouter.maybeOf(context);
   final result = context.read<AppStore>().reopenOrder(orderId);
   if (!context.mounted) return;
   switch (result) {
     case ReopenOrderResult.reopened:
-      messenger.showSnackBar(
-        const AppSnackBar(
-          content: Text('Pedido reabierto. El stock sigue reservado.'),
-        ),
+      AppSnackBar.show(
+        context,
+        content: Text('Pedido reabierto. El stock sigue reservado.'),
       );
       router?.go('/pedido/$orderId');
     case ReopenOrderResult.customerBusy:
-      messenger.showSnackBar(
-        const AppSnackBar(
-          content: Text(
-            'Este cliente ya tiene un pedido abierto. Cerralo o cancelalo para reabrir este.',
-          ),
+      AppSnackBar.show(
+        context,
+        content: Text(
+          'Este cliente ya tiene un pedido abierto. Cerralo o cancelalo para reabrir este.',
         ),
       );
     case ReopenOrderResult.unchanged:
@@ -584,9 +581,7 @@ Future<void> saveOrderStockFlow(BuildContext context, DraftOrder order) async {
     SaveStockResult.insufficient =>
       'No hay stock suficiente para reservar estas cantidades.',
   };
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(AppSnackBar(content: Text(message)));
+  AppSnackBar.show(context, content: Text(message));
 }
 
 Future<void> resetOrderStockFlow(BuildContext context, DraftOrder order) async {
@@ -602,13 +597,12 @@ Future<void> resetOrderStockFlow(BuildContext context, DraftOrder order) async {
   if (!confirmed || !context.mounted) return;
   final ok = context.read<AppStore>().resetOrderStock(order.id);
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    AppSnackBar(
-      content: Text(
-        ok
-            ? 'La reserva se quitó. El stock volvió a estar disponible.'
-            : 'No se pudo restablecer el stock.',
-      ),
+  AppSnackBar.show(
+    context,
+    content: Text(
+      ok
+          ? 'La reserva se quitó. El stock volvió a estar disponible.'
+          : 'No se pudo restablecer el stock.',
     ),
   );
 }
@@ -624,9 +618,7 @@ Future<void> sendOrderWhatsApp(BuildContext context, DraftOrder order) async {
   );
   if (!context.mounted) return;
   if (!ok) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const AppSnackBar(content: Text('No se pudo abrir WhatsApp.')),
-    );
+    AppSnackBar.show(context, content: Text('No se pudo abrir WhatsApp.'));
   }
 }
 

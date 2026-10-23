@@ -47,6 +47,11 @@ void main() {
     expect(stats.garmentValue, 0);
     expect(stats.soldUnits, 0);
     expect(stats.soldValue, 0);
+    expect(stats.lotCost, 0);
+    expect(stats.otherExpenses, 0);
+    expect(stats.expectedGross, 0);
+    expect(stats.expectedNet, 0);
+    expect(stats.expectedNetAfterExpenses, 0);
   });
 
   test('available garments add units and retail value', () {
@@ -66,6 +71,11 @@ void main() {
     expect(stats.garmentValue, 160000);
     expect(stats.soldUnits, 0);
     expect(stats.soldValue, 0);
+    expect(stats.lotCost, 0);
+    expect(stats.otherExpenses, 0);
+    expect(stats.expectedGross, 160000);
+    expect(stats.expectedNet, 160000);
+    expect(stats.expectedNetAfterExpenses, 160000);
   });
 
   test('deleted products are ignored', () {
@@ -215,6 +225,124 @@ void main() {
     expect(marchStats.garmentUnits, 5);
   });
 
+  test('lot costs add expected gross and net profit', () {
+    final lot = testLot(id: 'l1', cost: 40000, soldElsewhere: 10000);
+    final stats = computeCompanyStats(
+      products: [testProduct(id: 'p1', lotId: 'l1', stock: 8, price: 15000)],
+      openOrders: const [],
+      closedOrders: const [],
+      lots: [lot],
+    );
+    expect(stats.lotCost, 40000);
+    expect(stats.otherExpenses, 0);
+    expect(stats.availableValue, 120000);
+    expect(stats.expectedGross, 130000);
+    expect(stats.expectedNet, 90000);
+    expect(stats.expectedNetAfterExpenses, 90000);
+  });
+
+  test('several lots sum cost and other-channel sales', () {
+    final stats = computeCompanyStats(
+      products: [
+        testProduct(id: 'p1', lotId: 'l1', stock: 2, price: 10000),
+        testProduct(id: 'p2', lotId: 'l2', stock: 1, price: 20000),
+      ],
+      openOrders: const [],
+      closedOrders: const [],
+      lots: [
+        testLot(id: 'l1', cost: 40000, soldElsewhere: 5000),
+        testLot(id: 'l2', cost: 25000, soldElsewhere: 3000),
+      ],
+    );
+    expect(stats.lotCost, 65000);
+    expect(stats.availableValue, 40000);
+    expect(stats.expectedGross, 48000);
+    expect(stats.expectedNet, -17000);
+  });
+
+  test('deleted lots are ignored in company lot totals', () {
+    final stats = computeCompanyStats(
+      products: [testProduct(id: 'p1', stock: 2, price: 10000)],
+      openOrders: const [],
+      closedOrders: const [],
+      lots: [
+        testLot(id: 'l1', cost: 40000),
+        testLot(id: 'l2', cost: 25000, deletedAt: DateTime.utc(2026, 9, 11)),
+      ],
+    );
+    expect(stats.lotCost, 40000);
+    expect(stats.expectedGross, 20000);
+    expect(stats.expectedNet, -20000);
+  });
+
+  test('expected lot profit keeps all-time sales when a date range is set', () {
+    final product = testProduct(id: 'p1', lotId: 'l1', stock: 5, price: 10000);
+    final march = closedOrder(
+      id: 'o-march',
+      product: product,
+      quantity: 2,
+      closedAt: DateTime.utc(2026, 3, 10, 15),
+    );
+    final september = closedOrder(
+      id: 'o-sept',
+      product: product,
+      quantity: 1,
+      closedAt: DateTime.utc(2026, 9, 15, 18),
+    );
+    final range = currentMonthLocalRange(DateTime(2026, 9, 29));
+    final stats = computeCompanyStats(
+      products: [product],
+      openOrders: const [],
+      closedOrders: [march, september],
+      lots: [testLot(id: 'l1', cost: 40000)],
+      from: range.from,
+      to: range.to,
+    );
+    expect(stats.soldValue, 10000);
+    expect(stats.lotCost, 40000);
+    expect(stats.expectedGross, 80000);
+    expect(stats.expectedNet, 40000);
+  });
+
+  test('other expenses leave lot profit and reduce profit after expenses', () {
+    final stats = computeCompanyStats(
+      products: [testProduct(id: 'p1', lotId: 'l1', stock: 8, price: 15000)],
+      openOrders: const [],
+      closedOrders: const [],
+      lots: [testLot(id: 'l1', cost: 40000, soldElsewhere: 10000)],
+      expenses: [
+        testExpense(id: 'e1', amount: 15000, note: 'Viaje'),
+        testExpense(id: 'e2', amount: 5000, note: 'Sueldo'),
+      ],
+    );
+    expect(stats.lotCost, 40000);
+    expect(stats.otherExpenses, 20000);
+    expect(stats.expectedGross, 130000);
+    expect(stats.expectedNet, 90000);
+    expect(stats.expectedNetAfterExpenses, 70000);
+  });
+
+  test('deleted expenses are ignored in company totals', () {
+    final stats = computeCompanyStats(
+      products: [testProduct(id: 'p1', stock: 2, price: 10000)],
+      openOrders: const [],
+      closedOrders: const [],
+      lots: const [],
+      expenses: [
+        testExpense(id: 'e1', amount: 4000),
+        testExpense(
+          id: 'e2',
+          amount: 8000,
+          deletedAt: DateTime.utc(2026, 9, 11),
+        ),
+      ],
+    );
+    expect(stats.otherExpenses, 4000);
+    expect(stats.expectedGross, 20000);
+    expect(stats.expectedNet, 20000);
+    expect(stats.expectedNetAfterExpenses, 16000);
+  });
+
   test('inclusive day range covers the whole local day', () {
     final range = inclusiveLocalDayRange(
       DateTime(2026, 9, 15, 10),
@@ -225,7 +353,11 @@ void main() {
       isTrue,
     );
     expect(
-      isWithinInclusiveRange(DateTime(2026, 9, 14, 23, 59), range.from, range.to),
+      isWithinInclusiveRange(
+        DateTime(2026, 9, 14, 23, 59),
+        range.from,
+        range.to,
+      ),
       isFalse,
     );
     expect(

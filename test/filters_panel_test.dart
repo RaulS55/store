@@ -74,6 +74,8 @@ void main() {
     expect(find.widgetWithText(FilterChip, 'Remeras'), findsOneWidget);
     expect(find.widgetWithText(FilterChip, 'Musculosas'), findsNothing);
     expect(find.text('Público'), findsNothing);
+    expect(find.text('Incluir sin stock'), findsOneWidget);
+    expect(find.text('Solo sin stock'), findsNothing);
   });
 
   testWidgets('filter sheet lists used audiences', (tester) async {
@@ -138,7 +140,7 @@ void main() {
       expect(find.text('40'), findsNothing);
       expect(find.text('42'), findsNothing);
       expect(find.text('Poco stock'), findsOneWidget);
-      expect(find.text('Sin stock'), findsOneWidget);
+      expect(find.text('Incluir sin stock'), findsOneWidget);
       expect(find.text('Solo bajo stock'), findsNothing);
       expect(find.text('Solo sin stock'), findsNothing);
       expect(find.byKey(const ValueKey('audience-chip-all')), findsNothing);
@@ -154,11 +156,11 @@ void main() {
       expect(chip.selected, isTrue);
       expect(chip.showCheckmark, isFalse);
 
-      await tester.tap(find.widgetWithText(FilterChip, 'Sin stock'));
+      await tester.tap(find.widgetWithText(FilterChip, 'Incluir sin stock'));
       await tester.pump();
 
       final outChip = tester.widget<FilterChip>(
-        find.widgetWithText(FilterChip, 'Sin stock'),
+        find.widgetWithText(FilterChip, 'Incluir sin stock'),
       );
       expect(outChip.selected, isTrue);
       expect(outChip.showCheckmark, isFalse);

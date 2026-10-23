@@ -30,14 +30,10 @@ Future<void> deleteCustomerWithConfirm({
     debugPrint('Customer delete failed: $error');
     debugPrint('$stack');
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const AppSnackBar(content: Text('No se pudo eliminar el cliente.')),
-    );
+    AppSnackBar.show(context, content: Text('No se pudo eliminar el cliente.'));
     return;
   }
   if (!context.mounted) return;
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(const AppSnackBar(content: Text('Cliente eliminado')));
+  AppSnackBar.show(context, content: Text('Cliente eliminado'));
   context.go('/clientes');
 }

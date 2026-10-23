@@ -11,6 +11,7 @@ class CatalogCollection {
   static const customers = 'customers';
   static const orders = 'orders';
   static const lots = 'lots';
+  static const expenses = 'expenses';
 }
 
 class HiveCatalogCache {
@@ -19,12 +20,14 @@ class HiveCatalogCache {
     required Box<dynamic> customers,
     required Box<dynamic> orders,
     required Box<dynamic> lots,
+    required Box<dynamic> expenses,
     required Box<dynamic> meta,
     this.persistent = true,
   }) : _products = products,
        _customers = customers,
        _orders = orders,
        _lots = lots,
+       _expenses = expenses,
        _meta = meta;
 
   static const schemaVersion = 2;
@@ -33,6 +36,7 @@ class HiveCatalogCache {
   final Box<dynamic> _customers;
   final Box<dynamic> _orders;
   final Box<dynamic> _lots;
+  final Box<dynamic> _expenses;
   final Box<dynamic> _meta;
   final bool persistent;
 
@@ -68,6 +72,7 @@ class HiveCatalogCache {
       openBox(catalogCustomersBox),
       openBox(catalogOrdersBox),
       openBox(catalogLotsBox),
+      openBox(catalogExpensesBox),
       openBox(catalogMetaBox),
     ]);
     return HiveCatalogCache(
@@ -75,7 +80,8 @@ class HiveCatalogCache {
       customers: boxes[1],
       orders: boxes[2],
       lots: boxes[3],
-      meta: boxes[4],
+      expenses: boxes[4],
+      meta: boxes[5],
     );
   }
 
@@ -88,6 +94,7 @@ class HiveCatalogCache {
       customers: await _openMemoryBox('$catalogCustomersBox$suffix', cipher),
       orders: await _openMemoryBox('$catalogOrdersBox$suffix', cipher),
       lots: await _openMemoryBox('$catalogLotsBox$suffix', cipher),
+      expenses: await _openMemoryBox('$catalogExpensesBox$suffix', cipher),
       meta: await _openMemoryBox('$catalogMetaBox$suffix', cipher),
       persistent: false,
     );
@@ -111,6 +118,8 @@ class HiveCatalogCache {
         return _orders;
       case CatalogCollection.lots:
         return _lots;
+      case CatalogCollection.expenses:
+        return _expenses;
       default:
         throw ArgumentError.value(collection, 'collection');
     }
@@ -296,6 +305,7 @@ class HiveCatalogCache {
       CatalogCollection.customers,
       CatalogCollection.orders,
       CatalogCollection.lots,
+      CatalogCollection.expenses,
     ]) {
       await _deleteCompanyCollection(companyId, collection);
       await _meta.delete(_syncKey(companyId, collection));
@@ -322,6 +332,7 @@ class HiveCatalogCache {
     await _customers.close();
     await _orders.close();
     await _lots.close();
+    await _expenses.close();
     await _meta.close();
   }
 }

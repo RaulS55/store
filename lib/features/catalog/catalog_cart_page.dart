@@ -70,13 +70,12 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
       final result = await store.submit(name: _name.text);
       if (!mounted) return;
       if (result.missingPhone) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          AppSnackBar(
-            content: Text(
-              result.updated
-                  ? 'Actualizamos ${result.order.orderNumber}. Este catálogo no tiene WhatsApp configurado.'
-                  : 'El pedido ${result.order.orderNumber} se envió al negocio. Este catálogo no tiene WhatsApp configurado.',
-            ),
+        AppSnackBar.show(
+          context,
+          content: Text(
+            result.updated
+                ? 'Actualizamos ${result.order.orderNumber}. Este catálogo no tiene WhatsApp configurado.'
+                : 'El pedido ${result.order.orderNumber} se envió al negocio. Este catálogo no tiene WhatsApp configurado.',
           ),
         );
         return;
@@ -84,20 +83,14 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
       final ok = await OrderShare.openUri(result.whatsappUri);
       if (!mounted) return;
       if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const AppSnackBar(content: Text('No se pudo abrir WhatsApp.')),
-        );
+        AppSnackBar.show(context, content: Text('No se pudo abrir WhatsApp.'));
       }
     } on SessionException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(AppSnackBar(content: Text(error.message)));
+      AppSnackBar.show(context, content: Text(error.message));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const AppSnackBar(content: Text('No se pudo enviar el pedido.')),
-      );
+      AppSnackBar.show(context, content: Text('No se pudo enviar el pedido.'));
     }
   }
 

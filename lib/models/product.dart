@@ -402,31 +402,43 @@ class SwatchColor {
 class Swatches {
   static const negro = SwatchColor(name: 'Negro', hex: 0xFF1E1E1E);
   static const blanco = SwatchColor(name: 'Blanco', hex: 0xFFF5F5F5);
+  static const hueso = SwatchColor(name: 'Hueso', hex: 0xFFE8DCC4);
   static const gris = SwatchColor(name: 'Gris', hex: 0xFF8D8D8D);
+  static const grisOscuro = SwatchColor(name: 'Gris oscuro', hex: 0xFF4A4A4A);
   static const beige = SwatchColor(name: 'Beige', hex: 0xFFD4B896);
-  static const marron = SwatchColor(name: 'Marrón', hex: 0xFF6B3A1F);
+  static const chocolate = SwatchColor(name: 'Chocolate', hex: 0xFF6B3A1F);
   static const azul = SwatchColor(name: 'Azul', hex: 0xFF3B5BA5);
   static const azulMarino = SwatchColor(name: 'Azul marino', hex: 0xFF1A365D);
   static const rojo = SwatchColor(name: 'Rojo', hex: 0xFFC62828);
+  static const naranja = SwatchColor(name: 'Naranja', hex: 0xFFE07A2F);
   static const verde = SwatchColor(name: 'Verde', hex: 0xFF2E7D4F);
+  static const militar = SwatchColor(name: 'Militar', hex: 0xFF4F5D32);
   static const rosa = SwatchColor(name: 'Rosa', hex: 0xFFE091A8);
+  static const violeta = SwatchColor(name: 'Violeta', hex: 0xFF7A3EA8);
   static const amarillo = SwatchColor(name: 'Amarillo', hex: 0xFFE6C200);
+  static const caqui = SwatchColor(name: 'Caqui', hex: 0xFFC3B091);
   static const bordo = SwatchColor(name: 'Bordó', hex: 0xFF7A1F32);
   static const celeste = SwatchColor(name: 'Celeste', hex: 0xFF6EC8F0);
 
   static const all = [
     negro,
     blanco,
+    hueso,
     gris,
+    grisOscuro,
     beige,
-    marron,
+    chocolate,
     azul,
     azulMarino,
     celeste,
     rojo,
+    naranja,
     verde,
+    militar,
     rosa,
+    violeta,
     amarillo,
+    caqui,
     bordo,
   ];
 
@@ -478,7 +490,7 @@ class ApparelSizes {
     'L',
     'XL',
     'XXL',
-    'Único',
+    'Talle único',
     '36',
     '37',
     '38',
@@ -488,13 +500,21 @@ class ApparelSizes {
     '42',
   ];
 
-  static bool isCustom(String size) => !all.contains(size);
+  static bool isCustom(String size) => !all.contains(resolve(size));
 
   static String resolve(String size) {
-    for (final item in all) {
-      if (item == size) return item;
+    final trimmed = size.trim();
+    final normalized = trimmed.toLowerCase();
+    if (normalized == 'único' ||
+        normalized == 'unico' ||
+        normalized == 'talle único' ||
+        normalized == 'talle unico') {
+      return 'Talle único';
     }
-    return size;
+    for (final item in all) {
+      if (item == trimmed) return item;
+    }
+    return trimmed;
   }
 
   static int compare(String a, String b) {
@@ -515,7 +535,12 @@ class ApparelSizes {
     final normalized = size.trim().toUpperCase();
     final letterIndex = letterOrder.indexOf(normalized);
     if (letterIndex >= 0) return (0, letterIndex.toDouble());
-    if (normalized == 'ÚNICO' || normalized == 'UNICO') return (1, 0);
+    if (normalized == 'ÚNICO' ||
+        normalized == 'UNICO' ||
+        normalized == 'TALLE ÚNICO' ||
+        normalized == 'TALLE UNICO') {
+      return (1, 0);
+    }
     final numeric = double.tryParse(size.trim().replaceAll(',', '.'));
     if (numeric != null) return (2, numeric);
     return (3, 0);
@@ -567,7 +592,7 @@ class ProductVariant {
   factory ProductVariant.fromMap(Map<String, dynamic> map) {
     final data = coerceStringKeyMap(map);
     return ProductVariant(
-      size: data['size'] as String? ?? '',
+      size: ApparelSizes.resolve(data['size'] as String? ?? ''),
       color: data['color'] as String? ?? '',
       colorHex: data['colorHex'] as String?,
       stock: (data['stock'] as num?)?.toInt() ?? 0,
@@ -803,7 +828,7 @@ class Product {
       for (final entry in raw.entries)
         if ('${entry.key}'.trim().isNotEmpty &&
             '${entry.value}'.trim().isNotEmpty)
-          '${entry.key}': '${entry.value}'.trim(),
+          ApparelSizes.resolve('${entry.key}'): '${entry.value}'.trim(),
     };
   }
 

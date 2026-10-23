@@ -89,9 +89,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
   Future<void> _addImage() async {
     final remaining = maxProductImages - _images.length;
     if (remaining <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const AppSnackBar(content: Text('Podés cargar hasta 3 fotos.')),
-      );
+      AppSnackBar.show(context, content: Text('Podés cargar hasta 3 fotos.'));
       return;
     }
     final files = await widget.pickImages(limit: remaining);
@@ -201,11 +199,10 @@ class _ProductFormPageState extends State<ProductFormPage> {
       );
       await store.upsertProduct(product);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        AppSnackBar(
-          content: Text(
-            isEditing ? 'Prenda actualizada' : 'Prenda guardada en el catálogo',
-          ),
+      AppSnackBar.show(
+        context,
+        content: Text(
+          isEditing ? 'Prenda actualizada' : 'Prenda guardada en el catálogo',
         ),
       );
       context.go('/producto/${product.id}');

@@ -245,9 +245,7 @@ class _LotFormSheetState extends State<_LotFormSheet> {
       debugPrint('$stack');
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const AppSnackBar(content: Text('No se pudo guardar el lote.')),
-      );
+      AppSnackBar.show(context, content: Text('No se pudo guardar el lote.'));
     }
   }
 }

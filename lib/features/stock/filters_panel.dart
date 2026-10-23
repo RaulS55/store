@@ -276,11 +276,11 @@ class _FiltersEditorState extends State<FiltersEditor> {
                     activeTrackColor: AppColors.terracotta,
                   ),
                   SwitchListTile(
-                    value: _draft.onlyOutOfStock,
+                    value: _draft.includeOutOfStock,
                     onChanged: (v) => setState(
-                      () => _draft = _draft.copyWith(onlyOutOfStock: v),
+                      () => _draft = _draft.copyWith(includeOutOfStock: v),
                     ),
-                    title: const Text('Solo sin stock'),
+                    title: const Text('Incluir sin stock'),
                     contentPadding: EdgeInsets.zero,
                     activeThumbColor: Colors.white,
                     activeTrackColor: AppColors.terracotta,
@@ -551,12 +551,12 @@ class WebFilterBar extends StatelessWidget {
                         ),
                       ),
                       FilterChip(
-                        label: const Text('Sin stock'),
-                        selected: store.filters.onlyOutOfStock,
+                        label: const Text('Incluir sin stock'),
+                        selected: store.filters.includeOutOfStock,
                         showCheckmark: false,
                         selectedColor: AppColors.terracottaChip,
                         onSelected: (v) => store.applyFilters(
-                          store.filters.copyWith(onlyOutOfStock: v),
+                          store.filters.copyWith(includeOutOfStock: v),
                         ),
                       ),
                     ],

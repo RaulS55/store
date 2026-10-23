@@ -113,9 +113,7 @@ class _RubroSettings extends StatelessWidget {
       store.setRubro(next);
     } on SessionException catch (error) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(AppSnackBar(content: Text(error.message)));
+      AppSnackBar.show(context, content: Text(error.message));
     }
   }
 
@@ -249,9 +247,7 @@ class _PhoneSettingsState extends State<_PhoneSettings> {
     } on SessionException catch (error) {
       if (!mounted) return;
       _phone.text = _saved ?? '';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(AppSnackBar(content: Text(error.message)));
+      AppSnackBar.show(context, content: Text(error.message));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -357,8 +353,9 @@ class _CatalogShareSettings extends StatelessWidget {
   Future<void> _copy(BuildContext context, String url) async {
     final ok = await copyToClipboard(url);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      AppSnackBar(content: Text(ok ? 'Copiamos el enlace del catálogo.' : url)),
+    AppSnackBar.show(
+      context,
+      content: Text(ok ? 'Copiamos el enlace del catálogo.' : url),
     );
   }
 }

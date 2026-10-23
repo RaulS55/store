@@ -77,16 +77,12 @@ class _CompanyBrandSettingsState extends State<CompanyBrandSettings> {
         : error is ImageUploadException
         ? error.message
         : 'No se pudo guardar el perfil del negocio.';
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(AppSnackBar(content: Text(message)));
+    AppSnackBar.show(context, content: Text(message));
   }
 
   void _showSaved() {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const AppSnackBar(content: Text('Guardado exitosamente')));
+    AppSnackBar.show(context, content: Text('Guardado exitosamente'));
   }
 
   Future<void> _saveName() async {

@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../../data/app_store.dart';
 import '../../data/formatters.dart';
 import '../../models/company_stats.dart';
+import '../../models/expense.dart';
 import '../../theme/tokens.dart';
+import 'expense_sheets.dart';
 
 enum _StatsPeriod { all, thisMonth, custom }
 
@@ -103,6 +105,7 @@ class _StatsPageState extends State<StatsPage> {
       value: stats.soldValue,
       accent: AppColors.stockOk,
     );
+    final lots = _LotStatsCard(stats: stats);
 
     return SafeArea(
       child: ListView(
@@ -116,7 +119,7 @@ class _StatsPageState extends State<StatsPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Totales de prendas sin vender, reservadas y vendidas.',
+            'Totales de prendas, lotes, otros gastos y ganancia esperada.',
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: AppColors.slate),
@@ -136,6 +139,10 @@ class _StatsPageState extends State<StatsPage> {
             const SizedBox(height: 12),
             reserved,
           ],
+          const SizedBox(height: 12),
+          lots,
+          const SizedBox(height: 12),
+          _ExpensesCard(expenses: store.expenses),
           const SizedBox(height: 16),
           Text(
             'Ventas por fecha',
@@ -254,6 +261,210 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+class _LotStatsCard extends StatelessWidget {
+  const _LotStatsCard({required this.stats});
+
+  final CompanyStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.inventory_outlined,
+                  size: 18,
+                  color: AppColors.terracotta,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Lotes',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Suma del precio de los lotes y ganancia esperada, con y sin otros gastos.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+            ),
+            const SizedBox(height: 10),
+            _StatLine(
+              icon: Icons.local_offer_outlined,
+              iconColor: AppColors.terracotta,
+              label: 'Gasto en lotes',
+              value: MoneyFormat.compact(stats.lotCost),
+              isDark: isDark,
+            ),
+            _StatLine(
+              icon: Icons.receipt_long_outlined,
+              iconColor: AppColors.terracotta,
+              label: 'Otros gastos',
+              value: MoneyFormat.compact(stats.otherExpenses),
+              isDark: isDark,
+            ),
+            _StatLine(
+              icon: Icons.functions,
+              iconColor: AppColors.terracotta,
+              label: 'Ganancia esperada bruta',
+              value: MoneyFormat.compact(stats.expectedGross),
+              isDark: isDark,
+              valueColor: _profitColor(stats.expectedGross),
+            ),
+            _StatLine(
+              icon: Icons.savings_outlined,
+              iconColor: AppColors.stockOk,
+              label: 'Ganancia esperada real',
+              value: MoneyFormat.compact(stats.expectedNet),
+              isDark: isDark,
+              valueColor: _profitColor(stats.expectedNet),
+            ),
+            _StatLine(
+              icon: Icons.account_balance_wallet_outlined,
+              iconColor: AppColors.stockOk,
+              label: 'Ganancia con otros gastos',
+              value: MoneyFormat.compact(stats.expectedNetAfterExpenses),
+              isDark: isDark,
+              valueColor: _profitColor(stats.expectedNetAfterExpenses),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color? _profitColor(double value) {
+    if (value > 0) return AppColors.stockOk;
+    if (value < 0) return AppColors.stockLow;
+    return null;
+  }
+}
+
+class _ExpensesCard extends StatelessWidget {
+  const _ExpensesCard({required this.expenses});
+
+  final List<Expense> expenses;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.receipt_long_outlined,
+                  size: 18,
+                  color: AppColors.terracotta,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Otros gastos',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  key: const ValueKey('new-expense'),
+                  onPressed: () => showExpenseForm(context),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Agregar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Viajes, sueldos y similares. Sin tipos. Entran en la ganancia con otros gastos.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+            ),
+            const SizedBox(height: 10),
+            if (expenses.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Todavía no hay otros gastos.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: AppColors.slate),
+                ),
+              )
+            else
+              for (final expense in expenses) _ExpenseRow(expense: expense),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExpenseRow extends StatelessWidget {
+  const _ExpenseRow({required this.expense});
+
+  final Expense expense;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: () => showExpenseForm(context, expense: expense),
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      expense.displayName,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      MoneyFormat.compact(expense.amount),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            key: ValueKey('delete-expense-${expense.id}'),
+            tooltip: 'Eliminar',
+            onPressed: () =>
+                deleteExpenseWithConfirm(context: context, expense: expense),
+            style: IconButton.styleFrom(foregroundColor: AppColors.stockLow),
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StatLine extends StatelessWidget {
   const _StatLine({
     required this.icon,
@@ -261,6 +472,7 @@ class _StatLine extends StatelessWidget {
     required this.label,
     required this.value,
     required this.isDark,
+    this.valueColor,
   });
 
   final IconData icon;
@@ -268,6 +480,7 @@ class _StatLine extends StatelessWidget {
   final String label;
   final String value;
   final bool isDark;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -296,9 +509,10 @@ class _StatLine extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: valueColor,
+            ),
           ),
         ],
       ),

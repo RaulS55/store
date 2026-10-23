@@ -1,8 +1,10 @@
 import '../models/customer.dart';
+import '../models/expense.dart';
 import '../models/lot.dart';
 import '../models/order.dart';
 import '../models/product.dart';
 import 'customer_access.dart';
+import 'expense_access.dart';
 import 'lot_access.dart';
 import 'order_access.dart';
 import 'product_access.dart';
@@ -29,4 +31,10 @@ abstract class IncrementalLotAccess implements LotAccess {
   Future<List<Lot>> fetchChanged(String companyId, DateTime? since);
 
   Stream<List<Lot>> watchChanged(String companyId, DateTime since);
+}
+
+abstract class IncrementalExpenseAccess implements ExpenseAccess {
+  Future<List<Expense>> fetchChanged(String companyId, DateTime? since);
+
+  Stream<List<Expense>> watchChanged(String companyId, DateTime since);
 }

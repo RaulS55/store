@@ -3,7 +3,8 @@ import 'package:flutter/foundation.dart';
 
 import '../models/map_value.dart';
 
-export 'firestore_query_web.dart' if (dart.library.io) 'firestore_query_io.dart';
+export 'firestore_query_web.dart'
+    if (dart.library.io) 'firestore_query_io.dart';
 
 class FirestoreDoc {
   const FirestoreDoc({required this.id, required this.data, this.path = ''});

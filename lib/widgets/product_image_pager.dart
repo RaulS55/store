@@ -132,13 +132,10 @@ class _PagerDownloadButtonState extends State<_PagerDownloadButton> {
     );
     if (!mounted) return;
     setState(() => _downloading = false);
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.hideCurrentSnackBar();
-    messenger?.showSnackBar(
-      AppSnackBar(
-        content: Text(
-          ok ? 'Imagen descargada.' : 'No se pudo descargar la imagen.',
-        ),
+    AppSnackBar.show(
+      context,
+      content: Text(
+        ok ? 'Imagen descargada.' : 'No se pudo descargar la imagen.',
       ),
     );
   }

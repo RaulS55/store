@@ -396,6 +396,16 @@ service cloud.firestore {
           && request.resource.data.createdAt == resource.data.createdAt;
         allow delete: if false;
       }
+
+      match /expenses/{expenseId} {
+        allow read: if isOwnerOrAdmin(companyId);
+        allow create: if isOwnerOrAdmin(companyId) && hasSyncFields(expenseId);
+        allow update: if isOwnerOrAdmin(companyId)
+          && hasSyncFields(expenseId)
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if false;
+      }
     }
 
     match /{path=**}/invitations/{invitationId} {

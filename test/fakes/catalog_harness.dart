@@ -1,5 +1,6 @@
 import 'package:store_app/data/app_store.dart';
 import 'package:store_app/models/customer.dart';
+import 'package:store_app/models/expense.dart';
 import 'package:store_app/models/lot.dart';
 import 'package:store_app/models/order.dart';
 import 'package:store_app/models/product.dart';
@@ -62,6 +63,25 @@ Lot testLot({
     quantity: quantity,
     unitCost: unitCost,
     soldElsewhere: soldElsewhere,
+    createdAt: stamp,
+    updatedAt: updatedAt ?? stamp,
+    deletedAt: deletedAt,
+  );
+}
+
+Expense testExpense({
+  String id = 'e-test',
+  double amount = 15000,
+  String note = 'Viaje',
+  DateTime? createdAt,
+  DateTime? updatedAt,
+  DateTime? deletedAt,
+}) {
+  final stamp = createdAt ?? DateTime.utc(2026, 9, 11);
+  return Expense(
+    id: id,
+    amount: amount,
+    note: note,
     createdAt: stamp,
     updatedAt: updatedAt ?? stamp,
     deletedAt: deletedAt,

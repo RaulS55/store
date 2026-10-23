@@ -198,21 +198,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
-                        Row(
-                          children: [
-                            StockDot(low: product.isLowStock),
-                            const SizedBox(width: 6),
-                            Text(
-                              product.status.label,
-                              style: Theme.of(context).textTheme.labelLarge
-                                  ?.copyWith(
-                                    color: product.isLowStock
-                                        ? AppColors.stockLow
-                                        : AppColors.stockOk,
-                                  ),
-                            ),
-                          ],
-                        ),
+                        _TotalStock(stock: product.stock),
                       ],
                     ),
                     Text(
@@ -391,11 +377,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     }
     if (added.isEmpty || !mounted) return;
     final sizes = [for (final variant in added) variant.size].join(', ');
-    ScaffoldMessenger.of(context).showSnackBar(
-      AppSnackBar(
-        content: Text(
-          'Agregada a ${order.customer.name}: ${product.name} · $sizes · ${added.first.color}',
-        ),
+    AppSnackBar.show(
+      context,
+      content: Text(
+        'Agregada a ${order.customer.name}: ${product.name} · $sizes · ${added.first.color}',
       ),
     );
     context.go('/pedido/${order.id}');
@@ -513,6 +498,8 @@ class _WideDetail extends StatelessWidget {
                 ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
               ),
               const SizedBox(height: 8),
+              _TotalStock(stock: product.stock),
+              const SizedBox(height: 8),
               Text(
                 MoneyFormat.compact(product.price),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -565,6 +552,33 @@ class _WideDetail extends StatelessWidget {
                   label: const Text('Eliminar prenda'),
                 ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TotalStock extends StatelessWidget {
+  const _TotalStock({required this.stock});
+
+  final int stock;
+
+  @override
+  Widget build(BuildContext context) {
+    final out = stock <= 0;
+    final low = !out && stock <= Product.lowStockThreshold;
+    final color = out || low ? AppColors.stockLow : AppColors.stockOk;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        StockDot(low: out || low),
+        const SizedBox(width: 8),
+        Text(
+          out ? 'Sin stock' : '$stock en stock',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ],

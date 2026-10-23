@@ -56,5 +56,5 @@ class AppSpacing {
 }
 
 class AppDurations {
-  static const snackBar = Duration(milliseconds: 2000);
+  static const snackBar = Duration(milliseconds: 1500);
 }

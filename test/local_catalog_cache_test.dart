@@ -178,6 +178,24 @@ void main() {
       expect(cache.lastSyncAt(companyId, CatalogCollection.products), isNull);
     });
 
+    test('expenses collection stores and clears with the company', () async {
+      await cache.upsertAll(companyId, CatalogCollection.expenses, [
+        testExpense(id: 'e1', createdAt: early).toMap(),
+      ]);
+      final loaded = await cache.loadActive(
+        companyId,
+        CatalogCollection.expenses,
+      );
+      expect(loaded, hasLength(1));
+      expect(loaded.single['id'], 'e1');
+
+      await cache.clearCompany(companyId);
+      expect(
+        await cache.loadActive(companyId, CatalogCollection.expenses),
+        isEmpty,
+      );
+    });
+
     test('lots collection stores and clears with the company', () async {
       await cache.upsertAll(companyId, CatalogCollection.lots, [
         testLot(id: 'l1', createdAt: early).toMap(),

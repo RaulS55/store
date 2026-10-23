@@ -21,6 +21,7 @@ const catalogProductsBox = 'catalog_products';
 const catalogCustomersBox = 'catalog_customers';
 const catalogOrdersBox = 'catalog_orders';
 const catalogLotsBox = 'catalog_lots';
+const catalogExpensesBox = 'catalog_expenses';
 const catalogMetaBox = 'catalog_sync_meta';
 const catalogGuestCartsBox = 'catalog_guest_carts';
 

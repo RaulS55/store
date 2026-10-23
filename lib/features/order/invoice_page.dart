@@ -409,11 +409,10 @@ class _DownloadInvoiceButtonState extends State<_DownloadInvoiceButton> {
     }
     if (!mounted) return;
     setState(() => _busy = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      AppSnackBar(
-        content: Text(
-          ok ? 'Factura descargada.' : 'No se pudo descargar la factura.',
-        ),
+    AppSnackBar.show(
+      context,
+      content: Text(
+        ok ? 'Factura descargada.' : 'No se pudo descargar la factura.',
       ),
     );
   }

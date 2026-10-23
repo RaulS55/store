@@ -31,15 +31,11 @@ Future<void> deleteProductWithConfirm({
     debugPrint('Product delete failed: $error');
     debugPrint('$stack');
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const AppSnackBar(content: Text('No se pudo eliminar la prenda.')),
-    );
+    AppSnackBar.show(context, content: Text('No se pudo eliminar la prenda.'));
     return;
   }
   if (!context.mounted) return;
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(const AppSnackBar(content: Text('Prenda eliminada')));
+  AppSnackBar.show(context, content: Text('Prenda eliminada'));
   context.go('/');
 }
 

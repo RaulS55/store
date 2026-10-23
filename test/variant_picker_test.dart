@@ -76,8 +76,16 @@ void main() {
     );
     expect(
       find.text(
-        'Los talles se agrupan por color. Podés elegir varios del mismo.',
+        'Los talles se agrupan por color. El número de cada talle es lo que queda.',
       ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: _sizeChip('Negro', 'L'), matching: find.text('4u')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: _sizeChip('Rojo', 'M'), matching: find.text('2u')),
       findsOneWidget,
     );
     expect(_sizeChip('Negro', 'L'), findsOneWidget);
@@ -179,5 +187,45 @@ void main() {
     expect(_sizeChip('Rojo', 'M'), findsOneWidget);
     expect(find.text('sin stock'), findsNothing);
     expect(find.text('2 u.'), findsOneWidget);
+  });
+
+  testWidgets('an empty size does not show a zero beside it', (tester) async {
+    final stamp = DateTime.utc(2026, 9, 11);
+    final product = Product(
+      id: 'p-empty',
+      name: 'Remera',
+      sku: 'RM-0',
+      category: ApparelCategory.remeras,
+      brand: 'Test',
+      price: 10000,
+      images: const [],
+      variants: const [
+        ProductVariant(size: 'L', color: 'Rosa', colorHex: '#E091A8', stock: 0),
+        ProductVariant(size: 'M', color: 'Rosa', colorHex: '#E091A8', stock: 12),
+      ],
+      createdAt: stamp,
+      updatedAt: stamp,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: VariantPicker(
+            product: product,
+            selection: const VariantSelection(),
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.descendant(of: _sizeChip('Rosa', 'L'), matching: find.text('0')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: _sizeChip('Rosa', 'M'), matching: find.text('+9u')),
+      findsOneWidget,
+    );
   });
 }

@@ -337,7 +337,7 @@ class _EquivalentSizeSectionState extends State<_EquivalentSizeSection> {
                   child: Row(
                     children: [
                       SizedBox(
-                        width: 72,
+                        width: 112,
                         child: Text(
                           size,
                           style: const TextStyle(fontWeight: FontWeight.w600),
@@ -397,14 +397,20 @@ class _SizeChips extends StatelessWidget {
         for (final size in ApparelSizes.all)
           FilterChip(
             label: Text(size),
-            selected: draft.sizes.contains(size),
+            selected: draft.sizes.any(
+              (item) => ApparelSizes.resolve(item) == size,
+            ),
             showCheckmark: false,
             selectedColor: AppColors.terracottaChip,
             onSelected: (selected) {
               if (selected) {
                 draft.addSize(size);
               } else {
-                draft.removeSize(size);
+                for (final item in [...draft.sizes]) {
+                  if (ApparelSizes.resolve(item) == size) {
+                    draft.removeSize(item);
+                  }
+                }
               }
               onChanged();
             },

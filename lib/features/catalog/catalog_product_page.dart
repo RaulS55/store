@@ -77,14 +77,10 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
       store.addToCart(product, variant, quantity: _qty);
     }
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      AppSnackBar(
-        key: const ValueKey('catalog-added-snackbar'),
-        behavior: SnackBarBehavior.floating,
-        content: Text('Agregamos ${product.name} al pedido.'),
-      ),
+    AppSnackBar.show(
+      context,
+      key: const ValueKey('catalog-added-snackbar'),
+      content: Text('Agregamos ${product.name} al pedido.'),
     );
   }
 

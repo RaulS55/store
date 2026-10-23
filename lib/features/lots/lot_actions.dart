@@ -33,13 +33,9 @@ Future<void> deleteLotWithConfirm({
     debugPrint('Lot delete failed: $error');
     debugPrint('$stack');
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const AppSnackBar(content: Text('No se pudo eliminar el lote.')),
-    );
+    AppSnackBar.show(context, content: Text('No se pudo eliminar el lote.'));
     return;
   }
   if (!context.mounted) return;
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(const AppSnackBar(content: Text('Lote eliminado')));
+  AppSnackBar.show(context, content: Text('Lote eliminado'));
 }

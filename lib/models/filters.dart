@@ -21,7 +21,7 @@ class ProductFilters {
     this.colorNames = const {},
     this.brands = const {},
     this.onlyLowStock = false,
-    this.onlyOutOfStock = false,
+    this.includeOutOfStock = false,
     this.minPrice,
     this.maxPrice,
   });
@@ -32,7 +32,7 @@ class ProductFilters {
   final Set<String> colorNames;
   final Set<String> brands;
   final bool onlyLowStock;
-  final bool onlyOutOfStock;
+  final bool includeOutOfStock;
   final double? minPrice;
   final double? maxPrice;
 
@@ -43,7 +43,7 @@ class ProductFilters {
       colorNames.isEmpty &&
       brands.isEmpty &&
       !onlyLowStock &&
-      !onlyOutOfStock &&
+      !includeOutOfStock &&
       minPrice == null &&
       maxPrice == null;
 
@@ -55,7 +55,7 @@ class ProductFilters {
     if (colorNames.isNotEmpty) n++;
     if (brands.isNotEmpty) n++;
     if (onlyLowStock) n++;
-    if (onlyOutOfStock) n++;
+    if (includeOutOfStock) n++;
     if (minPrice != null || maxPrice != null) n++;
     return n;
   }
@@ -67,7 +67,7 @@ class ProductFilters {
     Set<String>? colorNames,
     Set<String>? brands,
     bool? onlyLowStock,
-    bool? onlyOutOfStock,
+    bool? includeOutOfStock,
     double? minPrice,
     double? maxPrice,
     bool clearPrices = false,
@@ -79,7 +79,7 @@ class ProductFilters {
       colorNames: colorNames ?? this.colorNames,
       brands: brands ?? this.brands,
       onlyLowStock: onlyLowStock ?? this.onlyLowStock,
-      onlyOutOfStock: onlyOutOfStock ?? this.onlyOutOfStock,
+      includeOutOfStock: includeOutOfStock ?? this.includeOutOfStock,
       minPrice: clearPrices ? null : (minPrice ?? this.minPrice),
       maxPrice: clearPrices ? null : (maxPrice ?? this.maxPrice),
     );

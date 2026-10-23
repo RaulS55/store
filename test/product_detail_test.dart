@@ -73,6 +73,49 @@ void main() {
     expect(find.text('TALLE EQUIVALENTE'), findsOneWidget);
     expect(find.text('XXS / M / L'), findsOneWidget);
     expect(find.text('34 / 38 / 42'), findsOneWidget);
+    expect(find.text('16 en stock'), findsOneWidget);
+  });
+
+  testWidgets('detail shows how many units remain of each size and color', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct().copyWith(
+        variants: const [
+          ProductVariant(
+            size: 'L',
+            color: 'Rosa',
+            colorHex: '#E091A8',
+            stock: 3,
+          ),
+          ProductVariant(
+            size: 'M',
+            color: 'Negro',
+            colorHex: '#1E1E1E',
+            stock: 5,
+          ),
+        ],
+      ),
+    );
+    await tester.pumpWidget(_app(store));
+    await tester.pump();
+
+    expect(find.text('8 en stock'), findsOneWidget);
+    final pink = find.byKey(const ValueKey('variant-size-Rosa-L'));
+    await tester.ensureVisible(pink);
+    await tester.pump();
+    expect(find.text('Rosa'), findsOneWidget);
+    expect(find.text('3 u.'), findsOneWidget);
+    expect(find.descendant(of: pink, matching: find.text('3u')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('variant-size-Negro-M')),
+        matching: find.text('5u'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('swipe shows the next product image', (tester) async {
