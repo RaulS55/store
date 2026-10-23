@@ -1,13 +1,16 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:store_app/data/app_store.dart';
 import 'package:store_app/features/product/product_detail_page.dart';
 import 'package:store_app/models/product.dart';
+import 'package:store_app/routing/app_router.dart';
 import 'package:store_app/widgets/product_image.dart';
 
 import 'fakes/catalog_harness.dart';
+import 'fakes/session_harness.dart';
 
 const _images = ['gallery-one', 'gallery-two', 'gallery-three'];
 
@@ -331,5 +334,83 @@ void main() {
     expect(find.text('Nuevo pedido'), findsOneWidget);
     expect(find.text('No hay pedidos con ese nombre'), findsOneWidget);
     expect(find.byKey(ValueKey('order-target-${second.id}')), findsNothing);
+  });
+
+  testWidgets('back from an order opened by adding returns to the product', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    final order = await seedTestOrder(store);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: store),
+          ChangeNotifierProvider.value(value: session),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/producto/p-test');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Agregar al pedido'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('order-target-${order.id}')));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/pedido/${order.id}');
+    expect(find.text('Buscar productos para agregar...'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('leave-order')));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/producto/p-test');
+    expect(find.text('Detalle de producto'), findsOneWidget);
+    expect(find.text('Remera test'), findsOneWidget);
+  });
+
+  testWidgets('back from an order opened in the list still leaves the order', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    final order = await seedTestOrder(store);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: store),
+          ChangeNotifierProvider.value(value: session),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/pedido');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(order.customer.name));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/pedido/${order.id}');
+
+    await tester.tap(find.byKey(const ValueKey('leave-order')));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/pedido');
+    expect(find.text('Pedidos'), findsWidgets);
+    expect(find.text('Detalle de producto'), findsNothing);
   });
 }

@@ -129,6 +129,7 @@ class _OrderHeader extends StatelessWidget {
     return Row(
       children: [
         IconButton(
+          key: const ValueKey('leave-order'),
           onPressed: () => _leaveOrder(context, order),
           icon: const Icon(Icons.arrow_back),
         ),

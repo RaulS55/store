@@ -383,7 +383,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         'Agregada a ${order.customer.name}: ${product.name} · $sizes · ${added.first.color}',
       ),
     );
-    context.go('/pedido/${order.id}');
+    context.push('/pedido/${order.id}');
   }
 }
 
