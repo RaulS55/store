@@ -153,10 +153,17 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
           chipCategory: chipCategory,
           chipAudience: chipAudience,
           filters: filters,
+          catalogSizes: allSizes,
         ))
           product,
-    ]);
+    ], sizes: focusedSizes);
   }
+
+  Set<String> get focusedSizes => sizeFocus(
+    searchQuery: searchQuery,
+    catalogSizes: allSizes,
+    selectedSizes: filters.sizes,
+  );
 
   Product? productById(String id) {
     for (final product in _allProducts) {

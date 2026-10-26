@@ -124,7 +124,7 @@ class _StockPageState extends State<StockPage> {
                     return ProductCard(
                       product: product,
                       dense: true,
-                      filteredSizes: store.filters.sizes,
+                      filteredSizes: store.focusedSizes,
                       onTap: () => context.push('/producto/${product.id}'),
                     );
                   }, childCount: products.length),
@@ -272,7 +272,7 @@ class _StockPageState extends State<StockPage> {
               sliver: SliverToBoxAdapter(
                 child: ProductTable(
                   products: products,
-                  filteredSizes: store.filters.sizes,
+                  filteredSizes: store.focusedSizes,
                 ),
               ),
             )
@@ -290,7 +290,7 @@ class _StockPageState extends State<StockPage> {
                   final product = products[index];
                   return ProductCard(
                     product: product,
-                    filteredSizes: store.filters.sizes,
+                    filteredSizes: store.focusedSizes,
                     onTap: () => context.push('/producto/${product.id}'),
                   );
                 }, childCount: products.length),

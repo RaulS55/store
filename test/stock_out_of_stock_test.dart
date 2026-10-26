@@ -44,6 +44,62 @@ void main() {
     expect(store.filteredProducts.map((p) => p.id), ['p-out']);
   });
 
+  test('stock search matches a size only when it is written exactly', () async {
+    final store = AppStore();
+    await store.upsertProduct(
+      _sizedProduct('p-xxl', {'XXL': 2}, name: 'Campera norte', sku: 'A-100'),
+    );
+    await store.upsertProduct(
+      _sizedProduct('p-xl', {'XL': 2}, name: 'Campera sur', sku: 'A-200'),
+    );
+    await store.upsertProduct(
+      _sizedProduct('p-l', {'L': 2}, name: 'Campera este', sku: 'A-300'),
+    );
+
+    store.setSearch('xxl');
+    expect(store.filteredProducts.map((p) => p.id), ['p-xxl']);
+
+    store.setSearch('XXL');
+    expect(store.filteredProducts.map((p) => p.id), ['p-xxl']);
+
+    store.setSearch('xxle');
+    expect(store.filteredProducts, isEmpty);
+
+    store.setSearch('XL');
+    expect(store.filteredProducts.map((p) => p.id), ['p-xl']);
+
+    store.setSearch('L');
+    expect(store.filteredProducts.map((p) => p.id), ['p-l']);
+  });
+
+  test('searching a size acts like selecting that size filter', () async {
+    final store = AppStore();
+    await store.upsertProduct(
+      _sizedProduct('p-s', {'S': 4, 'M': 1}, name: 'Solero', sku: 'B-1'),
+    );
+    await store.upsertProduct(
+      _sizedProduct(
+        'p-gap',
+        {'S': 0, 'M': 3, 'L': 2},
+        name: 'Camisa',
+        sku: 'B-2',
+      ),
+    );
+    await store.upsertProduct(
+      _sizedProduct('p-other', {'M': 5}, name: 'Sueter', sku: 'B-3'),
+    );
+
+    store.setSearch('s');
+    final bySearch = store.filteredProducts.map((p) => p.id).toList();
+    expect(bySearch, ['p-s', 'p-gap']);
+    expect(store.focusedSizes, {'S'});
+
+    store.setSearch('');
+    store.applyFilters(const ProductFilters(sizes: {'S'}));
+    expect(store.filteredProducts.map((p) => p.id).toList(), bySearch);
+    expect(store.focusedSizes, {'S'});
+  });
+
   test('stock search by brand keeps out of stock last', () async {
     final store = AppStore();
     await store.upsertProduct(
@@ -309,12 +365,17 @@ void main() {
   });
 }
 
-Product _sizedProduct(String id, Map<String, int> stockBySize) {
+Product _sizedProduct(
+  String id,
+  Map<String, int> stockBySize, {
+  String? name,
+  String? sku,
+}) {
   final stamp = DateTime.utc(2026, 9, 11);
   return Product(
     id: id,
-    name: id,
-    sku: id,
+    name: name ?? id,
+    sku: sku ?? id,
     category: ApparelCategory.remeras,
     brand: 'Test',
     price: 1000,

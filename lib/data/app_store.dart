@@ -555,6 +555,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
             chipAudience: chipAudience,
             filters: filters,
             listOutOfStock: true,
+            catalogSizes: allSizes,
           ),
         )
         .toList();
@@ -573,8 +574,14 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
           return a.stock.compareTo(b.stock);
       }
     });
-    return withOutOfStockLast(list, sizes: filters.sizes);
+    return withOutOfStockLast(list, sizes: focusedSizes);
   }
+
+  Set<String> get focusedSizes => sizeFocus(
+    searchQuery: searchQuery,
+    catalogSizes: allSizes,
+    selectedSizes: filters.sizes,
+  );
 
   int get filteredCount => filteredProducts.length;
 

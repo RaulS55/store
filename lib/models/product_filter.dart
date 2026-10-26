@@ -10,13 +10,15 @@ bool matchesProductFilters({
   ApparelAudience? chipAudience,
   required ProductFilters filters,
   bool listOutOfStock = false,
+  Iterable<String> catalogSizes = const [],
 }) {
   final q = searchQuery.trim().toLowerCase();
+  final sizeQuery = catalogSizeQuery(q, catalogSizes);
   if (q.isNotEmpty) {
-    final hay =
-        '${product.name} ${product.sku} ${product.brand} ${product.audienceLabel}'
-            .toLowerCase();
-    if (!hay.contains(q)) return false;
+    final matches = sizeQuery != null
+        ? productMatchesSize(product, q)
+        : productMatchesText(product, q);
+    if (!matches) return false;
   }
   if (product.isOutOfStock &&
       !listOutOfStock &&
@@ -83,6 +85,40 @@ bool matchesProductFilters({
     return false;
   }
   return true;
+}
+
+bool productMatchesText(Product product, String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return false;
+  final hay =
+      '${product.name} ${product.sku} ${product.brand} ${product.audienceLabel}'
+          .toLowerCase();
+  return hay.contains(q);
+}
+
+bool productMatchesSize(Product product, String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return false;
+  return product.sizes.any((size) => size.trim().toLowerCase() == q);
+}
+
+String? catalogSizeQuery(String query, Iterable<String> sizes) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return null;
+  for (final size in sizes) {
+    if (size.trim().toLowerCase() == q) return size.trim();
+  }
+  return null;
+}
+
+Set<String> sizeFocus({
+  required String searchQuery,
+  required Iterable<String> catalogSizes,
+  required Set<String> selectedSizes,
+}) {
+  final searched = catalogSizeQuery(searchQuery, catalogSizes);
+  if (searched == null) return selectedSizes;
+  return {...selectedSizes, searched};
 }
 
 bool productMatchesNameOrCode(Product product, String query) {
