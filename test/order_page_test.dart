@@ -556,4 +556,75 @@ void main() {
       findsOneWidget,
     );
   });
+
+  Finder _orderSearchField() {
+    return find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.hintText == 'Buscar productos para agregar...',
+    );
+  }
+
+  testWidgets('adding a searched garment clears the search', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    await store.upsertProduct(
+      testProduct(id: 'p-camisa', name: 'Camisa azul', sku: 'CAM-1'),
+    );
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    await tester.enterText(_orderSearchField(), 'Camisa');
+    await tester.pump();
+
+    expect(find.widgetWithText(ListTile, 'Camisa azul'), findsOneWidget);
+    expect(find.byKey(const ValueKey('search-clear')), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ListTile, 'Camisa azul'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Agregar al pedido'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(_orderSearchField()).controller?.text,
+      isEmpty,
+    );
+    expect(find.byKey(const ValueKey('search-clear')), findsNothing);
+    expect(find.widgetWithText(ListTile, 'Camisa azul'), findsNothing);
+    expect(find.text('Camisa azul'), findsOneWidget);
+    expect(order.lines.length, 2);
+  });
+
+  testWidgets('dismissing the variant picker keeps the search', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    await store.upsertProduct(
+      testProduct(id: 'p-camisa', name: 'Camisa azul', sku: 'CAM-1'),
+    );
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    await tester.enterText(_orderSearchField(), 'Camisa');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ListTile, 'Camisa azul'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Agregar al pedido'), findsOneWidget);
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(_orderSearchField()).controller?.text,
+      'Camisa',
+    );
+    expect(find.byKey(const ValueKey('search-clear')), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Camisa azul'), findsOneWidget);
+    expect(order.lines.length, 1);
+  });
 }

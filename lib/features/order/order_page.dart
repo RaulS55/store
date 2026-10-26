@@ -79,6 +79,7 @@ class _OrderPageState extends State<OrderPage> {
             order: order,
             query: _query,
             onQuery: _setQuery,
+            onAdded: _clearSearch,
             search: _search,
             shareInvoice: widget.shareInvoice,
           )
@@ -86,12 +87,20 @@ class _OrderPageState extends State<OrderPage> {
             order: order,
             query: _query,
             onQuery: _setQuery,
+            onAdded: _clearSearch,
             search: _search,
             shareInvoice: widget.shareInvoice,
           );
   }
 
   void _setQuery(String value) => setState(() => _query = value);
+
+  void _clearSearch() {
+    if (!mounted) return;
+    _search.clear();
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _query = '');
+  }
 }
 
 void _leaveOrder(BuildContext context, DraftOrder order) {
@@ -157,6 +166,7 @@ class _MobileOrder extends StatelessWidget {
     required this.order,
     required this.query,
     required this.onQuery,
+    required this.onAdded,
     required this.search,
     required this.shareInvoice,
   });
@@ -164,6 +174,7 @@ class _MobileOrder extends StatelessWidget {
   final DraftOrder order;
   final String query;
   final ValueChanged<String> onQuery;
+  final VoidCallback onAdded;
   final TextEditingController search;
   final InvoiceSharer shareInvoice;
 
@@ -185,7 +196,8 @@ class _MobileOrder extends StatelessWidget {
                 onChanged: onQuery,
               ),
             ),
-            if (query.isNotEmpty) _SearchHits(query: query, orderId: order.id),
+            if (query.isNotEmpty)
+              _SearchHits(query: query, orderId: order.id, onAdded: onAdded),
           ],
           Expanded(
             child: ListView(
@@ -222,6 +234,7 @@ class _WebOrder extends StatelessWidget {
     required this.order,
     required this.query,
     required this.onQuery,
+    required this.onAdded,
     required this.search,
     required this.shareInvoice,
   });
@@ -229,6 +242,7 @@ class _WebOrder extends StatelessWidget {
   final DraftOrder order;
   final String query;
   final ValueChanged<String> onQuery;
+  final VoidCallback onAdded;
   final TextEditingController search;
   final InvoiceSharer shareInvoice;
 
@@ -267,7 +281,11 @@ class _WebOrder extends StatelessWidget {
                             onChanged: onQuery,
                           ),
                           if (query.isNotEmpty)
-                            _SearchHits(query: query, orderId: order.id),
+                            _SearchHits(
+                              query: query,
+                              orderId: order.id,
+                              onAdded: onAdded,
+                            ),
                         ],
                         const SizedBox(height: 12),
                         Text(
@@ -484,9 +502,14 @@ class _Panel extends StatelessWidget {
 }
 
 class _SearchHits extends StatelessWidget {
-  const _SearchHits({required this.query, required this.orderId});
+  const _SearchHits({
+    required this.query,
+    required this.orderId,
+    required this.onAdded,
+  });
   final String query;
   final String orderId;
+  final VoidCallback onAdded;
 
   @override
   Widget build(BuildContext context) {
@@ -512,16 +535,21 @@ class _SearchHits extends StatelessWidget {
     return Column(
       children: [
         for (final product in hits)
-          _HitTile(product: product, orderId: orderId),
+          _HitTile(product: product, orderId: orderId, onAdded: onAdded),
       ],
     );
   }
 }
 
 class _HitTile extends StatelessWidget {
-  const _HitTile({required this.product, required this.orderId});
+  const _HitTile({
+    required this.product,
+    required this.orderId,
+    required this.onAdded,
+  });
   final Product product;
   final String orderId;
+  final VoidCallback onAdded;
 
   @override
   Widget build(BuildContext context) {
@@ -546,9 +574,11 @@ class _HitTile extends StatelessWidget {
     final live = store.productById(product.id) ?? product;
     final variants = await showVariantPickerSheet(context, live);
     if (variants == null || variants.isEmpty || !context.mounted) return;
+    var added = false;
     for (final variant in variants) {
-      store.addToOrder(live, variant, orderId: orderId);
+      if (store.addToOrder(live, variant, orderId: orderId)) added = true;
     }
+    if (added) onAdded();
   }
 }
 
