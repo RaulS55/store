@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:url_launcher/url_launcher.dart';
 
+import 'download_result.dart';
+
 Future<bool> downloadBytes({
   required Uint8List bytes,
   required String filename,
@@ -22,6 +24,40 @@ Future<bool> downloadBytes({
   } catch (_) {
     return false;
   }
+}
+
+({Uint8List bytes, String filename, String mimeType})
+adaptImageForDeviceGallery({
+  required Uint8List bytes,
+  required String filename,
+  required String mimeType,
+}) {
+  return (bytes: bytes, filename: filename, mimeType: mimeType);
+}
+
+Future<ImageDownloadResult> saveImageBytes({
+  required Uint8List bytes,
+  required String filename,
+  String mimeType = 'image/jpeg',
+  bool allowGesturePrompt = true,
+}) async {
+  final ok = await downloadBytes(
+    bytes: bytes,
+    filename: filename,
+    mimeType: mimeType,
+  );
+  if (!ok) return const ImageDownloadResult.failed();
+  return const ImageDownloadResult.downloaded();
+}
+
+Future<ImageDownloadResult> downloadImageUrl({
+  required String url,
+  required String filename,
+  required String mimeType,
+}) async {
+  final ok = await downloadFromUrl(url: url, filename: filename);
+  if (!ok) return const ImageDownloadResult.failed();
+  return const ImageDownloadResult.downloaded();
 }
 
 Future<bool> downloadFromUrl({

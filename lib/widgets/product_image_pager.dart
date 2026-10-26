@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../data/image_download.dart';
 import '../theme/tokens.dart';
 import 'app_snack_bar.dart';
 import 'product_image.dart';
@@ -121,23 +124,73 @@ class _PagerDownloadButton extends StatefulWidget {
 
 class _PagerDownloadButtonState extends State<_PagerDownloadButton> {
   var _downloading = false;
+  PreparedProductImage? _prepared;
+  var _warmKey = '';
 
-  Future<void> _download() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _warm();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PagerDownloadButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path || oldWidget.index != widget.index) {
+      _prepared = null;
+      _warmKey = '';
+      _warm();
+    }
+  }
+
+  void _warm() {
+    final key = '${widget.index}|${widget.path}';
+    if (key == _warmKey) return;
+    _warmKey = key;
+    _prepared = null;
+    final path = widget.path;
+    final index = widget.index;
+    unawaited(() async {
+      final prepared = await prepareVisibleProductImage(
+        context: context,
+        path: path,
+        index: index,
+      );
+      if (!mounted || widget.path != path || widget.index != index) return;
+      setState(() => _prepared = prepared);
+    }());
+  }
+
+  void _download() {
     if (_downloading) return;
+    final prepared = _prepared;
+    final pending = prepared != null
+        ? saveProductImageBytes(
+            bytes: prepared.bytes,
+            filename: prepared.filename,
+            mimeType: prepared.mimeType,
+          )
+        : downloadVisibleProductImage(
+            context: context,
+            path: widget.path,
+            index: widget.index,
+          );
     setState(() => _downloading = true);
-    final ok = await downloadVisibleProductImage(
-      context: context,
-      path: widget.path,
-      index: widget.index,
-    );
-    if (!mounted) return;
-    setState(() => _downloading = false);
-    AppSnackBar.show(
-      context,
-      content: Text(
-        ok ? 'Imagen descargada.' : 'No se pudo descargar la imagen.',
-      ),
-    );
+    unawaited(_completeDownload(pending));
+  }
+
+  Future<void> _completeDownload(Future<ImageDownloadResult> pending) async {
+    try {
+      var result = await pending;
+      if (!mounted) return;
+      result = await finishProductImageDownload(context, result);
+      if (!mounted) return;
+      final message = result.message;
+      if (message == null) return;
+      AppSnackBar.show(context, content: Text(message));
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
   }
 
   @override

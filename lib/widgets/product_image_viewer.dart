@@ -1,5 +1,6 @@
-import 'dart:typed_data';
+import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -24,24 +25,93 @@ List<ProductImageEntry> productImageEntries(Iterable<String> paths) {
   return [for (final path in paths) ProductImageEntry(path: path)];
 }
 
-Future<bool> downloadVisibleProductImage({
+ProductImageCache? productImageCacheOf(BuildContext context) {
+  try {
+    return Provider.of<ProductImageCache>(context, listen: false);
+  } on ProviderNotFoundException {
+    return null;
+  }
+}
+
+Future<ImageDownloadResult> downloadVisibleProductImage({
   required BuildContext context,
   required String path,
   Uint8List? bytes,
   int index = 0,
 }) {
-  ProductImageCache? cache;
-  try {
-    cache = Provider.of<ProductImageCache>(context, listen: false);
-  } on ProviderNotFoundException {
-    cache = null;
-  }
   return downloadProductImage(
     path: path,
     bytes: bytes,
-    cache: cache,
+    cache: productImageCacheOf(context),
     index: index,
   );
+}
+
+Future<PreparedProductImage?> prepareVisibleProductImage({
+  required BuildContext context,
+  required String path,
+  Uint8List? bytes,
+  int index = 0,
+}) {
+  return prepareProductImageDownload(
+    path: path,
+    bytes: bytes,
+    cache: productImageCacheOf(context),
+    index: index,
+  );
+}
+
+Future<ImageDownloadResult> finishProductImageDownload(
+  BuildContext context,
+  ImageDownloadResult result,
+) async {
+  if (result.status != ImageSaveStatus.needsGesture || !context.mounted) {
+    return result;
+  }
+  final bytes = result.bytes;
+  final filename = result.filename;
+  final mimeType = result.mimeType;
+  if (bytes == null || filename == null || mimeType == null) {
+    return const ImageDownloadResult.failed();
+  }
+  final saved = await showDialog<ImageDownloadResult>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Guardar en la galería'),
+        content: Text(_gallerySaveHint),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(const ImageDownloadResult.cancelled());
+            },
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            key: const ValueKey('save-image-to-gallery'),
+            onPressed: () async {
+              final saved = await saveProductImageBytes(
+                bytes: bytes,
+                filename: filename,
+                mimeType: mimeType,
+                allowGesturePrompt: false,
+              );
+              if (context.mounted) Navigator.of(context).pop(saved);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      );
+    },
+  );
+  return saved ?? const ImageDownloadResult.cancelled();
+}
+
+String get _gallerySaveHint {
+  if (defaultTargetPlatform == TargetPlatform.iOS) {
+    return 'Tocá Guardar y, en el menú del celular, elegí Guardar imagen.';
+  }
+  return 'Tocá Guardar y elegí Galería o Fotos.';
 }
 
 Future<void> showProductImageViewer({
@@ -86,6 +156,8 @@ class _ProductImageViewerState extends State<ProductImageViewer> {
   late int _index;
   var _downloading = false;
   String? _feedback;
+  PreparedProductImage? _prepared;
+  var _warmKey = '';
 
   @override
   void initState() {
@@ -95,30 +167,76 @@ class _ProductImageViewerState extends State<ProductImageViewer> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _warm();
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _download() async {
+  void _warm() {
+    final image = widget.images[_index];
+    final key = '$_index|${image.path}|${image.bytes?.lengthInBytes}';
+    if (key == _warmKey) return;
+    _warmKey = key;
+    _prepared = null;
+    final index = _index;
+    unawaited(() async {
+      final prepared = await prepareVisibleProductImage(
+        context: context,
+        path: image.path,
+        bytes: image.bytes,
+        index: index,
+      );
+      if (!mounted || _index != index || _warmKey != key) return;
+      setState(() => _prepared = prepared);
+    }());
+  }
+
+  void _download() {
     if (_downloading) return;
     final image = widget.images[_index];
-    setState(() => _downloading = true);
-    final ok = await downloadVisibleProductImage(
-      context: context,
-      path: image.path,
-      bytes: image.bytes,
-      index: _index,
-    );
-    if (!mounted) return;
+    final index = _index;
+    final prepared = _prepared;
+    final pending = prepared != null
+        ? saveProductImageBytes(
+            bytes: prepared.bytes,
+            filename: prepared.filename,
+            mimeType: prepared.mimeType,
+          )
+        : downloadVisibleProductImage(
+            context: context,
+            path: image.path,
+            bytes: image.bytes,
+            index: index,
+          );
     setState(() {
-      _downloading = false;
-      _feedback = ok ? 'Imagen descargada.' : 'No se pudo descargar la imagen.';
+      _downloading = true;
+      _feedback = null;
     });
-    Future<void>.delayed(const Duration(seconds: 2), () {
+    unawaited(_completeDownload(pending));
+  }
+
+  Future<void> _completeDownload(Future<ImageDownloadResult> pending) async {
+    try {
+      var result = await pending;
       if (!mounted) return;
-      setState(() => _feedback = null);
-    });
+      result = await finishProductImageDownload(context, result);
+      if (!mounted) return;
+      final message = result.message;
+      setState(() => _feedback = message);
+      if (message == null) return;
+      Future<void>.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        setState(() => _feedback = null);
+      });
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
   }
 
   @override
@@ -133,7 +251,10 @@ class _ProductImageViewerState extends State<ProductImageViewer> {
           children: [
             PageView.builder(
               controller: _controller,
-              onPageChanged: (i) => setState(() => _index = i),
+              onPageChanged: (i) {
+                setState(() => _index = i);
+                _warm();
+              },
               itemCount: images.length,
               itemBuilder: (context, i) {
                 final image = images[i];

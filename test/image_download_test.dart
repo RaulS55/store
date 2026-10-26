@@ -56,4 +56,55 @@ void main() {
       Uint8List.fromList([1, 2, 3]),
     );
   });
+
+  test('prepares a named file from bytes already in memory', () async {
+    final prepared = await prepareProductImageDownload(
+      path: 'https://cdn.example.com/foto.png',
+      bytes: Uint8List.fromList([1, 2, 3]),
+    );
+
+    expect(prepared?.filename, 'foto.png');
+    expect(prepared?.mimeType, 'image/png');
+    expect(prepared?.bytes, Uint8List.fromList([1, 2, 3]));
+  });
+
+  test('detects phone browsers that can save into the gallery', () {
+    expect(
+      isMobileWebUserAgent(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)',
+      ),
+      isTrue,
+    );
+    expect(
+      isMobileWebUserAgent('Mozilla/5.0 (Linux; Android 14; Pixel 7)'),
+      isTrue,
+    );
+    expect(
+      isMobileWebUserAgent(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        maxTouchPoints: 5,
+      ),
+      isTrue,
+    );
+    expect(
+      isMobileWebUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'),
+      isFalse,
+    );
+    expect(
+      isMobileWebUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)'),
+      isFalse,
+    );
+  });
+
+  test('gallery and download results use different messages', () {
+    expect(
+      const ImageDownloadResult.gallery().message,
+      'Imagen guardada en la galería.',
+    );
+    expect(
+      const ImageDownloadResult.downloaded().message,
+      'Imagen descargada.',
+    );
+    expect(const ImageDownloadResult.cancelled().message, isNull);
+  });
 }

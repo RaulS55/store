@@ -188,6 +188,40 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 72,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: images.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (context, i) {
+                          final selected = i == _index;
+                          return InkWell(
+                            key: ValueKey('product-gallery-thumb-$i'),
+                            onTap: () => setState(() => _index = i),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              width: 72,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: selected
+                                      ? AppColors.terracotta
+                                      : AppColors.lightBorder,
+                                  width: selected ? 2 : 1,
+                                ),
+                              ),
+                              child: ProductImage(
+                                path: images[i],
+                                fit: BoxFit.contain,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -270,49 +304,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Text(
-                          'Galería',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 72,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: images.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemBuilder: (context, i) {
-                          final selected = i == _index;
-                          return InkWell(
-                            key: ValueKey('product-gallery-thumb-$i'),
-                            onTap: () => setState(() => _index = i),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 160),
-                              width: 72,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: selected
-                                      ? AppColors.terracotta
-                                      : AppColors.lightBorder,
-                                  width: selected ? 2 : 1,
-                                ),
-                              ),
-                              child: ProductImage(
-                                path: images[i],
-                                fit: BoxFit.contain,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
                   ],
                 ],
               ),
