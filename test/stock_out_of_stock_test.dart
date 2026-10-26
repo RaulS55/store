@@ -204,4 +204,131 @@ void main() {
     final label = tester.widget<Text>(find.text('Sin stock').first);
     expect(label.style?.color, AppColors.stockLow);
   });
+
+  test(
+    'size filter keeps garments whose selected size is gone at the end',
+    () async {
+      final store = AppStore();
+      await store.upsertProduct(_sizedProduct('p-s', {'S': 4, 'M': 2}));
+      await store.upsertProduct(
+        _sizedProduct('p-gap', {'S': 0, 'M': 3, 'L': 2}),
+      );
+      await store.upsertProduct(_sizedProduct('p-other', {'M': 5}));
+
+      store.applyFilters(const ProductFilters(sizes: {'S'}));
+      expect(store.filteredProducts.map((p) => p.id), ['p-s', 'p-gap']);
+
+      store.setSort(StockSort.name);
+      expect(store.filteredProducts.map((p) => p.id), ['p-s', 'p-gap']);
+    },
+  );
+
+  test(
+    'size filter stays in place when another selected size still has stock',
+    () async {
+      final store = AppStore();
+      await store.upsertProduct(_sizedProduct('p-both', {'S': 2, 'M': 2}));
+      await store.upsertProduct(
+        _sizedProduct('p-only-m', {'S': 0, 'M': 4, 'L': 1}),
+      );
+      await store.upsertProduct(
+        _sizedProduct('p-none', {'S': 0, 'M': 0, 'L': 6}),
+      );
+
+      store.applyFilters(const ProductFilters(sizes: {'S', 'M'}));
+      store.setSort(StockSort.name);
+      expect(store.filteredProducts.map((p) => p.id), [
+        'p-both',
+        'p-only-m',
+        'p-none',
+      ]);
+    },
+  );
+
+  testWidgets('card marks the filtered size that is out of stock', (
+    tester,
+  ) async {
+    final product = _sizedProduct('p-gap', {'S': 0, 'M': 3, 'L': 2});
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 220,
+            height: 360,
+            child: ProductCard(
+              product: product,
+              filteredSizes: const {'S'},
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Sin stock en S'), findsWidgets);
+    final ink = tester.widget<Ink>(find.byType(Ink));
+    final border = (ink.decoration! as BoxDecoration).border! as Border;
+    expect(border.top.color, AppColors.stockGap);
+    expect(
+      tester
+          .widgetList<Text>(find.text('Sin stock en S'))
+          .any((text) => text.style?.color == AppColors.stockGap),
+      isTrue,
+    );
+  });
+
+  testWidgets('stock table marks a filtered size that is out of stock', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: AppStore(),
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: ProductTable(
+              products: [
+                _sizedProduct('p-gap', {'S': 0, 'M': 3}),
+              ],
+              filteredSizes: const {'S'},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Sin stock en S'), findsWidgets);
+    final label = tester.widget<Text>(find.text('Sin stock en S').first);
+    expect(label.style?.color, AppColors.stockGap);
+  });
+}
+
+Product _sizedProduct(String id, Map<String, int> stockBySize) {
+  final stamp = DateTime.utc(2026, 9, 11);
+  return Product(
+    id: id,
+    name: id,
+    sku: id,
+    category: ApparelCategory.remeras,
+    brand: 'Test',
+    price: 1000,
+    images: const [],
+    variants: [
+      for (final entry in stockBySize.entries)
+        ProductVariant(
+          size: entry.key,
+          color: 'Negro',
+          colorHex: '#1E1E1E',
+          stock: entry.value,
+        ),
+    ],
+    createdAt: stamp,
+    updatedAt: stamp,
+  );
 }

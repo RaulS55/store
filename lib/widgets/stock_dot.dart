@@ -4,9 +4,10 @@ import '../models/product.dart';
 import '../theme/tokens.dart';
 
 class StockDot extends StatelessWidget {
-  const StockDot({super.key, required this.low});
+  const StockDot({super.key, required this.low, this.color});
 
   final bool low;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +15,7 @@ class StockDot extends StatelessWidget {
       width: 8,
       height: 8,
       decoration: BoxDecoration(
-        color: low ? AppColors.stockLow : AppColors.stockOk,
+        color: color ?? (low ? AppColors.stockLow : AppColors.stockOk),
         shape: BoxShape.circle,
       ),
     );

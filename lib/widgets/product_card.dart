@@ -12,17 +12,22 @@ class ProductCard extends StatelessWidget {
     required this.product,
     required this.onTap,
     this.dense = false,
+    this.filteredSizes = const {},
   });
 
   final Product product;
   final VoidCallback onTap;
   final bool dense;
+  final Set<String> filteredSizes;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
+    final missingLabel = product.missingSizeStockLabel(filteredSizes);
+    final sizeGap = missingLabel.isNotEmpty && !product.isOutOfStock;
     final out = product.isOutOfStock;
+    final marked = sizeGap || out;
 
     return Material(
       color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
@@ -34,10 +39,12 @@ class ProductCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadii.md),
             border: Border.all(
-              color: out
+              color: sizeGap
+                  ? AppColors.stockGap
+                  : out
                   ? AppColors.stockLow
                   : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
-              width: out ? 1.5 : 1,
+              width: marked ? 1.5 : 1,
             ),
           ),
           child: Column(
@@ -58,22 +65,28 @@ class ProductCard extends StatelessWidget {
                     Positioned(
                       top: 8,
                       right: 8,
-                      child: out
+                      child: marked
                           ? Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.stockLow,
+                                color: sizeGap
+                                    ? AppColors.stockGap
+                                    : AppColors.stockLow,
                                 borderRadius: BorderRadius.circular(
                                   AppRadii.pill,
                                 ),
                               ),
                               child: Text(
-                                'Sin stock',
+                                sizeGap ? missingLabel : 'Sin stock',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: Colors.white,
+                                  color: sizeGap
+                                      ? AppColors.charcoal
+                                      : Colors.white,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -154,7 +167,18 @@ class ProductCard extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 8),
-                    StockLabel(stock: product.stock),
+                    if (sizeGap)
+                      Text(
+                        missingLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.stockGap,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    else
+                      StockLabel(stock: product.stock),
                     const SizedBox(height: 6),
                     Text(
                       MoneyFormat.labeled(product.price),

@@ -92,11 +92,14 @@ bool productMatchesNameOrCode(Product product, String query) {
       product.sku.toLowerCase().contains(q);
 }
 
-List<Product> withOutOfStockLast(Iterable<Product> products) {
+List<Product> withOutOfStockLast(
+  Iterable<Product> products, {
+  Set<String> sizes = const {},
+}) {
   final inStock = <Product>[];
   final outOfStock = <Product>[];
   for (final product in products) {
-    if (product.isOutOfStock) {
+    if (product.isOutOfStock || product.sizesMissingStock(sizes).isNotEmpty) {
       outOfStock.add(product);
     } else {
       inStock.add(product);

@@ -747,6 +747,26 @@ class Product {
         .fold(0, (sum, v) => sum + v.stock);
   }
 
+  /// Sizes from [selected] that this garment offers, when every one of them is
+  /// out of stock. Empty when the filter is empty, the garment does not offer
+  /// those sizes, or at least one selected size still has units.
+  List<String> sizesMissingStock(Set<String> selected) {
+    if (selected.isEmpty) return const [];
+    final offered = sizes.toSet().intersection(selected);
+    if (offered.isEmpty) return const [];
+    for (final size in offered) {
+      if (stockForSize(size) > 0) return const [];
+    }
+    return ApparelSizes.sorted(offered);
+  }
+
+  String missingSizeStockLabel(Set<String> selected) {
+    final missing = sizesMissingStock(selected);
+    if (missing.isEmpty) return '';
+    if (missing.length == 1) return 'Sin stock en ${missing.single}';
+    return 'Sin stock en ${missing.join(', ')}';
+  }
+
   int stockForColor(String colorName, {String? size}) {
     return variants
         .where((v) => v.color == colorName && (size == null || v.size == size))

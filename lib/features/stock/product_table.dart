@@ -11,9 +11,14 @@ import '../../widgets/product_image_viewer.dart';
 import '../../widgets/stock_dot.dart';
 
 class ProductTable extends StatelessWidget {
-  const ProductTable({super.key, required this.products});
+  const ProductTable({
+    super.key,
+    required this.products,
+    this.filteredSizes = const {},
+  });
 
   final List<Product> products;
+  final Set<String> filteredSizes;
 
   @override
   Widget build(BuildContext context) {
@@ -59,151 +64,179 @@ class ProductTable extends StatelessWidget {
             ],
             rows: [
               for (final product in products)
-                DataRow(
-                  color: product.isOutOfStock
-                      ? const WidgetStatePropertyAll(Color(0x14E03131))
-                      : null,
-                  onSelectChanged: (_) =>
-                      context.push('/producto/${product.id}'),
-                  cells: [
-                    DataCell(
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () => showProductImageViewer(
-                              context: context,
-                              images: productImageEntries(product.images),
-                            ),
-                            child: SizedBox(
-                              width: 44,
-                              height: 44,
-                              child: ProductImage(
-                                path: product.image,
-                                fit: BoxFit.cover,
-                                borderRadius: BorderRadius.circular(8),
+                for (final missingLabel in [
+                  product.missingSizeStockLabel(filteredSizes),
+                ])
+                  DataRow(
+                    color: product.isOutOfStock
+                        ? const WidgetStatePropertyAll(Color(0x14E03131))
+                        : missingLabel.isNotEmpty
+                        ? const WidgetStatePropertyAll(Color(0x1FE6A817))
+                        : null,
+                    onSelectChanged: (_) =>
+                        context.push('/producto/${product.id}'),
+                    cells: [
+                      DataCell(
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () => showProductImageViewer(
+                                context: context,
+                                images: productImageEntries(product.images),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                product.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
+                              child: SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: ProductImage(
+                                  path: product.image,
+                                  fit: BoxFit.cover,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
-                              Text(
-                                'SKU: ${product.sku}',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: AppColors.mutedText),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        product.categoryLabel.isEmpty
-                            ? '—'
-                            : product.categoryLabel,
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        product.audienceLabel.isEmpty
-                            ? '—'
-                            : product.audienceLabel,
-                      ),
-                    ),
-                    DataCell(Text(product.sizeLabel)),
-                    DataCell(Text(product.equivalentSizeLabel)),
-                    DataCell(
-                      Row(
-                        children: [
-                          for (final color in product.colors.take(4))
-                            if (!color.isCustom)
-                              Container(
-                                width: 10,
-                                height: 10,
-                                margin: const EdgeInsets.only(right: 4),
-                                decoration: BoxDecoration(
-                                  color: color.color,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppColors.lightBorder,
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  product.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ),
-                          const SizedBox(width: 4),
-                          Text(product.colorLabel),
-                        ],
-                      ),
-                    ),
-                    DataCell(
-                      Text(product.brand.trim().isEmpty ? '—' : product.brand),
-                    ),
-                    DataCell(
-                      Text(
-                        product.isOutOfStock
-                            ? 'Sin stock'
-                            : 'Stock: ${product.stock}',
-                        style: TextStyle(
-                          color: product.isOutOfStock || product.isLowStock
-                              ? AppColors.stockLow
-                              : null,
-                          fontWeight: FontWeight.w600,
+                                Text(
+                                  'SKU: ${product.sku}',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: AppColors.mutedText),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    DataCell(
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            MoneyFormat.compact(product.price),
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                      DataCell(
+                        Text(
+                          product.categoryLabel.isEmpty
+                              ? '—'
+                              : product.categoryLabel,
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          product.audienceLabel.isEmpty
+                              ? '—'
+                              : product.audienceLabel,
+                        ),
+                      ),
+                      DataCell(Text(product.sizeLabel)),
+                      DataCell(Text(product.equivalentSizeLabel)),
+                      DataCell(
+                        Row(
+                          children: [
+                            for (final color in product.colors.take(4))
+                              if (!color.isCustom)
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  margin: const EdgeInsets.only(right: 4),
+                                  decoration: BoxDecoration(
+                                    color: color.color,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.lightBorder,
+                                    ),
+                                  ),
+                                ),
+                            const SizedBox(width: 4),
+                            Text(product.colorLabel),
+                          ],
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          product.brand.trim().isEmpty ? '—' : product.brand,
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          missingLabel.isNotEmpty && !product.isOutOfStock
+                              ? missingLabel
+                              : product.isOutOfStock
+                              ? 'Sin stock'
+                              : 'Stock: ${product.stock}',
+                          style: TextStyle(
+                            color:
+                                missingLabel.isNotEmpty && !product.isOutOfStock
+                                ? AppColors.stockGap
+                                : product.isOutOfStock || product.isLowStock
+                                ? AppColors.stockLow
+                                : null,
+                            fontWeight: FontWeight.w600,
                           ),
-                          if (ivaEnabled)
+                        ),
+                      ),
+                      DataCell(
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              '+ IVA',
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(color: AppColors.mutedText),
+                              MoneyFormat.compact(product.price),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                        ],
+                            if (ivaEnabled)
+                              Text(
+                                '+ IVA',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: AppColors.mutedText),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    DataCell(
-                      Row(
-                        children: [
-                          StockDot(
-                            low: product.isOutOfStock || product.isLowStock,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            product.isOutOfStock
-                                ? 'Sin stock'
-                                : product.isLowStock
-                                ? 'Bajo stock'
-                                : 'Disponible',
-                            style: TextStyle(
-                              color: product.isOutOfStock
-                                  ? AppColors.stockLow
-                                  : null,
-                              fontWeight: product.isOutOfStock
-                                  ? FontWeight.w700
+                      DataCell(
+                        Row(
+                          children: [
+                            StockDot(
+                              low: product.isOutOfStock || product.isLowStock,
+                              color:
+                                  missingLabel.isNotEmpty &&
+                                      !product.isOutOfStock
+                                  ? AppColors.stockGap
                                   : null,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 6),
+                            Text(
+                              missingLabel.isNotEmpty && !product.isOutOfStock
+                                  ? missingLabel
+                                  : product.isOutOfStock
+                                  ? 'Sin stock'
+                                  : product.isLowStock
+                                  ? 'Bajo stock'
+                                  : 'Disponible',
+                              style: TextStyle(
+                                color:
+                                    missingLabel.isNotEmpty &&
+                                        !product.isOutOfStock
+                                    ? AppColors.stockGap
+                                    : product.isOutOfStock
+                                    ? AppColors.stockLow
+                                    : null,
+                                fontWeight:
+                                    product.isOutOfStock ||
+                                        (missingLabel.isNotEmpty &&
+                                            !product.isOutOfStock)
+                                    ? FontWeight.w700
+                                    : null,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
             ],
           ),
         ),

@@ -22,6 +22,7 @@ class AppColors {
 
   static const stockOk = Color(0xFF2F9E44);
   static const stockLow = Color(0xFFE03131);
+  static const stockGap = Color(0xFFE6A817);
   static const warning = Color(0xFFE67700);
   static const whatsapp = Color(0xFF25D366);
   static const instagram = Color(0xFFE4405F);

@@ -124,6 +124,7 @@ class _StockPageState extends State<StockPage> {
                     return ProductCard(
                       product: product,
                       dense: true,
+                      filteredSizes: store.filters.sizes,
                       onTap: () => context.push('/producto/${product.id}'),
                     );
                   }, childCount: products.length),
@@ -269,7 +270,10 @@ class _StockPageState extends State<StockPage> {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(28, 0, 28, 16),
               sliver: SliverToBoxAdapter(
-                child: ProductTable(products: products),
+                child: ProductTable(
+                  products: products,
+                  filteredSizes: store.filters.sizes,
+                ),
               ),
             )
           else
@@ -286,6 +290,7 @@ class _StockPageState extends State<StockPage> {
                   final product = products[index];
                   return ProductCard(
                     product: product,
+                    filteredSizes: store.filters.sizes,
                     onTap: () => context.push('/producto/${product.id}'),
                   );
                 }, childCount: products.length),
