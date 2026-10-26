@@ -565,6 +565,58 @@ void main() {
     );
   }
 
+  testWidgets('desktop empty order message is centered in the lines area', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final customer = await seedTestCustomer(store);
+    final order = store.createOrder(customer);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    final message = find.text('Todavía no hay prendas en el pedido');
+    final hint = find.text('Buscá un producto para agregarlo.');
+    final search = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.hintText ==
+              'Buscar por nombre, código, SKU o categoría...',
+    );
+    expect(message, findsOneWidget);
+
+    final messageBox = tester.getRect(message);
+    final hintBox = tester.getRect(hint);
+    final searchBox = tester.getRect(search);
+    final linesLabel = tester.getRect(find.text('Líneas del pedido (0)'));
+    final page = tester.getRect(find.byType(OrderPage));
+    final regionMid = (linesLabel.bottom + page.bottom - 24) / 2;
+
+    expect(messageBox.center.dx, closeTo(searchBox.center.dx, 12));
+    expect(hintBox.center.dx, closeTo(messageBox.center.dx, 4));
+    expect((messageBox.center.dy - regionMid).abs(), lessThan(80));
+  });
+
+  testWidgets('phone empty order message stays in the list', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final customer = await seedTestCustomer(store);
+    final order = store.createOrder(customer);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    expect(find.text('Todavía no hay prendas en el pedido'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('adding a searched garment clears the search', (tester) async {
     _setPhoneView(tester);
     final store = AppStore();

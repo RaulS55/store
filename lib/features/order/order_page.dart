@@ -1026,21 +1026,26 @@ class _EmptyLines extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
-      child: Column(
-        children: [
-          const Icon(Icons.shopping_bag_outlined, color: AppColors.mutedText),
-          const SizedBox(height: 8),
-          Text(
-            'Todavía no hay prendas en el pedido',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          Text(
-            'Buscá un producto para agregarlo.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
-          ),
-        ],
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.shopping_bag_outlined, color: AppColors.mutedText),
+            const SizedBox(height: 8),
+            Text(
+              'Todavía no hay prendas en el pedido',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            Text(
+              'Buscá un producto para agregarlo.',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+            ),
+          ],
+        ),
       ),
     );
   }
