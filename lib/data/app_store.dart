@@ -42,6 +42,9 @@ class _StockChange {
 }
 
 class AppStore extends ChangeNotifier implements ProductFilterHost {
+  @override
+  bool get listsOutOfStock => true;
+
   AppStore({
     ProductAccess? products,
     CustomerAccess? customers,
@@ -551,6 +554,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
             chipCategory: chipCategory,
             chipAudience: chipAudience,
             filters: filters,
+            listOutOfStock: true,
           ),
         )
         .toList();

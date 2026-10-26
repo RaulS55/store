@@ -9,6 +9,7 @@ bool matchesProductFilters({
   ApparelCategory? chipCategory,
   ApparelAudience? chipAudience,
   required ProductFilters filters,
+  bool listOutOfStock = false,
 }) {
   final q = searchQuery.trim().toLowerCase();
   if (q.isNotEmpty) {
@@ -17,10 +18,11 @@ bool matchesProductFilters({
             .toLowerCase();
     if (!hay.contains(q)) return false;
   }
-  if (product.isOutOfStock) {
-    if (!filters.includeOutOfStock && !productMatchesNameOrCode(product, q)) {
-      return false;
-    }
+  if (product.isOutOfStock &&
+      !listOutOfStock &&
+      !filters.includeOutOfStock &&
+      !productMatchesNameOrCode(product, q)) {
+    return false;
   }
   final category = product.category;
   if (category != null &&
@@ -70,7 +72,7 @@ bool matchesProductFilters({
   }
   if (filters.onlyLowStock &&
       (product.isOutOfStock
-          ? !filters.includeOutOfStock
+          ? !listOutOfStock && !filters.includeOutOfStock
           : !product.isLowStock)) {
     return false;
   }

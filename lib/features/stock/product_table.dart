@@ -60,6 +60,9 @@ class ProductTable extends StatelessWidget {
             rows: [
               for (final product in products)
                 DataRow(
+                  color: product.isOutOfStock
+                      ? const WidgetStatePropertyAll(Color(0x14E03131))
+                      : null,
                   onSelectChanged: (_) =>
                       context.push('/producto/${product.id}'),
                   cells: [
@@ -145,9 +148,13 @@ class ProductTable extends StatelessWidget {
                     ),
                     DataCell(
                       Text(
-                        'Stock: ${product.stock}',
+                        product.isOutOfStock
+                            ? 'Sin stock'
+                            : 'Stock: ${product.stock}',
                         style: TextStyle(
-                          color: product.isLowStock ? AppColors.stockLow : null,
+                          color: product.isOutOfStock || product.isLowStock
+                              ? AppColors.stockLow
+                              : null,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -173,10 +180,24 @@ class ProductTable extends StatelessWidget {
                     DataCell(
                       Row(
                         children: [
-                          StockDot(low: product.isLowStock),
+                          StockDot(
+                            low: product.isOutOfStock || product.isLowStock,
+                          ),
                           const SizedBox(width: 6),
                           Text(
-                            product.isLowStock ? 'Bajo stock' : 'Disponible',
+                            product.isOutOfStock
+                                ? 'Sin stock'
+                                : product.isLowStock
+                                ? 'Bajo stock'
+                                : 'Disponible',
+                            style: TextStyle(
+                              color: product.isOutOfStock
+                                  ? AppColors.stockLow
+                                  : null,
+                              fontWeight: product.isOutOfStock
+                                  ? FontWeight.w700
+                                  : null,
+                            ),
                           ),
                         ],
                       ),

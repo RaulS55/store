@@ -275,16 +275,17 @@ class _FiltersEditorState extends State<FiltersEditor> {
                     activeThumbColor: Colors.white,
                     activeTrackColor: AppColors.terracotta,
                   ),
-                  SwitchListTile(
-                    value: _draft.includeOutOfStock,
-                    onChanged: (v) => setState(
-                      () => _draft = _draft.copyWith(includeOutOfStock: v),
+                  if (!widget.host.listsOutOfStock)
+                    SwitchListTile(
+                      value: _draft.includeOutOfStock,
+                      onChanged: (v) => setState(
+                        () => _draft = _draft.copyWith(includeOutOfStock: v),
+                      ),
+                      title: const Text('Incluir sin stock'),
+                      contentPadding: EdgeInsets.zero,
+                      activeThumbColor: Colors.white,
+                      activeTrackColor: AppColors.terracotta,
                     ),
-                    title: const Text('Incluir sin stock'),
-                    contentPadding: EdgeInsets.zero,
-                    activeThumbColor: Colors.white,
-                    activeTrackColor: AppColors.terracotta,
-                  ),
                   const SizedBox(height: 8),
                   _Label('Rango de precio'),
                   const SizedBox(height: 8),
@@ -550,15 +551,16 @@ class WebFilterBar extends StatelessWidget {
                           store.filters.copyWith(onlyLowStock: v),
                         ),
                       ),
-                      FilterChip(
-                        label: const Text('Incluir sin stock'),
-                        selected: store.filters.includeOutOfStock,
-                        showCheckmark: false,
-                        selectedColor: AppColors.terracottaChip,
-                        onSelected: (v) => store.applyFilters(
-                          store.filters.copyWith(includeOutOfStock: v),
+                      if (!store.listsOutOfStock)
+                        FilterChip(
+                          label: const Text('Incluir sin stock'),
+                          selected: store.filters.includeOutOfStock,
+                          showCheckmark: false,
+                          selectedColor: AppColors.terracottaChip,
+                          onSelected: (v) => store.applyFilters(
+                            store.filters.copyWith(includeOutOfStock: v),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),

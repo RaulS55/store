@@ -4,6 +4,8 @@ import '../models/filters.dart';
 import '../models/product.dart';
 
 abstract class ProductFilterHost implements Listenable {
+  bool get listsOutOfStock;
+
   ProductFilters get filters;
   ApparelCategory? get chipCategory;
   ApparelAudience? get chipAudience;

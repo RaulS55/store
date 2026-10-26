@@ -29,16 +29,23 @@ class StockLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final low = stock <= Product.lowStockThreshold;
+    final out = stock <= 0;
+    final low = !out && stock <= Product.lowStockThreshold;
     final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.72),
+      color: out
+          ? AppColors.stockLow
+          : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.72),
+      fontWeight: out ? FontWeight.w700 : null,
     );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        StockDot(low: low),
+        StockDot(low: out || low),
         const SizedBox(width: 6),
-        Text(compact ? '$stock u.' : '$stock unidades', style: style),
+        Text(
+          out ? 'Sin stock' : (compact ? '$stock u.' : '$stock unidades'),
+          style: style,
+        ),
       ],
     );
   }

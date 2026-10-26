@@ -37,6 +37,9 @@ class CatalogSubmitResult {
 }
 
 class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
+  @override
+  bool get listsOutOfStock => false;
+
   CatalogGuestStore({
     required this.companyId,
     required CompanyAccess companies,
