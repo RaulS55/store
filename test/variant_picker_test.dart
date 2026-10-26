@@ -30,14 +30,19 @@ Finder _sizeChip(String color, String size) {
 }
 
 void main() {
-  test('effective selection keeps only sizes that exist for the color', () {
+  test('effective selection keeps stocked sizes of every chosen color', () {
     final product = _garment();
     final next = VariantSelection.effective(
       product,
-      const VariantSelection(color: 'Rojo', sizes: {'L', 'M'}),
+      const VariantSelection(
+        picks: {
+          'Rojo': {'L', 'M'},
+          'Negro': {'S', 'XL'},
+        },
+      ),
     );
-    expect(next.color, 'Rojo');
-    expect(next.sizes, {'M'});
+    expect(next.sizesOf('Rojo'), {'M'});
+    expect(next.sizesOf('Negro'), {'S'});
     expect(product.sizesForColor('Rojo'), ['M']);
     expect(product.sizesForColor('Negro'), ['S', 'M', 'L']);
   });
@@ -76,7 +81,7 @@ void main() {
     );
     expect(
       find.text(
-        'Los talles se agrupan por color. El número de cada talle es lo que queda.',
+        'Podés mezclar colores y talles. El número de cada talle es lo que queda.',
       ),
       findsOneWidget,
     );
@@ -105,13 +110,52 @@ void main() {
     await tester.tap(_sizeChip('Negro', 'S'));
     await tester.pump();
 
-    expect(selection.color, 'Negro');
-    expect(selection.sizes, {'S', 'L'});
+    expect(selection.sizesOf('Negro'), {'S', 'L'});
+    expect(selection.sizesOf('Rojo'), isEmpty);
     expect(
       [for (final variant in selection.addableVariants(product)) variant.size],
       ['S', 'L'],
     );
     expect(find.text('2 talles · stock mínimo: 4 u.'), findsOneWidget);
+  });
+
+  testWidgets('sizes of different colors stay selected together', (
+    tester,
+  ) async {
+    final product = _garment();
+    var selection = const VariantSelection();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return VariantPicker(
+                product: product,
+                selection: selection,
+                onChanged: (next) => setState(() => selection = next),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(_sizeChip('Negro', 'L'));
+    await tester.pump();
+    await tester.tap(_sizeChip('Rojo', 'M'));
+    await tester.pump();
+
+    expect(selection.sizesOf('Negro'), {'L'});
+    expect(selection.sizesOf('Rojo'), {'M'});
+    expect(
+      [
+        for (final variant in selection.addableVariants(product))
+          '${variant.color} ${variant.size}',
+      ],
+      ['Negro L', 'Rojo M'],
+    );
+    expect(find.text('2 variantes · stock mínimo: 2 u.'), findsOneWidget);
   });
 
   testWidgets('sheet can add several sizes of the same color', (tester) async {
@@ -145,6 +189,40 @@ void main() {
     expect(variants, isNotNull);
     expect([for (final variant in variants!) variant.size], ['S', 'M']);
     expect(variants.every((variant) => variant.color == 'Negro'), isTrue);
+  });
+
+  testWidgets('sheet can add sizes from different colors', (tester) async {
+    final product = _garment();
+    late BuildContext host;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              host = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+
+    final future = showVariantPickerSheet(host, product);
+    await tester.pumpAndSettle();
+
+    await tester.tap(_sizeChip('Negro', 'S'));
+    await tester.pump();
+    await tester.tap(_sizeChip('Rojo', 'M'));
+    await tester.pump();
+    await tester.tap(find.text('Agregar 2 al pedido'));
+    await tester.pumpAndSettle();
+
+    final variants = await future;
+    expect(
+      [for (final variant in variants!) '${variant.color} ${variant.size}'],
+      ['Negro S', 'Rojo M'],
+    );
   });
 
   testWidgets('a size of another color does not mark this color as out', (
@@ -181,7 +259,8 @@ void main() {
     await tester.tap(find.text('Rojo'));
     await tester.pump();
 
-    expect(selection.color, 'Rojo');
+    expect(selection.sizesOf('Negro'), {'L'});
+    expect(selection.sizesOf('Rojo'), {'M'});
     expect(_sizeChip('Rojo', 'L'), findsNothing);
     expect(_sizeChip('Negro', 'L'), findsOneWidget);
     expect(_sizeChip('Rojo', 'M'), findsOneWidget);
@@ -201,7 +280,12 @@ void main() {
       images: const [],
       variants: const [
         ProductVariant(size: 'L', color: 'Rosa', colorHex: '#E091A8', stock: 0),
-        ProductVariant(size: 'M', color: 'Rosa', colorHex: '#E091A8', stock: 12),
+        ProductVariant(
+          size: 'M',
+          color: 'Rosa',
+          colorHex: '#E091A8',
+          stock: 12,
+        ),
       ],
       createdAt: stamp,
       updatedAt: stamp,

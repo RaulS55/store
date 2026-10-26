@@ -333,8 +333,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           child: Text(
                             product.stock <= 0
                                 ? 'No hay stock disponible.'
-                                : !selection.hasColor
-                                ? 'Elegí los talles de un color.'
                                 : 'Elegí uno o más talles.',
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: AppColors.mutedText),
@@ -367,11 +365,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       }
     }
     if (added.isEmpty || !mounted) return;
-    final sizes = [for (final variant in added) variant.size].join(', ');
+    final detail = [
+      for (final variant in added) '${variant.size} ${variant.color}',
+    ].join(', ');
     AppSnackBar.show(
       context,
       content: Text(
-        'Agregada a ${order.customer.name}: ${product.name} · $sizes · ${added.first.color}',
+        'Agregada a ${order.customer.name}: ${product.name} · $detail',
       ),
     );
     context.push('/pedido/${order.id}');

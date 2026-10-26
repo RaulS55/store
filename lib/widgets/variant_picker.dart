@@ -4,77 +4,92 @@ import '../models/product.dart';
 import '../theme/tokens.dart';
 
 class VariantSelection {
-  const VariantSelection({this.sizes = const {}, this.color});
+  const VariantSelection({this.picks = const {}});
 
-  final Set<String> sizes;
-  final String? color;
+  /// Color → talles marcados. Varios colores pueden convivir.
+  final Map<String, Set<String>> picks;
 
-  bool get hasColor => color != null;
+  bool get hasSizes => picks.values.any((sizes) => sizes.isNotEmpty);
 
-  bool get hasSizes => sizes.isNotEmpty;
+  Set<String> sizesOf(String color) => picks[color] ?? const {};
 
-  VariantSelection copyWith({Set<String>? sizes, String? color}) {
-    return VariantSelection(
-      sizes: sizes ?? this.sizes,
-      color: color ?? this.color,
-    );
-  }
-
-  VariantSelection toggleSize(String size) {
-    final next = {...sizes};
-    if (!next.add(size)) next.remove(size);
-    return copyWith(sizes: next);
-  }
+  bool isSelected(String color, String size) =>
+      picks[color]?.contains(size) ?? false;
 
   static VariantSelection effective(
     Product product,
     VariantSelection selection,
   ) {
-    final color =
-        selection.color ??
-        (product.colors.length == 1 ? product.colors.first.name : null);
-    final available = product.sizesForColor(color);
-    final requested = selection.sizes.isNotEmpty
-        ? selection.sizes
-        : (available.length == 1 ? {available.first} : const <String>{});
-    return VariantSelection(
-      color: color,
-      sizes: {
+    final kept = <String, Set<String>>{};
+    for (final color in product.colors) {
+      final requested = selection.picks[color.name];
+      if (requested == null || requested.isEmpty) continue;
+      final available = product.sizesForColor(color.name);
+      final sizes = <String>{
         for (final size in requested)
           if (available.contains(size) &&
-              (product.variantFor(size, color)?.stock ?? 0) > 0)
+              (product.variantFor(size, color.name)?.stock ?? 0) > 0)
             size,
-      },
-    );
+      };
+      if (sizes.isNotEmpty) kept[color.name] = sizes;
+    }
+    if (kept.isNotEmpty) return VariantSelection(picks: kept);
+    if (product.colors.length == 1) {
+      final color = product.colors.first.name;
+      final available = [
+        for (final size in product.sizesForColor(color))
+          if ((product.variantFor(size, color)?.stock ?? 0) > 0) size,
+      ];
+      if (available.length == 1) {
+        return VariantSelection(
+          picks: {
+            color: {available.first},
+          },
+        );
+      }
+    }
+    return const VariantSelection();
   }
 
+  /// Marca todos los talles con stock de [colorName], o los saca si ya
+  /// estaban todos. No toca los demás colores.
   VariantSelection selectColor(Product product, String colorName) {
-    final available = product.sizesForColor(colorName);
-    return VariantSelection(
-      color: colorName,
-      sizes: {
-        for (final size in sizes)
-          if (available.contains(size) &&
-              (product.variantFor(size, colorName)?.stock ?? 0) > 0)
-            size,
-      },
-    );
+    final available = [
+      for (final size in product.sizesForColor(colorName))
+        if ((product.variantFor(size, colorName)?.stock ?? 0) > 0) size,
+    ];
+    if (available.isEmpty) return this;
+    final current = picks[colorName] ?? const <String>{};
+    final allSelected = available.every(current.contains);
+    final next = <String, Set<String>>{
+      for (final entry in picks.entries)
+        if (entry.key != colorName && entry.value.isNotEmpty)
+          entry.key: {...entry.value},
+    };
+    if (!allSelected) next[colorName] = available.toSet();
+    return VariantSelection(picks: next);
   }
 
   VariantSelection selectSize(Product product, String colorName, String size) {
-    if (color == colorName) return toggleSize(size);
     final variant = product.variantFor(size, colorName);
-    if (variant == null || variant.stock <= 0) {
-      return selectColor(product, colorName);
+    if (variant == null || variant.stock <= 0) return this;
+    final next = <String, Set<String>>{
+      for (final entry in picks.entries) entry.key: {...entry.value},
+    };
+    final sizes = next.putIfAbsent(colorName, () => <String>{});
+    if (!sizes.add(size)) {
+      sizes.remove(size);
+      if (sizes.isEmpty) next.remove(colorName);
     }
-    return VariantSelection(color: colorName, sizes: {size});
+    return VariantSelection(picks: next);
   }
 
   List<ProductVariant> selectedVariants(Product product) {
-    if (color == null) return const [];
     return [
-      for (final size in product.sizes)
-        if (sizes.contains(size)) product.variantFor(size, color),
+      for (final color in _colorsBySwatch(product))
+        for (final size in product.sizesForColor(color.name))
+          if (isSelected(color.name, size))
+            product.variantFor(size, color.name),
     ].whereType<ProductVariant>().toList();
   }
 
@@ -127,7 +142,7 @@ class VariantPicker extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Los talles se agrupan por color. El número de cada talle es lo que queda.',
+          'Podés mezclar colores y talles. El número de cada talle es lo que queda.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: AppColors.mutedText,
           ),
@@ -137,11 +152,9 @@ class VariantPicker extends StatelessWidget {
           _ColorGroup(
             color: color,
             stock: product.stockForColor(color.name),
-            selected: selection.color == color.name,
+            selected: selection.sizesOf(color.name).isNotEmpty,
             sizes: product.sizesForColor(color.name),
-            selectedSizes: selection.color == color.name
-                ? selection.sizes
-                : const {},
+            selectedSizes: selection.sizesOf(color.name),
             sizeLabel: (size) => _sizeChipLabel(product, size),
             stockForSize: (size) =>
                 product.stockForSize(size, colorName: color.name),
@@ -153,11 +166,7 @@ class VariantPicker extends StatelessWidget {
           const SizedBox(height: 10),
         ],
         const SizedBox(height: 4),
-        _StockLine(
-          variants: variants,
-          hasColor: selection.hasColor,
-          hasSizes: selection.hasSizes,
-        ),
+        _StockLine(variants: variants, hasSizes: selection.hasSizes),
       ],
     );
   }
@@ -346,28 +355,29 @@ class _ColorGroup extends StatelessWidget {
 }
 
 class _StockLine extends StatelessWidget {
-  const _StockLine({
-    required this.variants,
-    required this.hasColor,
-    required this.hasSizes,
-  });
+  const _StockLine({required this.variants, required this.hasSizes});
 
   final List<ProductVariant> variants;
-  final bool hasColor;
   final bool hasSizes;
 
   @override
   Widget build(BuildContext context) {
     final available = variants.isNotEmpty;
-    final message = !hasColor
-        ? 'Elegí los talles de un color'
-        : !hasSizes
+    final minStock = available
+        ? variants
+              .map((variant) => variant.stock)
+              .reduce((a, b) => a < b ? a : b)
+        : 0;
+    final colorCount = variants.map((variant) => variant.color).toSet().length;
+    final message = !hasSizes
         ? 'Elegí uno o más talles'
         : !available
-        ? 'Esos talles no tienen stock en este color'
+        ? 'Esos talles no tienen stock'
         : variants.length == 1
         ? '${variants.first.size} ${variants.first.color}: ${variants.first.stock} u.'
-        : '${variants.length} talles · stock mínimo: ${variants.map((v) => v.stock).reduce((a, b) => a < b ? a : b)} u.';
+        : colorCount == 1
+        ? '${variants.length} talles · stock mínimo: $minStock u.'
+        : '${variants.length} variantes · stock mínimo: $minStock u.';
     return Row(
       children: [
         Icon(
@@ -439,8 +449,6 @@ Future<List<ProductVariant>?> showVariantPickerSheet(
                       child: Text(
                         product.stock <= 0
                             ? 'No hay stock disponible.'
-                            : !selection.hasColor
-                            ? 'Elegí los talles de un color.'
                             : 'Elegí uno o más talles.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.mutedText,
