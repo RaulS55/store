@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_web_plugins/url_strategy.dart';
+import 'routing/web_history.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -46,7 +46,7 @@ Future<void> main() async {
   imageCache.maximumSize = 250;
   imageCache.maximumSizeBytes = 120 << 20;
   final entryLocation = appEntryLocation();
-  usePathUrlStrategy();
+  configureWebHistory();
   GoogleFonts.config.allowRuntimeFetching = false;
   LicenseRegistry.addLicense(() async* {
     final license = await rootBundle.loadString('google_fonts/OFL.txt');
@@ -157,7 +157,13 @@ class _ModaStockAppState extends State<ModaStockApp> {
         initialLocation: entry,
         overridePlatformDefaultLocation: entry != '/',
       );
+      bindWebBackHandler(() {
+        if (!router.canPop()) return false;
+        router.pop();
+        return true;
+      });
       if (!mounted) {
+        bindWebBackHandler(null);
         session.removeListener(_bindCatalog);
         session.dispose();
         catalog.dispose();
@@ -264,6 +270,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
 
   @override
   void dispose() {
+    bindWebBackHandler(null);
     _session?.removeListener(_bindCatalog);
     _session?.dispose();
     _catalog?.dispose();

@@ -93,23 +93,29 @@ GoRouter createRouter(
         routes: [
           GoRoute(
             path: '/',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: StockPage()),
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const StockPage(),
+            ),
           ),
           GoRoute(
             path: '/pedido',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: OrdersPage()),
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const OrdersPage(),
+            ),
             routes: [
               GoRoute(
                 path: ':orderId',
                 pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
                   child: OrderPage(orderId: state.pathParameters['orderId']!),
                 ),
                 routes: [
                   GoRoute(
                     path: 'facturar',
                     pageBuilder: (context, state) => NoTransitionPage(
+                      key: state.pageKey,
                       child: InvoicePage(
                         orderId: state.pathParameters['orderId']!,
                       ),
@@ -121,18 +127,22 @@ GoRouter createRouter(
           ),
           GoRoute(
             path: '/producto/nuevo',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: ProductFormPage()),
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const ProductFormPage(),
+            ),
           ),
           GoRoute(
             path: '/producto/:id',
             pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
               child: ProductDetailPage(id: state.pathParameters['id']!),
             ),
             routes: [
               GoRoute(
                 path: 'editar',
                 pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
                   child: ProductFormPage(id: state.pathParameters['id']),
                 ),
               ),
@@ -140,12 +150,15 @@ GoRouter createRouter(
           ),
           GoRoute(
             path: '/clientes',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: CustomersPage()),
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const CustomersPage(),
+            ),
             routes: [
               GoRoute(
                 path: ':customerId',
                 pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
                   child: CustomerDetailPage(
                     customerId: state.pathParameters['customerId']!,
                   ),
@@ -155,12 +168,15 @@ GoRouter createRouter(
           ),
           GoRoute(
             path: '/lotes',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: LotsPage()),
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const LotsPage(),
+            ),
             routes: [
               GoRoute(
                 path: ':lotId',
                 pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
                   child: LotDetailPage(lotId: state.pathParameters['lotId']!),
                 ),
               ),
@@ -168,23 +184,31 @@ GoRouter createRouter(
           ),
           GoRoute(
             path: '/estadisticas',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: StatsPage()),
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const StatsPage(),
+            ),
           ),
           GoRoute(
             path: '/equipo',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: TeamPage()),
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const TeamPage(),
+            ),
           ),
           GoRoute(
             path: '/config',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: SettingsPage()),
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const SettingsPage(),
+            ),
           ),
           GoRoute(
             path: '/mas',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: MorePage()),
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const MorePage(),
+            ),
           ),
         ],
       ),
