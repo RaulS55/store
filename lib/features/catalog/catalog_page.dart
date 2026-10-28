@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/catalog_guest_store.dart';
 import '../../models/product.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/company_logo.dart';
 import '../../widgets/product_card.dart';
@@ -33,6 +34,7 @@ class _CatalogView extends StatefulWidget {
 }
 
 class _CatalogViewState extends State<_CatalogView> {
+  final _scaffold = GlobalKey<ScaffoldState>();
   late final TextEditingController _search;
 
   @override
@@ -62,150 +64,161 @@ class _CatalogViewState extends State<_CatalogView> {
       return _CatalogLoading(logoUrl: logoUrl, companyName: company?.name);
     }
 
-    return Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: SafeArea(
-        child: CustomScrollView(
-          cacheExtent: 800,
-          slivers: [
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    return Scaffold(
+      key: _scaffold,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          key: const ValueKey('catalog-filters'),
+          tooltip: 'Filtros',
+          onPressed: () => _scaffold.currentState?.openDrawer(),
+          icon: Badge(
+            isLabelVisible: store.filters.activeCount > 0,
+            label: Text('${store.filters.activeCount}'),
+            child: const Icon(Icons.tune),
+          ),
+        ),
+        title: Row(
+          children: [
+            if (logoUrl != null) ...[
+              CompanyLogo(
+                key: const ValueKey('catalog-logo'),
+                url: logoUrl,
+                size: 36,
+              ),
+              const SizedBox(width: 10),
+            ],
+            Expanded(
+              child: Text(
+                company?.name ?? 'Catálogo',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Pedido',
+            onPressed: () => context.push(catalogCartPath(companyId)),
+            icon: Badge(
+              isLabelVisible: store.cartCount > 0,
+              label: Text('${store.cartCount}'),
+              backgroundColor: AppColors.terracotta,
+              child: const Icon(Icons.shopping_bag_outlined),
+            ),
+          ),
+        ],
+      ),
+      drawer: Drawer(
+        backgroundColor: Colors.white,
+        width: wide ? 400 : screenWidth * 0.88,
+        child: Theme(
+          data: AppTheme.light(),
+          child: SafeArea(
+            bottom: false,
+            child: FiltersEditor(
+              host: store,
+              compact: false,
+              title: 'Filtros avanzados',
+              onClose: () => _scaffold.currentState?.closeDrawer(),
+            ),
+          ),
+        ),
+      ),
+      body: CustomScrollView(
+        cacheExtent: 800,
+        slivers: [
+          if (company != null && catalogContactLinks(company).isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
-                child: Row(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                child: CatalogContacts(company: company),
+              ),
+            ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: SearchField(
+                controller: _search,
+                hint: 'Buscar prenda, código, SKU o marca...',
+                onChanged: store.setSearch,
+              ),
+            ),
+          ),
+          if (!store.notFound)
+            SliverToBoxAdapter(
+              child: CompactFilterChips(
+                child: Column(
                   children: [
-                    if (logoUrl != null) ...[
-                      CompanyLogo(
-                        key: const ValueKey('catalog-logo'),
-                        url: logoUrl,
-                        size: 52,
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    Expanded(
-                      child: Text(
-                        company?.name ?? 'Catálogo',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.6,
-                            ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Pedido',
-                      onPressed: () => context.push(catalogCartPath(companyId)),
-                      icon: Badge(
-                        isLabelVisible: store.cartCount > 0,
-                        label: Text('${store.cartCount}'),
-                        backgroundColor: AppColors.terracotta,
-                        child: const Icon(Icons.shopping_bag_outlined),
-                      ),
-                    ),
+                    _CategoryChips(chips: store.visibleCategories),
+                    AudienceFilterChips(host: store),
                   ],
                 ),
               ),
             ),
-            if (company != null && catalogContactLinks(company).isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                  child: CatalogContacts(company: company),
-                ),
+          if (store.notFound)
+            const SliverFillRemaining(
+              child: _Message(
+                icon: Icons.storefront_outlined,
+                title: 'No encontramos este catálogo.',
+                body: 'Pedile al negocio un enlace nuevo.',
               ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: SearchField(
-                  controller: _search,
-                  hint: 'Buscar prenda, código, SKU o marca...',
-                  onChanged: store.setSearch,
-                  trailing: IconButton(
-                    key: const ValueKey('catalog-filters'),
-                    tooltip: 'Filtros',
-                    onPressed: () => showFiltersSheet(context, host: store),
-                    icon: Badge(
-                      isLabelVisible: store.filters.activeCount > 0,
-                      label: Text('${store.filters.activeCount}'),
-                      child: const Icon(Icons.tune, size: 20),
-                    ),
-                  ),
+            )
+          else if (products.isEmpty)
+            SliverFillRemaining(
+              child: _Message(
+                icon: Icons.search_off,
+                title: store.products.isEmpty
+                    ? 'Todavía no hay prendas'
+                    : 'No encontramos prendas',
+                body: store.products.isEmpty
+                    ? 'Este negocio todavía no publicó su catálogo.'
+                    : 'Probá con otro nombre, SKU o limpiá los filtros.',
+                action: store.products.isEmpty
+                    ? null
+                    : (
+                        label: 'Limpiar filtros',
+                        onPressed: () {
+                          store.clearFilters();
+                          _search.clear();
+                        },
+                      ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: wide ? 4 : 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.62,
                 ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final product = products[index];
+                  return ProductCard(
+                    product: product,
+                    dense: true,
+                    filteredSizes: store.focusedSizes,
+                    onTap: () =>
+                        context.push(catalogProductPath(companyId, product.id)),
+                  );
+                }, childCount: products.length),
               ),
             ),
-            if (!wide && !store.notFound)
-              SliverToBoxAdapter(
-                child: CompactFilterChips(
-                  child: Column(
-                    children: [
-                      _CategoryChips(chips: store.visibleCategories),
-                      AudienceFilterChips(host: store),
-                    ],
-                  ),
-                ),
-              ),
-            if (wide && !store.notFound)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: WebFilterBar(host: store),
-                ),
-              ),
-            if (store.notFound)
-              const SliverFillRemaining(
-                child: _Message(
-                  icon: Icons.storefront_outlined,
-                  title: 'No encontramos este catálogo.',
-                  body: 'Pedile al negocio un enlace nuevo.',
-                ),
-              )
-            else if (products.isEmpty)
-              SliverFillRemaining(
-                child: _Message(
-                  icon: Icons.search_off,
-                  title: store.products.isEmpty
-                      ? 'Todavía no hay prendas'
-                      : 'No encontramos prendas',
-                  body: store.products.isEmpty
-                      ? 'Este negocio todavía no publicó su catálogo.'
-                      : 'Probá con otro nombre, SKU o limpiá los filtros.',
-                  action: store.products.isEmpty
-                      ? null
-                      : (
-                          label: 'Limpiar filtros',
-                          onPressed: () {
-                            store.clearFilters();
-                            _search.clear();
-                          },
-                        ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                sliver: SliverGrid(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: wide ? 4 : 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.62,
-                  ),
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final product = products[index];
-                    return ProductCard(
-                      product: product,
-                      dense: true,
-                      filteredSizes: store.focusedSizes,
-                      onTap: () => context.push(
-                        catalogProductPath(companyId, product.id),
-                      ),
-                    );
-                  }, childCount: products.length),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }

@@ -192,4 +192,46 @@ void main() {
     expect(store.chipAudience, isNull);
     expect(find.byKey(const ValueKey('audience-chip-bebe')), findsNothing);
   });
+
+  test('color filters list default colors before added ones', () async {
+    final store = AppStore();
+    await store.upsertProduct(
+      _coloredProduct('p-1', const [
+        ('Lava', '#AA3300'),
+        ('Rojo', '#C62828'),
+      ]),
+    );
+    await store.upsertProduct(
+      _coloredProduct('p-2', const [
+        ('Arena', '#D2B48C'),
+        ('Negro', '#1E1E1E'),
+      ]),
+    );
+
+    expect(store.allColors.map((color) => color.name), [
+      'Negro',
+      'Rojo',
+      'Arena',
+      'Lava',
+    ]);
+  });
+}
+
+Product _coloredProduct(String id, List<(String, String)> colors) {
+  final stamp = DateTime.utc(2026, 9, 11);
+  return Product(
+    id: id,
+    name: 'Prenda $id',
+    sku: id,
+    category: ApparelCategory.remeras,
+    brand: 'Test',
+    price: 1000,
+    images: const [],
+    variants: [
+      for (final (name, hex) in colors)
+        ProductVariant(size: 'M', color: name, colorHex: hex, stock: 2),
+    ],
+    createdAt: stamp,
+    updatedAt: stamp,
+  );
 }

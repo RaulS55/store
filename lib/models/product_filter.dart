@@ -186,11 +186,19 @@ List<ApparelAudience> audiencesOf(Iterable<Product> products) {
 
 List<SwatchColor> colorsOf(Iterable<Product> products) {
   final seen = <String>{};
-  final list = <SwatchColor>[];
+  final defaults = <SwatchColor>[];
+  final custom = <SwatchColor>[];
   for (final product in products) {
     for (final color in product.colors) {
-      if (seen.add(color.name)) list.add(color);
+      if (!seen.add(color.name)) continue;
+      if (color.isCustom) {
+        custom.add(color);
+      } else {
+        defaults.add(color);
+      }
     }
   }
-  return list;
+  defaults.sort((a, b) => Swatches.compareName(a.name, b.name));
+  custom.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  return [...defaults, ...custom];
 }

@@ -44,12 +44,14 @@ class FiltersEditor extends StatefulWidget {
     this.scrollController,
     this.compact = true,
     this.onClose,
+    this.title = 'Filtros',
   });
 
   final ProductFilterHost host;
   final ScrollController? scrollController;
   final bool compact;
   final VoidCallback? onClose;
+  final String title;
 
   @override
   State<FiltersEditor> createState() => _FiltersEditorState();
@@ -151,13 +153,16 @@ class _FiltersEditorState extends State<FiltersEditor> {
                 padding: const EdgeInsets.fromLTRB(20, 4, 8, 8),
                 child: Row(
                   children: [
-                    Text(
-                      'Filtros',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                    const Spacer(),
                     IconButton(
                       onPressed: widget.onClose,
                       icon: const Icon(Icons.close),

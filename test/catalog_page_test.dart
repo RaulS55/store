@@ -114,17 +114,32 @@ void main() {
     expect(find.text('Remera mujer'), findsOneWidget);
   });
 
-  testWidgets('client catalog opens the filter sheet', (tester) async {
+  testWidgets('client catalog opens advanced filters from the side', (
+    tester,
+  ) async {
     _setPhoneView(tester);
     final bindings = await _bindings();
     addTearDown(bindings.dispose);
     await tester.pumpWidget(_app(bindings));
     await tester.pumpAndSettle();
 
+    expect(find.text('Filtros avanzados'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('catalog-filters')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Filtros'), findsOneWidget);
+    expect(find.text('Filtros avanzados'), findsOneWidget);
+    final filters = tester.getTopLeft(
+      find.byKey(const ValueKey('catalog-filters')),
+    );
+    final cart = tester.getTopLeft(find.byTooltip('Pedido'));
+    expect(filters.dx, lessThan(cart.dx));
+    final panel = tester.getRect(find.byType(Drawer));
+    expect(panel.left, 0);
+    expect(panel.right, lessThan(400));
+    expect(
+      tester.widget<Drawer>(find.byType(Drawer)).backgroundColor,
+      Colors.white,
+    );
     expect(find.text('Aplicar filtros'), findsOneWidget);
     expect(find.widgetWithText(FilterChip, 'Remeras'), findsOneWidget);
     expect(find.widgetWithText(FilterChip, 'Jeans'), findsOneWidget);
