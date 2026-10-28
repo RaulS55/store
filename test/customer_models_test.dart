@@ -68,4 +68,14 @@ void main() {
     expect(customer.isCatalog, isTrue);
     expect(customer.toMap()['source'], 'catalog');
   });
+
+  test('catalog customer names keep a single (Catalogo) mark', () {
+    expect(catalogCustomerName('Raul'), 'Raul (Catalogo)');
+    expect(catalogCustomerName('  Raul  '), 'Raul (Catalogo)');
+    expect(catalogCustomerName('Raul (Catalogo)'), 'Raul (Catalogo)');
+    expect(catalogCustomerName('Raul (catalogo)'), 'Raul (Catalogo)');
+    expect(catalogBaseName('Raul (Catalogo)'), 'Raul');
+    expect(hasCatalogNameTag('Raul'), isFalse);
+    expect(hasCatalogNameTag('Raul (Catalogo)'), isTrue);
+  });
 }

@@ -15,6 +15,7 @@ import '../../widgets/stock_dot.dart';
 import '../../widgets/variant_picker.dart';
 import '../order/order_actions.dart';
 import 'product_actions.dart';
+import 'product_holders.dart';
 
 class ProductDetailPage extends StatefulWidget {
   const ProductDetailPage({super.key, required this.id});
@@ -110,6 +111,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                     ),
                   ),
+                  IconButton(
+                    key: const ValueKey('product-holders'),
+                    tooltip: 'Quién se la llevó',
+                    onPressed: () =>
+                        showProductHoldersSheet(context, product.id),
+                    icon: const Icon(Icons.history),
+                  ),
                   if (!wide) ...[
                     IconButton(
                       tooltip: 'Editar',
@@ -120,15 +128,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     if (canDelete)
                       DeleteProductButton(product: product, iconOnly: true),
                   ],
-                  IconButton(
-                    onPressed: () => context.go('/pedido'),
-                    icon: Badge(
-                      isLabelVisible: store.cartCount > 0,
-                      label: Text('${store.cartCount}'),
-                      backgroundColor: AppColors.terracotta,
-                      child: const Icon(Icons.assignment_outlined),
-                    ),
-                  ),
                 ],
               ),
             ),

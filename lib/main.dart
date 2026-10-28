@@ -17,6 +17,7 @@ import 'data/catalog_bindings.dart';
 import 'data/firebase_auth_client.dart';
 import 'data/firebase_bootstrap.dart';
 import 'data/firebase_image_access.dart';
+import 'data/firestore_catalog_request_access.dart';
 import 'data/firestore_company_access.dart';
 import 'data/firestore_customer_access.dart';
 import 'data/firestore_expense_access.dart';
@@ -116,6 +117,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
       final productAccess = FirestoreProductAccess();
       final customerAccess = FirestoreCustomerAccess();
       final orderAccess = FirestoreOrderAccess();
+      final requestAccess = FirestoreCatalogRequestAccess();
       store = AppStore(
         products: CachedProductAccess(remote: productAccess, cache: cache),
         customers: CachedCustomerAccess(remote: customerAccess, cache: cache),
@@ -125,6 +127,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
           remote: FirestoreExpenseAccess(),
           cache: cache,
         ),
+        catalogRequests: requestAccess,
         images: FirebaseImageAccess(),
         imageCache: imageCache,
       );
@@ -142,6 +145,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
         ),
         customers: customerAccess,
         orders: orderAccess,
+        requests: requestAccess,
         cart: cartCache,
         images: imageCache,
         local: cache,

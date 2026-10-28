@@ -403,14 +403,14 @@ class FirestoreCompanyAccess implements CompanyAccess {
   @override
   Future<void> updateCompanySocials(
     String companyId, {
-    String? instagram,
-    String? tiktok,
-    String? facebook,
+    required List<String> instagram,
+    required List<String> tiktok,
+    required List<String> facebook,
   }) {
     return _updateCompany(companyId, {
-      'instagram': blankToNull(instagram),
-      'tiktok': blankToNull(tiktok),
-      'facebook': blankToNull(facebook),
+      'instagram': storedSocialAccounts(instagram),
+      'tiktok': storedSocialAccounts(tiktok),
+      'facebook': storedSocialAccounts(facebook),
     });
   }
 

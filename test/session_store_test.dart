@@ -647,18 +647,26 @@ void main() {
     expect(session.company?.logoUrl, isNull);
 
     await session.setCompanySocials(
-      instagram: ' @taller.ana ',
-      tiktok: 'taller.ana',
-      facebook: 'https://www.facebook.com/tallerana',
+      instagram: [' @taller.ana ', '@taller.ana', '@mayorista'],
+      tiktok: ['taller.ana'],
+      facebook: ['https://www.facebook.com/tallerana'],
     );
-    expect(session.company?.instagram, '@taller.ana');
-    expect(session.company?.tiktok, 'taller.ana');
-    expect(session.company?.facebook, 'https://www.facebook.com/tallerana');
+    expect(session.company?.instagram, ['@taller.ana', '@mayorista']);
+    expect(session.company?.tiktok, ['taller.ana']);
+    expect(session.company?.facebook, ['https://www.facebook.com/tallerana']);
+
+    await expectLater(
+      session.setCompanySocials(
+        instagram: [for (var i = 0; i < 9; i++) '@cuenta$i'],
+      ),
+      throwsA(isA<SessionException>()),
+    );
+    expect(session.company?.instagram, ['@taller.ana', '@mayorista']);
 
     await session.setCompanySocials();
-    expect(session.company?.instagram, isNull);
-    expect(session.company?.tiktok, isNull);
-    expect(session.company?.facebook, isNull);
+    expect(session.company?.instagram, isEmpty);
+    expect(session.company?.tiktok, isEmpty);
+    expect(session.company?.facebook, isEmpty);
   });
 
   test('a second sign in is ignored while the first is busy', () async {
@@ -771,7 +779,7 @@ void main() {
       throwsA(isA<SessionException>()),
     );
     await expectLater(
-      session.setCompanySocials(instagram: '@moda'),
+      session.setCompanySocials(instagram: const ['@moda']),
       throwsA(isA<SessionException>()),
     );
   });

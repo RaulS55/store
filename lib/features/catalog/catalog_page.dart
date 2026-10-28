@@ -119,7 +119,7 @@ class _CatalogViewState extends State<_CatalogView> {
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                 child: SearchField(
                   controller: _search,
-                  hint: 'Buscar prenda, SKU o marca...',
+                  hint: 'Buscar prenda, código, SKU o marca...',
                   onChanged: store.setSearch,
                   trailing: IconButton(
                     key: const ValueKey('catalog-filters'),

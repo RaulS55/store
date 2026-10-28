@@ -216,7 +216,10 @@ pw.Widget _groupRow(
             ),
             for (final line in group.lines)
               pw.Text(
-                InvoiceDocument.combinationDetail(line),
+                InvoiceDocument.combinationDetail(
+                  line,
+                  includeProductCode: includeProductCode,
+                ),
                 style: const pw.TextStyle(fontSize: 8.5, color: _muted),
               ),
           ],

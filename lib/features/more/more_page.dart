@@ -34,6 +34,18 @@ class MorePage extends StatelessWidget {
             activeTrackColor: AppColors.terracotta,
           ),
           ListTile(
+            leading: Badge(
+              isLabelVisible: store.pendingCatalogRequests.isNotEmpty,
+              label: Text('${store.pendingCatalogRequests.length}'),
+              backgroundColor: AppColors.terracotta,
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            title: const Text('Notificaciones'),
+            subtitle: const Text('Pedidos del catálogo para aprobar'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/notificaciones'),
+          ),
+          ListTile(
             leading: const Icon(Icons.people_alt_outlined),
             title: const Text('Clientes'),
             trailing: const Icon(Icons.chevron_right),

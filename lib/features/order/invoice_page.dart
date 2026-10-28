@@ -196,6 +196,8 @@ class InvoicePage extends StatelessWidget {
                                         Text(
                                           InvoiceDocument.combinationDetail(
                                             line,
+                                            includeProductCode:
+                                                includeProductCode,
                                           ),
                                           style: Theme.of(context)
                                               .textTheme

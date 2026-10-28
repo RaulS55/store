@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../data/app_store.dart';
 import '../data/session_store.dart';
 import '../theme/tokens.dart';
 import 'brand_logo.dart';
@@ -19,6 +20,12 @@ class AppShell extends StatelessWidget {
       'Pedidos',
       Icons.assignment_rounded,
       Icons.assignment_outlined,
+    ),
+    _Dest(
+      '/notificaciones',
+      'Notificaciones',
+      Icons.notifications_rounded,
+      Icons.notifications_outlined,
     ),
     _Dest(
       '/producto/nuevo',
@@ -57,6 +64,12 @@ class AppShell extends StatelessWidget {
       Icons.assignment_outlined,
     ),
     _Dest(
+      '/notificaciones',
+      'Avisos',
+      Icons.notifications_rounded,
+      Icons.notifications_outlined,
+    ),
+    _Dest(
       '/producto/nuevo',
       'Nueva',
       Icons.add_circle_rounded,
@@ -68,12 +81,29 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = context.watch<SessionStore>();
+    final pending = _pendingNotifications(context);
     final wide = AppBreakpoints.isWide(context);
     final destinations = _destinationsFor(session, wide);
     if (wide) {
-      return _WebShell(destinations: destinations, child: child);
+      return _WebShell(
+        destinations: destinations,
+        pendingNotifications: pending,
+        child: child,
+      );
     }
-    return _MobileShell(destinations: destinations, child: child);
+    return _MobileShell(
+      destinations: destinations,
+      pendingNotifications: pending,
+      child: child,
+    );
+  }
+
+  static int _pendingNotifications(BuildContext context) {
+    try {
+      return context.watch<AppStore>().pendingCatalogRequests.length;
+    } on ProviderNotFoundException {
+      return 0;
+    }
   }
 
   static List<_Dest> _destinationsFor(SessionStore session, bool wide) {
@@ -98,6 +128,25 @@ class _Dest {
   final String label;
   final IconData selected;
   final IconData unselected;
+}
+
+class _NavIcon extends StatelessWidget {
+  const _NavIcon({required this.icon, this.color, this.badge = 0});
+
+  final IconData icon;
+  final Color? color;
+  final int badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Icon(icon, color: color);
+    if (badge <= 0) return child;
+    return Badge(
+      label: Text('$badge'),
+      backgroundColor: AppColors.terracotta,
+      child: child,
+    );
+  }
 }
 
 int _indexFor(String location, List<_Dest> dests) {
@@ -133,10 +182,15 @@ bool _hideMobileNav(String location) {
 }
 
 class _WebShell extends StatelessWidget {
-  const _WebShell({required this.child, required this.destinations});
+  const _WebShell({
+    required this.child,
+    required this.destinations,
+    required this.pendingNotifications,
+  });
 
   final Widget child;
   final List<_Dest> destinations;
+  final int pendingNotifications;
 
   @override
   Widget build(BuildContext context) {
@@ -184,11 +238,14 @@ class _WebShell extends StatelessWidget {
                             child: ListTile(
                               onTap: () => context.go(dest.path),
                               selected: active,
-                              leading: Icon(
-                                active ? dest.selected : dest.unselected,
+                              leading: _NavIcon(
+                                icon: active ? dest.selected : dest.unselected,
                                 color: active
                                     ? AppColors.terracotta
                                     : AppColors.slate,
+                                badge: dest.path == '/notificaciones'
+                                    ? pendingNotifications
+                                    : 0,
                               ),
                               title: Text(dest.label),
                               selectedTileColor: isDark
@@ -263,10 +320,15 @@ class _WebShell extends StatelessWidget {
 }
 
 class _MobileShell extends StatelessWidget {
-  const _MobileShell({required this.child, required this.destinations});
+  const _MobileShell({
+    required this.child,
+    required this.destinations,
+    required this.pendingNotifications,
+  });
 
   final Widget child;
   final List<_Dest> destinations;
+  final int pendingNotifications;
 
   @override
   Widget build(BuildContext context) {
@@ -297,6 +359,7 @@ class _MobileShell extends StatelessWidget {
             _MobileNavBar(
               destinations: destinations,
               selectedIndex: selected.clamp(0, destinations.length - 1),
+              pendingNotifications: pendingNotifications,
             ),
         ],
       ),
@@ -308,10 +371,12 @@ class _MobileNavBar extends StatelessWidget {
   const _MobileNavBar({
     required this.destinations,
     required this.selectedIndex,
+    required this.pendingNotifications,
   });
 
   final List<_Dest> destinations;
   final int selectedIndex;
+  final int pendingNotifications;
 
   @override
   Widget build(BuildContext context) {
@@ -344,8 +409,18 @@ class _MobileNavBar extends StatelessWidget {
           destinations: [
             for (final dest in destinations)
               NavigationDestination(
-                icon: Icon(dest.unselected),
-                selectedIcon: Icon(dest.selected),
+                icon: _NavIcon(
+                  icon: dest.unselected,
+                  badge: dest.path == '/notificaciones'
+                      ? pendingNotifications
+                      : 0,
+                ),
+                selectedIcon: _NavIcon(
+                  icon: dest.selected,
+                  badge: dest.path == '/notificaciones'
+                      ? pendingNotifications
+                      : 0,
+                ),
                 label: dest.label,
               ),
           ],

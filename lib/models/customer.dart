@@ -134,3 +134,23 @@ String? _blankToNull(String? value) {
   if (trimmed == null || trimmed.isEmpty) return null;
   return trimmed;
 }
+
+final _catalogNameTag = RegExp(
+  r'\s*\(\s*catalogo\s*\)\s*$',
+  caseSensitive: false,
+);
+
+/// Name without a trailing `(Catalogo)` mark, with collapsed spaces.
+String catalogBaseName(String name) {
+  final stripped = name.trim().replaceFirst(_catalogNameTag, '').trim();
+  return stripped.replaceAll(RegExp(r'\s+'), ' ');
+}
+
+bool hasCatalogNameTag(String name) => _catalogNameTag.hasMatch(name.trim());
+
+/// Catalog orders are stored as `Raul (Catalogo)` so the shop can tell them apart.
+String catalogCustomerName(String name) {
+  final base = catalogBaseName(name);
+  if (base.isEmpty) return name.trim();
+  return '$base (Catalogo)';
+}

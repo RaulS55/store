@@ -49,6 +49,28 @@ service cloud.firestore {
       return data.get(field, null) == null || data.get(field, null) is string;
     }
 
+    function socialItemOk(value) {
+      return value is string && value.size() <= 120;
+    }
+
+    function optionalSocialField(data, field) {
+      let value = data.get(field, null);
+      return value == null
+        || socialItemOk(value)
+        || (
+          value is list
+          && value.size() <= 8
+          && (value.size() < 1 || socialItemOk(value[0]))
+          && (value.size() < 2 || socialItemOk(value[1]))
+          && (value.size() < 3 || socialItemOk(value[2]))
+          && (value.size() < 4 || socialItemOk(value[3]))
+          && (value.size() < 5 || socialItemOk(value[4]))
+          && (value.size() < 6 || socialItemOk(value[5]))
+          && (value.size() < 7 || socialItemOk(value[6]))
+          && (value.size() < 8 || socialItemOk(value[7]))
+        );
+    }
+
     function sameOptionalField(field) {
       return request.resource.data.get(field, null)
         == resource.data.get(field, null);
@@ -64,9 +86,9 @@ service cloud.firestore {
           in ['ropa', 'calzado', 'ambos']
         && optionalStringField(request.resource.data, 'phone')
         && optionalStringField(request.resource.data, 'logoUrl')
-        && optionalStringField(request.resource.data, 'instagram')
-        && optionalStringField(request.resource.data, 'tiktok')
-        && optionalStringField(request.resource.data, 'facebook');
+        && optionalSocialField(request.resource.data, 'instagram')
+        && optionalSocialField(request.resource.data, 'tiktok')
+        && optionalSocialField(request.resource.data, 'facebook');
     }
 
     function companyBrandingUnchanged() {
@@ -114,24 +136,6 @@ service cloud.firestore {
         && request.resource.data.taxCondition == null;
     }
 
-    function isCatalogOrderCreate(orderId) {
-      return request.resource.data.source == 'catalog'
-        && hasSyncFields(orderId)
-        && request.resource.data.deletedAt == null
-        && request.resource.data.status == 'borrador'
-        && request.resource.data.ivaEnabled == false
-        && request.resource.data.get('sena', 0) == 0
-        && request.resource.data.closedAt == null
-        && request.resource.data.orderNumber is string
-        && request.resource.data.lines is list
-        && request.resource.data.lines.size() > 0
-        && request.resource.data.lines.size() <= 50
-        && request.resource.data.customer.name is string
-        && request.resource.data.customer.name.size() > 1
-        && request.resource.data.customer.name.size() <= 80
-        && request.resource.data.customer.source == 'catalog';
-    }
-
     function isCatalogCustomerUpdate(customerId) {
       return resource.data.source == 'catalog'
         && request.resource.data.source == 'catalog'
@@ -149,34 +153,88 @@ service cloud.firestore {
         && request.resource.data.taxCondition == resource.data.taxCondition;
     }
 
-    function isCatalogOrderUpdate() {
-      return resource.data.source == 'catalog'
-        && resource.data.status == 'borrador'
-        && resource.data.deletedAt == null
-        && request.resource.data.source == 'catalog'
-        && request.resource.data.status == 'borrador'
-        && hasSyncFields(resource.data.id)
+    function isCatalogRequestCreate(requestId) {
+      return hasSyncFields(requestId)
+        && request.resource.data.deletedAt == null
+        && request.resource.data.status == 'pendiente'
+        && request.resource.data.kind in ['nuevo', 'agregado']
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() > 1
+        && request.resource.data.customerName.size() <= 80
+        && request.resource.data.lines is list
+        && request.resource.data.lines.size() > 0
+        && request.resource.data.lines.size() <= 50
+        && request.resource.data.orderId == null
+        && request.resource.data.orderNumber == null
+        && request.resource.data.customerId == null
+        && request.resource.data.resolvedAt == null
+        && (
+          (
+            request.resource.data.kind == 'nuevo'
+            && request.resource.data.targetOrderId == null
+            && request.resource.data.targetOrderNumber == null
+          )
+          || (
+            request.resource.data.kind == 'agregado'
+            && request.resource.data.targetOrderId is string
+            && request.resource.data.targetOrderId.size() > 0
+            && request.resource.data.targetOrderId.size() <= 128
+            && request.resource.data.targetOrderNumber is string
+            && request.resource.data.targetOrderNumber.size() > 0
+            && request.resource.data.targetOrderNumber.size() <= 40
+          )
+        );
+    }
+
+    function isCatalogRequestClientUpdate(requestId) {
+      return resource.data.status == 'pendiente'
+        && request.resource.data.status == 'pendiente'
+        && hasSyncFields(requestId)
         && request.resource.data.id == resource.data.id
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.orderNumber == resource.data.orderNumber
-        && request.resource.data.closedAt == resource.data.closedAt
-        && request.resource.data.deletedAt == resource.data.deletedAt
-        && request.resource.data.ivaEnabled == resource.data.ivaEnabled
-        && request.resource.data.ivaPercent == resource.data.ivaPercent
-        && request.resource.data.get('includeProductCodeInInvoice', true)
-          == resource.data.get('includeProductCodeInInvoice', true)
-        && request.resource.data.get('sena', 0)
-          == resource.data.get('sena', 0)
-        && request.resource.data.get('stockReservations', [])
-          == resource.data.get('stockReservations', [])
-        && request.resource.data.customer.id == resource.data.customer.id
-        && request.resource.data.customer.source == 'catalog'
-        && request.resource.data.customer.name is string
-        && request.resource.data.customer.name.size() > 1
-        && request.resource.data.customer.name.size() <= 80
+        && request.resource.data.deletedAt == null
+        && request.resource.data.kind == resource.data.kind
+        && request.resource.data.targetOrderId == resource.data.targetOrderId
+        && request.resource.data.targetOrderNumber == resource.data.targetOrderNumber
+        && request.resource.data.orderId == null
+        && request.resource.data.orderNumber == null
+        && request.resource.data.customerId == null
+        && request.resource.data.resolvedAt == null
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() > 1
+        && request.resource.data.customerName.size() <= 80
         && request.resource.data.lines is list
         && request.resource.data.lines.size() > 0
         && request.resource.data.lines.size() <= 50;
+    }
+
+    function isCatalogRequestResolve(companyId, requestId) {
+      return isMember(companyId)
+        && resource.data.status == 'pendiente'
+        && request.resource.data.status in ['aprobado', 'rechazado']
+        && hasSyncFields(requestId)
+        && request.resource.data.deletedAt == null
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'status',
+            'updatedAt',
+            'resolvedAt',
+            'orderId',
+            'orderNumber',
+            'customerId',
+          ])
+        && request.resource.data.resolvedAt is string
+        && (
+          request.resource.data.status == 'rechazado'
+          || (
+            request.resource.data.orderId is string
+            && request.resource.data.orderId.size() > 0
+            && request.resource.data.orderNumber is string
+            && request.resource.data.orderNumber.size() > 0
+            && request.resource.data.customerId is string
+            && request.resource.data.customerId.size() > 0
+          )
+        );
     }
 
     function invitationPath(companyId, invitationId) {
@@ -366,8 +424,7 @@ service cloud.firestore {
             && resource.data.deletedAt == null
           );
         allow list: if isMember(companyId);
-        allow create: if (isMember(companyId) && hasSyncFields(orderId))
-          || isCatalogOrderCreate(orderId);
+        allow create: if isMember(companyId) && hasSyncFields(orderId);
         allow update: if (
           isMember(companyId)
           && hasSyncFields(orderId)
@@ -383,7 +440,16 @@ service cloud.firestore {
               && request.resource.data.deletedAt is string
             )
           )
-        ) || isCatalogOrderUpdate();
+        );
+        allow delete: if false;
+      }
+
+      match /catalogRequests/{requestId} {
+        allow get: if true;
+        allow list: if isMember(companyId);
+        allow create: if isCatalogRequestCreate(requestId);
+        allow update: if isCatalogRequestClientUpdate(requestId)
+          || isCatalogRequestResolve(companyId, requestId);
         allow delete: if false;
       }
 

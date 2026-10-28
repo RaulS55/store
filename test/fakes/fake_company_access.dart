@@ -336,15 +336,15 @@ class FakeCompanyAccess implements CompanyAccess {
   @override
   Future<void> updateCompanySocials(
     String companyId, {
-    String? instagram,
-    String? tiktok,
-    String? facebook,
+    required List<String> instagram,
+    required List<String> tiktok,
+    required List<String> facebook,
   }) async {
     final company = _requireCompany(companyId);
     companies[companyId] = company.copyWith(
-      instagram: blankToNull(instagram),
-      tiktok: blankToNull(tiktok),
-      facebook: blankToNull(facebook),
+      instagram: instagram,
+      tiktok: tiktok,
+      facebook: facebook,
     );
   }
 

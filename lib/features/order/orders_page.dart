@@ -180,6 +180,7 @@ bool _matchesOrderQuery(DraftOrder order, String query) {
   if (_digitsContain(order.customer.cuit, query)) return true;
   for (final line in order.lines) {
     if (line.product.name.toLowerCase().contains(query)) return true;
+    if (line.product.matchesCodeQuery(query)) return true;
   }
   return false;
 }

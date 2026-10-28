@@ -27,13 +27,10 @@ class CompanyBrandSettings extends StatefulWidget {
 
 class _CompanyBrandSettingsState extends State<CompanyBrandSettings> {
   late final TextEditingController _name;
-  late final TextEditingController _instagram;
-  late final TextEditingController _tiktok;
-  late final TextEditingController _facebook;
+  late final _SocialDraft _instagram;
+  late final _SocialDraft _tiktok;
+  late final _SocialDraft _facebook;
   late String _savedName;
-  String? _savedInstagram;
-  String? _savedTiktok;
-  String? _savedFacebook;
   Uint8List? _logoPreview;
   var _savingName = false;
   var _savingSocials = false;
@@ -44,13 +41,10 @@ class _CompanyBrandSettingsState extends State<CompanyBrandSettings> {
     super.initState();
     final company = context.read<SessionStore>().company;
     _savedName = company?.name ?? '';
-    _savedInstagram = company?.instagram;
-    _savedTiktok = company?.tiktok;
-    _savedFacebook = company?.facebook;
     _name = TextEditingController(text: _savedName);
-    _instagram = TextEditingController(text: _savedInstagram ?? '');
-    _tiktok = TextEditingController(text: _savedTiktok ?? '');
-    _facebook = TextEditingController(text: _savedFacebook ?? '');
+    _instagram = _SocialDraft(company?.instagram ?? const []);
+    _tiktok = _SocialDraft(company?.tiktok ?? const []);
+    _facebook = _SocialDraft(company?.facebook ?? const []);
   }
 
   @override
@@ -65,9 +59,7 @@ class _CompanyBrandSettingsState extends State<CompanyBrandSettings> {
   bool get _nameDirty => _name.text.trim() != _savedName;
 
   bool get _socialsDirty =>
-      blankToNull(_instagram.text) != _savedInstagram ||
-      blankToNull(_tiktok.text) != _savedTiktok ||
-      blankToNull(_facebook.text) != _savedFacebook;
+      _instagram.dirty || _tiktok.dirty || _facebook.dirty;
 
   Future<void> _showError(Object error) async {
     if (!mounted) return;
@@ -113,24 +105,25 @@ class _CompanyBrandSettingsState extends State<CompanyBrandSettings> {
     setState(() => _savingSocials = true);
     try {
       await context.read<SessionStore>().setCompanySocials(
-        instagram: _instagram.text,
-        tiktok: _tiktok.text,
-        facebook: _facebook.text,
+        instagram: _instagram.draft,
+        tiktok: _tiktok.draft,
+        facebook: _facebook.draft,
       );
       if (!mounted) return;
       final company = context.read<SessionStore>().company;
-      _savedInstagram = company?.instagram;
-      _savedTiktok = company?.tiktok;
-      _savedFacebook = company?.facebook;
-      _instagram.text = _savedInstagram ?? '';
-      _tiktok.text = _savedTiktok ?? '';
-      _facebook.text = _savedFacebook ?? '';
+      setState(() {
+        _instagram.commit(company?.instagram ?? const []);
+        _tiktok.commit(company?.tiktok ?? const []);
+        _facebook.commit(company?.facebook ?? const []);
+      });
       _showSaved();
     } catch (error) {
       if (!mounted) return;
-      _instagram.text = _savedInstagram ?? '';
-      _tiktok.text = _savedTiktok ?? '';
-      _facebook.text = _savedFacebook ?? '';
+      setState(() {
+        _instagram.reset();
+        _tiktok.reset();
+        _facebook.reset();
+      });
       await _showError(error);
     } finally {
       if (mounted) setState(() => _savingSocials = false);
@@ -258,45 +251,35 @@ class _CompanyBrandSettingsState extends State<CompanyBrandSettings> {
                   context,
                 ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
+              const SizedBox(height: 4),
+              Text(
+                'Podés cargar más de una cuenta en cada red.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).hintColor,
+                ),
+              ),
               const SizedBox(height: 8),
-              TextField(
-                key: const ValueKey('company-instagram'),
-                controller: _instagram,
-                keyboardType: TextInputType.url,
-                textInputAction: TextInputAction.next,
-                autocorrect: false,
-                decoration: const InputDecoration(
-                  labelText: 'Instagram',
-                  hintText: '@tunegocio',
-                ),
-                onChanged: (_) => setState(() {}),
+              _SocialAccountFields(
+                id: 'instagram',
+                label: 'Instagram',
+                hint: '@tunegocio',
+                draft: _instagram,
+                onChanged: () => setState(() {}),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('company-tiktok'),
-                controller: _tiktok,
-                keyboardType: TextInputType.url,
-                textInputAction: TextInputAction.next,
-                autocorrect: false,
-                decoration: const InputDecoration(
-                  labelText: 'TikTok',
-                  hintText: '@tunegocio',
-                ),
-                onChanged: (_) => setState(() {}),
+              _SocialAccountFields(
+                id: 'tiktok',
+                label: 'TikTok',
+                hint: '@tunegocio',
+                draft: _tiktok,
+                onChanged: () => setState(() {}),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('company-facebook'),
-                controller: _facebook,
-                keyboardType: TextInputType.url,
-                textInputAction: TextInputAction.done,
-                autocorrect: false,
-                decoration: const InputDecoration(
-                  labelText: 'Facebook',
-                  hintText: 'facebook.com/tunegocio',
-                ),
-                onChanged: (_) => setState(() {}),
-                onSubmitted: (_) => unawaited(_saveSocials()),
+              _SocialAccountFields(
+                id: 'facebook',
+                label: 'Facebook',
+                hint: 'facebook.com/tunegocio',
+                draft: _facebook,
+                onChanged: () => setState(() {}),
+                onSubmitted: () => unawaited(_saveSocials()),
               ),
               const SizedBox(height: 12),
               Align(
@@ -313,6 +296,149 @@ class _CompanyBrandSettingsState extends State<CompanyBrandSettings> {
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _SocialDraft {
+  _SocialDraft(List<String> saved) : _saved = List<String>.from(saved) {
+    _syncControllers(_saved);
+  }
+
+  List<String> _saved;
+  final List<TextEditingController> controllers = [];
+
+  List<String> get draft => [
+    for (final controller in controllers)
+      if (blankToNull(controller.text) != null) blankToNull(controller.text)!,
+  ];
+
+  bool get dirty => !listEquals(draft, _saved);
+
+  bool get canAdd =>
+      controllers.length < maxCompanySocialAccounts &&
+      blankToNull(controllers.last.text) != null;
+
+  void add() {
+    if (!canAdd) return;
+    controllers.add(TextEditingController());
+  }
+
+  void remove(int index) {
+    if (controllers.length == 1) {
+      controllers.first.clear();
+      return;
+    }
+    controllers.removeAt(index).dispose();
+  }
+
+  void commit(List<String> saved) {
+    _saved = List<String>.from(saved);
+    _syncControllers(_saved);
+  }
+
+  void reset() => _syncControllers(_saved);
+
+  void dispose() {
+    for (final controller in controllers) {
+      controller.dispose();
+    }
+  }
+
+  void _syncControllers(List<String> values) {
+    final texts = values.isEmpty ? const [''] : values;
+    while (controllers.length > texts.length) {
+      controllers.removeLast().dispose();
+    }
+    for (var index = 0; index < texts.length; index++) {
+      if (index < controllers.length) {
+        controllers[index].text = texts[index];
+      } else {
+        controllers.add(TextEditingController(text: texts[index]));
+      }
+    }
+  }
+}
+
+class _SocialAccountFields extends StatelessWidget {
+  const _SocialAccountFields({
+    required this.id,
+    required this.label,
+    required this.hint,
+    required this.draft,
+    required this.onChanged,
+    this.onSubmitted,
+  });
+
+  final String id;
+  final String label;
+  final String hint;
+  final _SocialDraft draft;
+  final VoidCallback onChanged;
+  final VoidCallback? onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = draft.controllers.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var index = 0; index < count; index++) ...[
+          if (index > 0) const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextField(
+                  key: ValueKey(
+                    index == 0 ? 'company-$id' : 'company-$id-$index',
+                  ),
+                  controller: draft.controllers[index],
+                  keyboardType: TextInputType.url,
+                  textInputAction: onSubmitted == null || index < count - 1
+                      ? TextInputAction.next
+                      : TextInputAction.done,
+                  autocorrect: false,
+                  decoration: InputDecoration(
+                    labelText: count == 1 ? label : '$label ${index + 1}',
+                    hintText: hint,
+                  ),
+                  onChanged: (_) => onChanged(),
+                  onSubmitted: onSubmitted == null || index < count - 1
+                      ? null
+                      : (_) => onSubmitted!(),
+                ),
+              ),
+              if (count > 1)
+                IconButton(
+                  key: ValueKey('remove-company-$id-$index'),
+                  tooltip: 'Quitar cuenta',
+                  onPressed: () {
+                    draft.remove(index);
+                    onChanged();
+                  },
+                  icon: const Icon(Icons.close),
+                ),
+            ],
+          ),
+        ],
+        if (count < maxCompanySocialAccounts)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: ValueKey('add-company-$id'),
+              onPressed: draft.canAdd
+                  ? () {
+                      draft.add();
+                      onChanged();
+                    }
+                  : null,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Agregar otra cuenta'),
+            ),
+          ),
+        const SizedBox(height: 4),
       ],
     );
   }

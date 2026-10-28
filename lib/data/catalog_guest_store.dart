@@ -2,15 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/catalog_request.dart';
 import '../models/company.dart';
 import '../models/customer.dart';
 import '../models/filters.dart';
+import '../models/map_value.dart';
 import '../models/order.dart';
 import '../models/product.dart';
 import '../models/product_filter.dart';
 import '../models/record_source.dart';
+import 'catalog_request_access.dart';
 import 'company_access.dart';
 import 'customer_access.dart';
+import 'formatters.dart';
 import 'local/catalog_cart_cache.dart';
 import 'local/hive_catalog_cache.dart';
 import 'order_access.dart';
@@ -23,6 +27,7 @@ import 'session_exception.dart';
 class CatalogSubmitResult {
   const CatalogSubmitResult({
     required this.order,
+    required this.request,
     required this.whatsappUri,
     required this.missingPhone,
     this.updated = false,
@@ -30,6 +35,7 @@ class CatalogSubmitResult {
   });
 
   final DraftOrder order;
+  final CatalogRequest request;
   final Uri? whatsappUri;
   final bool missingPhone;
   final bool updated;
@@ -46,6 +52,7 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
     required ProductAccess products,
     required CustomerAccess customers,
     required OrderAccess orders,
+    required CatalogRequestAccess requests,
     CatalogCartCache? cart,
     ProductImageCache? images,
     HiveCatalogCache? local,
@@ -54,6 +61,7 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
        _products = products,
        _customers = customers,
        _orders = orders,
+       _requests = requests,
        _cart = cart ?? MemoryCatalogCartCache(),
        _images = images,
        _local = local {
@@ -64,8 +72,11 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
   final Duration loadTimeout;
   final CompanyAccess _companies;
   final ProductAccess _products;
+  // Catalog customers are created by the business when it approves a request.
+  // ignore: unused_field
   final CustomerAccess _customers;
   final OrderAccess _orders;
+  final CatalogRequestAccess _requests;
   final CatalogCartCache _cart;
   final ProductImageCache? _images;
   final HiveCatalogCache? _local;
@@ -73,12 +84,15 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
   late final Future<void> ready;
   StreamSubscription<List<Product>>? _productSub;
   StreamSubscription<DraftOrder?>? _orderSub;
+  StreamSubscription<CatalogRequest?>? _requestSub;
 
   Company? _company;
   List<Product> _allProducts = const [];
   List<CatalogCartLine> _pending = const [];
+  List<CatalogCartLine> _awaiting = const [];
   List<CatalogCartLine> _requestedCache = const [];
   CatalogOpenOrder? _openOrder;
+  CatalogRequest? _pendingRequest;
   DraftOrder? _remoteOrder;
   var _legacyOpenCart = false;
   String searchQuery = '';
@@ -143,7 +157,7 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
   List<SwatchColor> get allColors => colorsOf(products);
 
   List<Product> get visibleProducts {
-    return withOutOfStockLast([
+    final list = [
       for (final product in _activeProducts)
         if (matchesProductFilters(
           product: product,
@@ -156,7 +170,8 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
           catalogSizes: allSizes,
         ))
           product,
-    ], sizes: focusedSizes);
+    ]..sort(compareProductsByUpdate);
+    return withOutOfStockLast(list, sizes: focusedSizes);
   }
 
   Set<String> get focusedSizes => sizeFocus(
@@ -174,6 +189,8 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
 
   List<OrderLine> get pendingCartLines => _resolvePending(_pending);
 
+  List<OrderLine> get awaitingCartLines => _resolveRequested(_awaiting);
+
   List<OrderLine> get requestedCartLines {
     final remote = _remoteOrder;
     if (remote != null && remote.isActive) {
@@ -182,23 +199,37 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
     return _resolveRequested(_requestedCache);
   }
 
-  List<OrderLine> get cartLines => [...pendingCartLines, ...requestedCartLines];
+  List<OrderLine> get cartLines => [
+    ...pendingCartLines,
+    ...awaitingCartLines,
+    ...requestedCartLines,
+  ];
 
   int get cartCount => cartLines.fold(0, (sum, line) => sum + line.quantity);
 
   double get pendingTotal =>
       pendingCartLines.fold(0, (sum, line) => sum + line.lineTotal);
 
+  double get awaitingTotal =>
+      awaitingCartLines.fold(0, (sum, line) => sum + line.lineTotal);
+
   double get requestedTotal =>
       requestedCartLines.fold(0, (sum, line) => sum + line.lineTotal);
 
-  double get cartTotal => pendingTotal + requestedTotal;
+  double get cartTotal => pendingTotal + awaitingTotal + requestedTotal;
 
   bool get hasCart => cartLines.isNotEmpty;
 
   bool get hasPending => pendingCartLines.isNotEmpty;
 
+  bool get isAwaitingApproval =>
+      _openOrder == null &&
+      _pendingRequest != null &&
+      _pendingRequest!.isPending;
+
   CatalogOpenOrder? get openOrder => _openOrder;
+
+  CatalogRequest? get pendingRequest => _pendingRequest;
 
   int pendingMaxFor(String lineKey, int stock) {
     final room = stock - _requestedQty(lineKey);
@@ -290,15 +321,25 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
 
   Future<void> clearCart() async {
     _pending = const [];
+    _awaiting = const [];
     _requestedCache = const [];
     await _cart.clear(companyId);
     notifyListeners();
   }
 
-  Future<CatalogSubmitResult> submit({required String name}) async {
+  Future<CatalogSubmitResult> submit({
+    required String name,
+    required String phone,
+  }) async {
     final trimmed = name.trim();
     if (trimmed.length < 2) {
       throw const SessionException('Ingresá tu nombre.');
+    }
+    final normalizedPhone = ArgentinePhone.normalize(phone);
+    if (normalizedPhone == null) {
+      throw const SessionException(
+        'Ingresá un teléfono de Argentina, por ejemplo +54 9 11 5555-1234.',
+      );
     }
     final pending = pendingCartLines
         .where((line) => line.variant.stock > 0)
@@ -317,156 +358,172 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
       final now = DateTime.now().toUtc();
       final open = _openOrder;
       if (open != null) {
-        try {
-          final order = await _writeOpenOrder(
-            open: open,
-            name: trimmed,
-            lines: pending,
-            now: now,
-          );
-          _setPending(const []);
-          return _submitResult(order, updated: true, addedLines: pending);
-        } on CatalogOrderLockedException {
+        final current = await _orders.readOrder(companyId, open.orderId);
+        if (current == null ||
+            !current.isCatalog ||
+            !current.isActive ||
+            current.isDeleted) {
           await _releaseClosedOrder();
           throw const SessionException(
             'El negocio cerró el pedido. Podés armar uno nuevo.',
           );
         }
+        final existing =
+            _pendingRequest != null &&
+                _pendingRequest!.isPending &&
+                _pendingRequest!.targetOrderId == open.orderId
+            ? _pendingRequest
+            : null;
+        final merged = OrderLine.mergeAdded(
+          existing?.lines ?? const [],
+          pending,
+        );
+        final request = _requestFor(
+          existing: existing,
+          name: trimmed,
+          phone: normalizedPhone,
+          lines: merged,
+          now: now,
+          kind: CatalogRequestKind.agregado,
+          targetOrderId: open.orderId,
+          targetOrderNumber: open.orderNumber,
+        );
+        await _saveAwaiting(request);
+        return _submitResult(
+          request,
+          updated: true,
+          addedLines: pending,
+          now: now,
+        );
       }
-      final customer = Customer(
-        id: _customers.nextCustomerId(companyId),
+      final existing =
+          _pendingRequest != null &&
+              _pendingRequest!.isPending &&
+              _pendingRequest!.kind == CatalogRequestKind.nuevo
+          ? _pendingRequest
+          : null;
+      final merged = OrderLine.mergeAdded(existing?.lines ?? const [], pending);
+      final request = _requestFor(
+        existing: existing,
         name: trimmed,
-        createdAt: now,
-        updatedAt: now,
-        source: RecordSource.catalog,
+        phone: normalizedPhone,
+        lines: merged,
+        now: now,
+        kind: CatalogRequestKind.nuevo,
       );
-      final orderId = _orders.nextOrderId(companyId);
-      final shortId = orderId.length >= 8 ? orderId.substring(0, 8) : orderId;
-      final order = DraftOrder(
-        id: orderId,
-        orderNumber: 'WEB-${shortId.toUpperCase()}',
-        customer: customer,
-        lines: pending,
-        createdAt: now,
-        updatedAt: now,
-        ivaEnabled: false,
-        source: RecordSource.catalog,
+      await _saveAwaiting(request);
+      return _submitResult(
+        request,
+        updated: existing != null,
+        addedLines: existing != null ? pending : null,
+        now: now,
       );
-      await _customers.saveCustomer(companyId, customer);
-      await _orders.saveOrder(companyId, order);
-      _remoteOrder = order;
-      _requestedCache = _cartLinesFrom(order.lines, requested: true);
-      _setPending(const [], persist: false);
-      await _setOpenOrder(
-        CatalogOpenOrder(
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          customerId: customer.id,
-          customerName: customer.name,
-          orderCreatedAt: order.createdAt,
-          customerCreatedAt: customer.createdAt,
-        ),
-      );
-      _persistCart();
-      return _submitResult(order);
     } finally {
       _busy = false;
       notifyListeners();
     }
   }
 
-  Future<DraftOrder> _writeOpenOrder({
-    required CatalogOpenOrder open,
+  CatalogRequest _requestFor({
+    required CatalogRequest? existing,
     required String name,
+    required String phone,
     required List<OrderLine> lines,
     required DateTime now,
-  }) async {
-    final customer = Customer(
-      id: open.customerId,
-      name: name,
-      createdAt: open.customerCreatedAt,
-      updatedAt: now,
-      source: RecordSource.catalog,
-    );
-    final current = _remoteOrder?.lines ?? requestedCartLines;
-    final merged = OrderLine.mergeAdded(current, lines);
-    final order = DraftOrder(
-      id: open.orderId,
-      orderNumber: open.orderNumber,
-      customer: customer,
+    required CatalogRequestKind kind,
+    String? targetOrderId,
+    String? targetOrderNumber,
+  }) {
+    if (existing != null) {
+      return existing.copyWith(
+        customerName: name,
+        customerPhone: phone,
+        lines: lines,
+        updatedAt: now,
+      );
+    }
+    return CatalogRequest(
+      id: _requests.nextRequestId(companyId),
+      customerName: name,
+      customerPhone: phone,
       lines: lines,
-      createdAt: open.orderCreatedAt,
+      kind: kind,
+      targetOrderId: targetOrderId,
+      targetOrderNumber: targetOrderNumber,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  Future<void> _saveAwaiting(CatalogRequest request) async {
+    await _requests.saveRequest(companyId, request);
+    _awaiting = _cartLinesFrom(request.lines, awaiting: true);
+    _setPending(const [], persist: false);
+    await _setPendingRequest(request);
+    _persistCart();
+  }
+
+  CatalogSubmitResult _submitResult(
+    CatalogRequest request, {
+    required DateTime now,
+    bool updated = false,
+    List<OrderLine>? addedLines,
+  }) {
+    final open = _openOrder;
+    final preview = DraftOrder(
+      id: request.id,
+      orderNumber: open?.orderNumber ?? '',
+      customer: Customer(
+        id: open?.customerId ?? request.id,
+        name: request.customerName,
+        phone: request.customerPhone,
+        createdAt: open?.customerCreatedAt ?? request.createdAt,
+        updatedAt: now,
+        source: RecordSource.catalog,
+      ),
+      lines: request.lines,
+      createdAt: request.createdAt,
       updatedAt: now,
       ivaEnabled: false,
       source: RecordSource.catalog,
     );
-    await _orders.updateCatalogOrder(companyId, order);
-    try {
-      await _customers.saveCustomer(companyId, customer);
-    } catch (error, stack) {
-      debugPrint('Catalog customer update failed: $error');
-      debugPrint('$stack');
-    }
-    final remote = _remoteOrder;
-    if (remote != null && remote.id == open.orderId) {
-      remote.customer = customer;
-      remote.updatedAt = now;
-      remote.lines
-        ..clear()
-        ..addAll(merged);
-    } else {
-      _remoteOrder = DraftOrder(
-        id: open.orderId,
-        orderNumber: open.orderNumber,
-        customer: customer,
-        lines: merged,
-        createdAt: open.orderCreatedAt,
-        updatedAt: now,
-        ivaEnabled: false,
-        source: RecordSource.catalog,
-      );
-    }
-    _requestedCache = _cartLinesFrom(merged, requested: true);
-    await _setOpenOrder(open.copyWith(customerName: customer.name));
-    return _remoteOrder!;
-  }
-
-  CatalogSubmitResult _submitResult(
-    DraftOrder order, {
-    bool updated = false,
-    List<OrderLine>? addedLines,
-  }) {
     final uri = OrderShare.catalogWhatsAppUri(
-      order,
+      preview,
       _company?.phone,
       updated: updated,
       addedLines: addedLines,
+      awaitingApproval: true,
     );
     return CatalogSubmitResult(
-      order: order,
+      order: preview,
+      request: request,
       whatsappUri: uri,
       missingPhone: uri == null,
       updated: updated,
     );
   }
 
-  Future<void> _setOpenOrder(CatalogOpenOrder? order) async {
-    final orderIdChanged = _openOrder?.orderId != order?.orderId;
-    _openOrder = order;
-    await _cart.saveOpenOrder(companyId, order);
-    if (order == null) {
-      await _orderSub?.cancel();
-      _orderSub = null;
-      return;
+  Future<void> _setPendingRequest(CatalogRequest request) async {
+    final changed = _pendingRequest?.id != request.id;
+    _pendingRequest = request;
+    await _cart.savePendingRequest(companyId, request.toMap());
+    if (changed || _requestSub == null) {
+      _bindPendingRequest();
     }
-    if (orderIdChanged || _orderSub == null) {
-      _bindOpenOrder();
-    }
+  }
+
+  Future<void> _clearPendingRequest() async {
+    _pendingRequest = null;
+    await _cart.savePendingRequest(companyId, null);
+    final sub = _requestSub;
+    _requestSub = null;
+    await sub?.cancel();
   }
 
   Future<void> _start() async {
     await _hydrateLocal();
     _bindOpenOrder();
+    _bindPendingRequest();
     final hasLocalCompany = _company != null;
     try {
       if (hasLocalCompany) {
@@ -497,29 +554,39 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
       }
       final loaded = _cart.load(companyId);
       _openOrder = _cart.loadOpenOrder(companyId);
+      _pendingRequest = _readPendingRequest(
+        _cart.loadPendingRequest(companyId),
+      );
       if (_openOrder != null &&
           loaded.isNotEmpty &&
-          loaded.every((line) => !line.requested)) {
+          loaded.every((line) => !line.requested && !line.awaiting)) {
         _legacyOpenCart = true;
         _requestedCache = [
           for (final line in loaded) line.copyWith(requested: true),
         ];
         _pending = const [];
+        _awaiting = const [];
       } else {
         _pending = [
           for (final line in loaded)
-            if (!line.requested) line,
+            if (!line.requested && !line.awaiting) line,
+        ];
+        _awaiting = [
+          for (final line in loaded)
+            if (line.awaiting) line,
         ];
         _requestedCache = [
           for (final line in loaded)
-            if (line.requested) line,
+            if (line.requested && !line.awaiting) line,
         ];
       }
       _company = _local?.loadCompany(companyId);
       if (_company != null ||
           _pending.isNotEmpty ||
+          _awaiting.isNotEmpty ||
           _requestedCache.isNotEmpty ||
-          _openOrder != null) {
+          _openOrder != null ||
+          _pendingRequest != null) {
         notifyListeners();
       }
     } catch (error, stack) {
@@ -591,6 +658,120 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
         );
   }
 
+  void _bindPendingRequest() {
+    unawaited(_requestSub?.cancel());
+    _requestSub = null;
+    final pending = _pendingRequest;
+    if (pending == null) return;
+    _requestSub = _requests
+        .watchRequest(companyId, pending.id)
+        .listen(
+          _onRemoteRequest,
+          onError: (Object error, StackTrace stack) {
+            debugPrint('Catalog request watch failed: $error');
+            debugPrint('$stack');
+          },
+        );
+  }
+
+  void _onRemoteRequest(CatalogRequest? request) {
+    if (!_alive) return;
+    if (request == null || request.isDeleted || request.isRejected) {
+      _restoreAwaitingToCart();
+      _pendingRequest = null;
+      notifyListeners();
+      unawaited(_clearPendingRequest());
+      return;
+    }
+    if (request.isApproved) {
+      _adoptApproved(request);
+      return;
+    }
+    _pendingRequest = request;
+    if (_alive) notifyListeners();
+  }
+
+  void _adoptApproved(CatalogRequest request) {
+    final orderId = request.orderId;
+    final orderNumber = request.orderNumber;
+    final customerId = request.customerId;
+    if (orderId == null ||
+        orderNumber == null ||
+        customerId == null ||
+        orderId.isEmpty ||
+        orderNumber.isEmpty ||
+        customerId.isEmpty) {
+      return;
+    }
+    if (_openOrder?.orderId != orderId) {
+      _requestedCache = [
+        for (final line in _awaiting)
+          line.copyWith(requested: true, awaiting: false),
+      ];
+      _openOrder = CatalogOpenOrder(
+        orderId: orderId,
+        orderNumber: orderNumber,
+        customerId: customerId,
+        customerName: request.customerName,
+        customerPhone: request.customerPhone,
+        orderCreatedAt: request.resolvedAt ?? request.updatedAt,
+        customerCreatedAt: request.resolvedAt ?? request.createdAt,
+      );
+      _bindOpenOrder();
+    } else {
+      _openOrder = _openOrder!.copyWith(
+        customerName: request.customerName,
+        customerPhone: request.customerPhone,
+      );
+    }
+    _awaiting = const [];
+    _pendingRequest = null;
+    _persistCart();
+    if (_alive) notifyListeners();
+    unawaited(_finishAdopt());
+  }
+
+  Future<void> _finishAdopt() async {
+    await _cart.savePendingRequest(companyId, null);
+    await _cart.saveOpenOrder(companyId, _openOrder);
+    final sub = _requestSub;
+    _requestSub = null;
+    await sub?.cancel();
+  }
+
+  void _restoreAwaitingToCart() {
+    if (_awaiting.isEmpty) return;
+    final next = [..._pending];
+    for (final line in _awaiting) {
+      final editable = line.copyWith(awaiting: false, requested: false);
+      final index = next.indexWhere((item) => item.lineKey == editable.lineKey);
+      if (index >= 0) {
+        next[index] = next[index].copyWith(
+          quantity: next[index].quantity + editable.quantity,
+        );
+      } else {
+        next.add(editable);
+      }
+    }
+    _awaiting = const [];
+    _pending = next;
+    _persistCart();
+  }
+
+  CatalogRequest? _readPendingRequest(Map<String, dynamic>? raw) {
+    if (raw == null) return null;
+    try {
+      final data = coerceStringKeyMap(raw);
+      final id = (data['id'] as String?)?.trim() ?? '';
+      if (id.isEmpty) return null;
+      return CatalogRequest.fromMap(id, data);
+    } catch (error, stack) {
+      debugPrint('Catalog pending request skipped: $error');
+      debugPrint('$stack');
+      return null;
+    }
+  }
+
   void _onRemoteOrder(DraftOrder? order) {
     if (!_alive) return;
     if (order == null ||
@@ -619,17 +800,23 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
       return;
     }
     _pending = const [];
+    _awaiting = const [];
     _requestedCache = const [];
     _remoteOrder = null;
     _legacyOpenCart = false;
     _openOrder = null;
+    _pendingRequest = null;
     final sub = _orderSub;
     _orderSub = null;
+    final requestSub = _requestSub;
+    _requestSub = null;
     if (_alive) notifyListeners();
     await sub?.cancel();
+    await requestSub?.cancel();
     if (!_alive) return;
     await _cart.clear(companyId);
     await _cart.saveOpenOrder(companyId, null);
+    await _cart.savePendingRequest(companyId, null);
   }
 
   void _pruneMissing() {
@@ -650,21 +837,28 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
   }
 
   void _persistCart() {
-    unawaited(_cart.save(companyId, [..._pending, ..._requestedCache]));
+    unawaited(
+      _cart.save(companyId, [..._pending, ..._awaiting, ..._requestedCache]),
+    );
   }
 
   int get _uniqueLineCount {
     return {
       for (final line in requestedCartLines) line.lineKey,
+      for (final line in awaitingCartLines) line.lineKey,
       for (final line in _pending) line.lineKey,
     }.length;
   }
 
   int _requestedQty(String lineKey) {
+    var total = 0;
     for (final line in requestedCartLines) {
-      if (line.lineKey == lineKey) return line.quantity;
+      if (line.lineKey == lineKey) total += line.quantity;
     }
-    return 0;
+    for (final line in awaitingCartLines) {
+      if (line.lineKey == lineKey) total += line.quantity;
+    }
+    return total;
   }
 
   List<OrderLine> _resolvePending(List<CatalogCartLine> items) {
@@ -704,7 +898,8 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
 
   List<CatalogCartLine> _cartLinesFrom(
     Iterable<OrderLine> lines, {
-    required bool requested,
+    bool requested = false,
+    bool awaiting = false,
   }) {
     return [
       for (final line in lines)
@@ -714,6 +909,7 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
           color: line.variant.color,
           quantity: line.quantity,
           requested: requested,
+          awaiting: awaiting,
         ),
     ];
   }
@@ -741,6 +937,7 @@ class CatalogGuestStore extends ChangeNotifier implements ProductFilterHost {
     _alive = false;
     _productSub?.cancel();
     _orderSub?.cancel();
+    _requestSub?.cancel();
     super.dispose();
   }
 }

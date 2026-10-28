@@ -12,6 +12,22 @@ import 'package:store_app/widgets/product_card.dart';
 import 'fakes/catalog_harness.dart';
 
 void main() {
+  test('stock lists garments by update date', () async {
+    final store = AppStore();
+    await store.upsertProduct(
+      testProduct(id: 'p-old', name: 'Remera vieja', sku: 'OLD-0001'),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await store.upsertProduct(
+      testProduct(id: 'p-new', name: 'Remera nueva', sku: 'NEW-0001'),
+    );
+
+    expect(store.filteredProducts.map((p) => p.id), ['p-new', 'p-old']);
+
+    store.updateVariantStock('p-old', 'M', 'Negro', stock: 4);
+    expect(store.filteredProducts.map((p) => p.id), ['p-old', 'p-new']);
+  });
+
   test('stock lists out of stock garments last', () async {
     final store = AppStore();
     await store.upsertProduct(testProduct(id: 'p-in', name: 'Remera lisa'));

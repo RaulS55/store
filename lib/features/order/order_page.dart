@@ -519,7 +519,7 @@ class _SearchHits extends StatelessWidget {
         .where(
           (p) =>
               p.name.toLowerCase().contains(q) ||
-              p.sku.toLowerCase().contains(q) ||
+              p.matchesCodeQuery(q) ||
               p.brand.toLowerCase().contains(q) ||
               p.categoryLabel.toLowerCase().contains(q) ||
               p.audienceLabel.toLowerCase().contains(q),

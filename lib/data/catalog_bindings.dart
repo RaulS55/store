@@ -1,4 +1,5 @@
 import 'catalog_guest_store.dart';
+import 'catalog_request_access.dart';
 import 'company_access.dart';
 import 'customer_access.dart';
 import 'local/catalog_cart_cache.dart';
@@ -13,6 +14,7 @@ class CatalogBindings {
     required this.products,
     required this.customers,
     required this.orders,
+    required this.requests,
     CatalogCartCache? cart,
     this.images,
     this.local,
@@ -22,6 +24,7 @@ class CatalogBindings {
   final ProductAccess products;
   final CustomerAccess customers;
   final OrderAccess orders;
+  final CatalogRequestAccess requests;
   final CatalogCartCache cart;
   final ProductImageCache? images;
   final HiveCatalogCache? local;
@@ -36,6 +39,7 @@ class CatalogBindings {
         products: products,
         customers: customers,
         orders: orders,
+        requests: requests,
         cart: cart,
         images: images,
         local: local,

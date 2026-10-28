@@ -98,9 +98,30 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('save-company-socials')));
     await tester.pump();
 
-    expect(session.company?.instagram, '@taller.ana');
-    expect(session.company?.tiktok, 'taller.ana');
-    expect(session.company?.facebook, 'tallerana');
+    expect(session.company?.instagram, ['@taller.ana']);
+    expect(session.company?.tiktok, ['taller.ana']);
+    expect(session.company?.facebook, ['tallerana']);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('add-company-instagram')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add-company-instagram')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('company-instagram-1')),
+      '@mayorista',
+    );
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('save-company-socials')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('save-company-socials')));
+    await tester.pump();
+
+    expect(session.company?.instagram, ['@taller.ana', '@mayorista']);
+    expect(find.byKey(const ValueKey('company-instagram-1')), findsOneWidget);
   });
 
   testWidgets('employees do not see the company profile section', (

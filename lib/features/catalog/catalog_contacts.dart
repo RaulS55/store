@@ -36,50 +36,90 @@ List<CatalogContactLink> catalogContactLinks(Company company) {
       ),
     );
   }
-  final instagram = company.instagramUrl;
-  if (instagram != null) {
-    links.add(
-      CatalogContactLink(
-        id: 'catalog-instagram',
-        label: _socialLabel('Instagram', company.instagram),
-        icon: FontAwesomeIcons.instagram,
-        uri: Uri.parse(instagram),
-        color: AppColors.instagram,
-      ),
-    );
-  }
-  final tiktok = company.tiktokUrl;
-  if (tiktok != null) {
-    links.add(
-      CatalogContactLink(
-        id: 'catalog-tiktok',
-        label: _socialLabel('TikTok', company.tiktok),
-        icon: FontAwesomeIcons.tiktok,
-        uri: Uri.parse(tiktok),
-      ),
-    );
-  }
-  final facebook = company.facebookUrl;
-  if (facebook != null) {
-    links.add(
-      CatalogContactLink(
-        id: 'catalog-facebook',
-        label: _socialLabel('Facebook', company.facebook),
-        icon: FontAwesomeIcons.facebook,
-        uri: Uri.parse(facebook),
-        color: AppColors.facebook,
-      ),
-    );
-  }
+  _addSocials(
+    links,
+    id: 'catalog-instagram',
+    platform: 'Instagram',
+    accounts: company.instagram,
+    host: 'www.instagram.com',
+    icon: FontAwesomeIcons.instagram,
+    color: AppColors.instagram,
+  );
+  _addSocials(
+    links,
+    id: 'catalog-tiktok',
+    platform: 'TikTok',
+    accounts: company.tiktok,
+    host: 'www.tiktok.com',
+    icon: FontAwesomeIcons.tiktok,
+    atHandle: true,
+  );
+  _addSocials(
+    links,
+    id: 'catalog-facebook',
+    platform: 'Facebook',
+    accounts: company.facebook,
+    host: 'www.facebook.com',
+    icon: FontAwesomeIcons.facebook,
+    color: AppColors.facebook,
+  );
   return links;
+}
+
+void _addSocials(
+  List<CatalogContactLink> links, {
+  required String id,
+  required String platform,
+  required List<String> accounts,
+  required String host,
+  required FaIconData icon,
+  Color? color,
+  bool atHandle = false,
+}) {
+  for (var index = 0; index < accounts.length; index++) {
+    final raw = accounts[index];
+    final url = socialProfileUrl(raw, host: host, atHandle: atHandle);
+    if (url == null) continue;
+    links.add(
+      CatalogContactLink(
+        id: '$id-$index',
+        label: _socialLabel(platform, raw),
+        icon: icon,
+        uri: Uri.parse(url),
+        color: color,
+      ),
+    );
+  }
 }
 
 String _socialLabel(String platform, String? raw) {
   final value = blankToNull(raw);
   if (value == null) return platform;
-  if (value.contains('://') || value.contains('.')) return platform;
-  final handle = value.replaceFirst(RegExp(r'^@+'), '').trim();
-  if (handle.isEmpty || handle.length > 22) return platform;
+  var handle = value;
+  final parsed = Uri.tryParse(value);
+  if (parsed != null &&
+      (parsed.scheme == 'http' || parsed.scheme == 'https') &&
+      parsed.pathSegments.isNotEmpty) {
+    handle = parsed.pathSegments.last;
+  }
+  handle = handle.replaceFirst(RegExp(r'^@+'), '').trim();
+  handle = handle.replaceFirst(
+    RegExp(
+      r'^(www\.)?(instagram\.com|tiktok\.com|facebook\.com|fb\.com)/',
+      caseSensitive: false,
+    ),
+    '',
+  );
+  handle = handle
+      .replaceFirst(RegExp(r'^@+'), '')
+      .replaceFirst(RegExp(r'^/+'), '');
+  if (handle.isEmpty ||
+      handle.contains('/') ||
+      handle.contains(' ') ||
+      handle.contains('?') ||
+      handle.length > 22) {
+    return platform;
+  }
   return '$platform · @$handle';
 }
 
@@ -92,30 +132,28 @@ class CatalogContacts extends StatelessWidget {
   Widget build(BuildContext context) {
     final links = catalogContactLinks(company);
     if (links.isEmpty) return const SizedBox.shrink();
-    return Column(
+    final onIcon = Theme.of(context).colorScheme.surface;
+    return Wrap(
       key: const ValueKey('catalog-contacts'),
-      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 10,
+      runSpacing: 8,
       children: [
-        Text(
-          'Contacto',
-          style: Theme.of(
-            context,
-          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final link in links)
-              ActionChip(
-                key: ValueKey(link.id),
-                avatar: FaIcon(link.icon, size: 18, color: link.color),
-                label: Text(link.label),
-                onPressed: () => _open(context, link),
-              ),
-          ],
-        ),
+        for (final link in links)
+          IconButton(
+            key: ValueKey(link.id),
+            tooltip: link.label,
+            onPressed: () => _open(context, link),
+            style: IconButton.styleFrom(
+              backgroundColor:
+                  link.color ?? Theme.of(context).colorScheme.onSurface,
+              foregroundColor: onIcon,
+              minimumSize: const Size(40, 40),
+              fixedSize: const Size(40, 40),
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            icon: FaIcon(link.icon, size: 18, color: onIcon),
+          ),
       ],
     );
   }

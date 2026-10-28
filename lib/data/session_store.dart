@@ -305,14 +305,14 @@ class SessionStore extends ChangeNotifier {
   }
 
   Future<void> setCompanySocials({
-    String? instagram,
-    String? tiktok,
-    String? facebook,
+    List<String> instagram = const [],
+    List<String> tiktok = const [],
+    List<String> facebook = const [],
   }) async {
     final current = _requireCompanyOwner();
-    final nextInstagram = _normalizedSocial(instagram);
-    final nextTiktok = _normalizedSocial(tiktok);
-    final nextFacebook = _normalizedSocial(facebook);
+    final nextInstagram = _normalizedSocials(instagram);
+    final nextTiktok = _normalizedSocials(tiktok);
+    final nextFacebook = _normalizedSocials(facebook);
     await _access.updateCompanySocials(
       current.company.id,
       instagram: nextInstagram,
@@ -678,12 +678,25 @@ class SessionStore extends ChangeNotifier {
     return (user: user, company: company, membership: membership);
   }
 
-  String? _normalizedSocial(String? value) {
-    final next = blankToNull(value);
-    if (next == null) return null;
-    if (next.length > maxCompanySocialLength) {
+  List<String> _normalizedSocials(List<String> values) {
+    final next = <String>[];
+    for (final value in values) {
+      final account = blankToNull(value);
+      if (account == null) continue;
+      if (account.length > maxCompanySocialLength) {
+        throw const SessionException(
+          'Ese enlace de red social es demasiado largo.',
+        );
+      }
+      final duplicate = next.any(
+        (item) => item.toLowerCase() == account.toLowerCase(),
+      );
+      if (duplicate) continue;
+      next.add(account);
+    }
+    if (next.length > maxCompanySocialAccounts) {
       throw const SessionException(
-        'Ese enlace de red social es demasiado largo.',
+        'Podés agregar hasta 8 cuentas por red social.',
       );
     }
     return next;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +9,7 @@ import '../../data/order_share.dart';
 import '../../data/session_exception.dart';
 import '../../models/order.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/app_confirm_dialog.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/qty_stepper.dart';
@@ -35,48 +37,79 @@ class _CatalogCartView extends StatefulWidget {
 
 class _CatalogCartViewState extends State<_CatalogCartView> {
   late final TextEditingController _name;
-  var _nameSeeded = false;
+  late final TextEditingController _phone;
+  var _contactSeeded = false;
 
   @override
   void initState() {
     super.initState();
-    _name = TextEditingController()..addListener(_onNameChanged);
+    _name = TextEditingController()..addListener(_onContactChanged);
+    _phone = TextEditingController()..addListener(_onContactChanged);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_nameSeeded) return;
-    final stored = context.read<CatalogGuestStore>().openOrder?.customerName;
-    if (stored == null || stored.length < 2) return;
-    _nameSeeded = true;
-    _name.text = stored;
+    if (_contactSeeded) return;
+    final guest = context.read<CatalogGuestStore>();
+    final storedName =
+        guest.openOrder?.customerName ?? guest.pendingRequest?.customerName;
+    final storedPhone =
+        guest.pendingRequest?.customerPhone ?? guest.openOrder?.customerPhone;
+    final hasName = storedName != null && storedName.length >= 2;
+    final hasPhone = storedPhone != null && storedPhone.isNotEmpty;
+    if (!hasName && !hasPhone) return;
+    _contactSeeded = true;
+    if (hasName) _name.text = storedName;
+    if (hasPhone) _phone.text = ArgentinePhone.localInput(storedPhone);
   }
 
   @override
   void dispose() {
-    _name.removeListener(_onNameChanged);
+    _name.removeListener(_onContactChanged);
+    _phone.removeListener(_onContactChanged);
     _name.dispose();
+    _phone.dispose();
     super.dispose();
   }
 
-  void _onNameChanged() => setState(() {});
+  void _onContactChanged() => setState(() {});
 
   bool get _hasName => _name.text.trim().length >= 2;
 
+  String get _phoneValue => ArgentinePhone.withCountryPrefix(_phone.text);
+
+  bool get _hasPhone => ArgentinePhone.isValid(_phoneValue);
+
+  String? get _phoneError {
+    final text = _phone.text.trim();
+    if (text.isEmpty || _hasPhone) return null;
+    return 'Ingresá un número de Argentina, como ${ArgentinePhone.localHint}';
+  }
+
   Future<void> _send() async {
     final store = context.read<CatalogGuestStore>();
+    final updating = store.openOrder != null || store.isAwaitingApproval;
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: updating ? 'Actualizar pedido' : 'Enviar pedido',
+      message:
+          'Si lo hacés, el vendedor va a recibir una notificación con tu pedido y te vamos a redirigir a WhatsApp para que puedas comunicarte con él.',
+      confirmLabel: 'Confirmar',
+      icon: Icons.chat_outlined,
+      destructive: false,
+    );
+    if (!confirmed || !mounted) return;
     try {
-      final result = await store.submit(name: _name.text);
+      final result = await store.submit(name: _name.text, phone: _phoneValue);
       if (!mounted) return;
+      final sent = result.updated
+          ? 'Actualizamos la solicitud. El negocio tiene que aprobarla.'
+          : 'El pedido se envió. El negocio tiene que aprobarlo.';
       if (result.missingPhone) {
         AppSnackBar.show(
           context,
-          content: Text(
-            result.updated
-                ? 'Actualizamos ${result.order.orderNumber}. Este catálogo no tiene WhatsApp configurado.'
-                : 'El pedido ${result.order.orderNumber} se envió al negocio. Este catálogo no tiene WhatsApp configurado.',
-          ),
+          content: Text('$sent Este catálogo no tiene WhatsApp configurado.'),
         );
         return;
       }
@@ -98,9 +131,15 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
   Widget build(BuildContext context) {
     final store = context.watch<CatalogGuestStore>();
     final pending = store.pendingCartLines;
+    final awaiting = store.awaitingCartLines;
     final requested = store.requestedCartLines;
-    final isEmpty = pending.isEmpty && requested.isEmpty;
-    final canSend = store.hasPending && !store.isBusy && _hasName;
+    final isEmpty = pending.isEmpty && awaiting.isEmpty && requested.isEmpty;
+    final canSend = store.hasPending && !store.isBusy && _hasName && _hasPhone;
+    final contactEnabled =
+        !store.isBusy &&
+        (store.hasPending ||
+            store.openOrder != null ||
+            store.isAwaitingApproval);
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
@@ -135,6 +174,13 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
                             key: const ValueKey('catalog-open-order'),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: AppColors.slate),
+                          )
+                        else if (store.isAwaitingApproval)
+                          Text(
+                            'Esperando aprobación del negocio',
+                            key: const ValueKey('catalog-awaiting-approval'),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: AppColors.slate),
                           ),
                       ],
                     ),
@@ -166,8 +212,16 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
                             onQty: (qty) => store.setLineQty(line.lineKey, qty),
                             onRemove: () => store.removeLine(line.lineKey),
                           ),
-                        if (requested.isNotEmpty) ...[
+                        if (awaiting.isNotEmpty) ...[
                           if (pending.isNotEmpty) const SizedBox(height: 8),
+                          const _AwaitingDivider(),
+                          const SizedBox(height: 12),
+                          for (final line in awaiting)
+                            _RequestedTile(line: line),
+                        ],
+                        if (requested.isNotEmpty) ...[
+                          if (pending.isNotEmpty || awaiting.isNotEmpty)
+                            const SizedBox(height: 8),
                           const _RequestedDivider(),
                           const SizedBox(height: 12),
                           for (final line in requested)
@@ -177,7 +231,9 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
                         _CartTotals(
                           pendingTotal: store.pendingTotal,
                           cartTotal: store.cartTotal,
-                          showNew: pending.isNotEmpty && requested.isNotEmpty,
+                          showNew:
+                              pending.isNotEmpty &&
+                              (requested.isNotEmpty || awaiting.isNotEmpty),
                         ),
                       ],
                     ),
@@ -189,13 +245,41 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
                   TextField(
                     key: const ValueKey('catalog-client-name'),
                     controller: _name,
-                    enabled:
-                        !store.isBusy &&
-                        (store.hasPending || store.openOrder != null),
+                    enabled: contactEnabled,
                     textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       labelText: 'Tu nombre',
                       hintText: 'Para que el negocio sepa quién pide',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('catalog-client-phone'),
+                    controller: _phone,
+                    enabled: contactEnabled,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.done,
+                    autofillHints: const [AutofillHints.telephoneNumber],
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[0-9+\s().-]'),
+                      ),
+                      ArgentinePhone.localInputFormatter,
+                    ],
+                    decoration: InputDecoration(
+                      labelText: 'Tu teléfono',
+                      prefixIcon: const _PhoneCountryPrefix(),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 0,
+                        minHeight: 0,
+                      ),
+                      helperText:
+                          'Ej.: ${ArgentinePhone.localHint}. Para que la tienda pueda comunicarse con vos',
+                      helperMaxLines: 2,
+                      helperStyle: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: AppColors.mutedText),
+                      errorText: _phoneError,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -219,9 +303,11 @@ class _CatalogCartViewState extends State<_CatalogCartView> {
                             )
                           : const Icon(Icons.chat, size: 18),
                       label: Text(
-                        store.openOrder == null
-                            ? 'Realizar pedido'
-                            : 'Actualizar pedido',
+                        store.openOrder != null
+                            ? 'Actualizar pedido'
+                            : store.isAwaitingApproval
+                            ? 'Actualizar solicitud'
+                            : 'Realizar pedido',
                       ),
                     ),
                   ),
@@ -297,6 +383,28 @@ class _CartTotals extends StatelessWidget {
   }
 }
 
+class _AwaitingDivider extends StatelessWidget {
+  const _AwaitingDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(
+      context,
+    ).textTheme.labelMedium?.copyWith(color: AppColors.slate);
+    return Row(
+      key: const ValueKey('catalog-awaiting-separator'),
+      children: [
+        const Expanded(child: Divider()),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text('Esperando aprobación', style: style),
+        ),
+        const Expanded(child: Divider()),
+      ],
+    );
+  }
+}
+
 class _RequestedDivider extends StatelessWidget {
   const _RequestedDivider();
 
@@ -355,6 +463,14 @@ class _LineTile extends StatelessWidget {
                 Text(
                   line.product.name,
                   style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  'SKU: ${line.variantSku}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
                 ),
                 Text(
                   '${line.variant.size} · ${line.variant.color}',
@@ -424,6 +540,14 @@ class _RequestedTile extends StatelessWidget {
                     ),
                   ),
                   Text(
+                    'SKU: ${line.variantSku}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: AppColors.slate,
+                    ),
+                  ),
+                  Text(
                     '${line.quantity}× ${line.variant.size} · ${line.variant.color}',
                     style: textTheme.bodySmall?.copyWith(
                       color: AppColors.slate,
@@ -440,6 +564,39 @@ class _RequestedTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PhoneCountryPrefix extends StatelessWidget {
+  const _PhoneCountryPrefix();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: 8, end: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: isDark
+              ? Color.lerp(AppColors.darkElevated, AppColors.slate, 0.5)!
+              : AppColors.lightMuted,
+          borderRadius: BorderRadius.circular(AppRadii.sm),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Text(
+            ArgentinePhone.countryPrefix,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: AppColors.slate,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       ),
     );

@@ -8,6 +8,9 @@ abstract class OrderAccess {
   /// Live updates for a single order. Emits null if it is missing or deleted.
   Stream<DraftOrder?> watchOrder(String companyId, String orderId);
 
+  /// One-shot read. Returns closed orders and null when missing or deleted.
+  Future<DraftOrder?> readOrder(String companyId, String orderId);
+
   Future<void> saveOrder(String companyId, DraftOrder order);
 
   /// Merges [order.lines] into an open catalog order without replacing staff

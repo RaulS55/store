@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../models/catalog_request.dart';
 import '../models/company.dart';
 import '../models/customer.dart';
 import '../models/expense.dart';
@@ -13,8 +14,11 @@ import '../models/lot_stats.dart';
 import '../models/order.dart';
 import '../models/product.dart';
 import '../models/product_filter.dart';
+import '../models/record_source.dart';
+import 'catalog_request_access.dart';
 import 'customer_access.dart';
 import 'expense_access.dart';
+import 'formatters.dart';
 import 'image_access.dart';
 import 'image_compress.dart';
 import 'lot_access.dart';
@@ -22,6 +26,7 @@ import 'order_access.dart';
 import 'product_access.dart';
 import 'product_filter_host.dart';
 import 'product_image_cache.dart';
+import 'session_exception.dart';
 
 enum SaveStockResult { saved, unchanged, insufficient }
 
@@ -51,6 +56,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     OrderAccess? orderAccess,
     LotAccess? lotAccess,
     ExpenseAccess? expenseAccess,
+    CatalogRequestAccess? catalogRequests,
     ImageAccess? images,
     ProductImageCache? imageCache,
     void Function(String message)? log,
@@ -59,6 +65,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
        _orderAccess = orderAccess,
        _lotAccess = lotAccess,
        _expenseAccess = expenseAccess,
+       _requestAccess = catalogRequests,
        _imageAccess = images,
        _imageCache = imageCache ?? ProductImageCache(),
        _log = log ?? debugPrint;
@@ -68,6 +75,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   final OrderAccess? _orderAccess;
   final LotAccess? _lotAccess;
   final ExpenseAccess? _expenseAccess;
+  final CatalogRequestAccess? _requestAccess;
   final ImageAccess? _imageAccess;
   final ProductImageCache _imageCache;
   final void Function(String message) _log;
@@ -76,6 +84,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   StreamSubscription<List<DraftOrder>>? _ordersSub;
   StreamSubscription<List<Lot>>? _lotsSub;
   StreamSubscription<List<Expense>>? _expensesSub;
+  StreamSubscription<List<CatalogRequest>>? _requestsSub;
   String? _companyId;
   bool _watchLots = false;
 
@@ -86,6 +95,8 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   List<Expense> _expenses = [];
   final List<DraftOrder> orders = [];
   final List<DraftOrder> closedOrders = [];
+  List<CatalogRequest> _catalogRequests = [];
+  final _busyRequests = <String>{};
 
   String searchQuery = '';
   @override
@@ -119,6 +130,27 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   List<Customer> get customers => List.unmodifiable(_customers);
   List<Lot> get lots => List.unmodifiable(_lots);
   List<Expense> get expenses => List.unmodifiable(_expenses);
+
+  List<CatalogRequest> get pendingCatalogRequests => [
+    for (final request in _catalogRequests)
+      if (request.isPending) request,
+  ];
+
+  List<CatalogRequest> get catalogRequests {
+    final visible = [
+      for (final request in _catalogRequests)
+        if (!request.isDeleted) request,
+    ];
+    visible.sort((a, b) {
+      final aTime = a.isPending ? a.createdAt : (a.resolvedAt ?? a.updatedAt);
+      final bTime = b.isPending ? b.createdAt : (b.resolvedAt ?? b.updatedAt);
+      return bTime.compareTo(aTime);
+    });
+    return List.unmodifiable(visible);
+  }
+
+  bool isCatalogRequestBusy(String requestId) =>
+      _busyRequests.contains(requestId);
 
   List<ApparelCategory> get _predefinedCategories {
     switch (rubro) {
@@ -213,16 +245,20 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
       _ordersSub?.cancel();
       _lotsSub?.cancel();
       _expensesSub?.cancel();
+      _requestsSub?.cancel();
       _productsSub = null;
       _customersSub = null;
       _ordersSub = null;
       _lotsSub = null;
       _expensesSub = null;
+      _requestsSub = null;
       _companyId = companyId;
       _products = [];
       _customers = [];
       _lots = [];
       _expenses = [];
+      _catalogRequests = [];
+      _busyRequests.clear();
       orders.clear();
       closedOrders.clear();
       activeOrderId = null;
@@ -289,6 +325,20 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
               _setOrders,
               onError: (Object error) {
                 _log('Orders watch failed: $error');
+              },
+            );
+      }
+      final requestAccess = _requestAccess;
+      if (requestAccess != null) {
+        _requestsSub = requestAccess
+            .watchRequests(companyId)
+            .listen(
+              (list) {
+                _catalogRequests = _mergeCatalogRequests(list);
+                notifyListeners();
+              },
+              onError: (Object error) {
+                _log('Catalog requests watch failed: $error');
               },
             );
       }
@@ -563,7 +613,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     list.sort((a, b) {
       switch (sort) {
         case StockSort.recent:
-          return b.id.compareTo(a.id);
+          return compareProductsByUpdate(a, b);
         case StockSort.name:
           return a.name.compareTo(b.name);
         case StockSort.priceAsc:
@@ -1523,6 +1573,338 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     return candidate;
   }
 
+  Future<DraftOrder> approveCatalogRequest(String requestId) async {
+    if (_busyRequests.contains(requestId)) {
+      throw const SessionException('Esa solicitud ya se está procesando.');
+    }
+    final companyId = _companyId;
+    final access = _requestAccess;
+    if (companyId == null || access == null) {
+      throw const SessionException('No se pudo aprobar el pedido.');
+    }
+    final request =
+        _catalogRequestById(requestId) ??
+        await access.readRequest(companyId, requestId);
+    if (request == null || !request.isPending) {
+      throw const SessionException('Esa solicitud ya no está pendiente.');
+    }
+    if (request.lines.isEmpty) {
+      throw const SessionException('La solicitud no tiene prendas.');
+    }
+    _busyRequests.add(requestId);
+    notifyListeners();
+    try {
+      final now = DateTime.now().toUtc();
+      final order = request.isAddition
+          ? await _approveCatalogAddition(request, now)
+          : await _approveNewCatalogOrder(request, now);
+      final resolved = request.copyWith(
+        status: CatalogRequestStatus.aprobado,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerId: order.customer.id,
+        resolvedAt: now,
+        updatedAt: now,
+      );
+      await access.updateRequest(companyId, request.id, {
+        'status': CatalogRequestStatus.aprobado.name,
+        'orderId': order.id,
+        'orderNumber': order.orderNumber,
+        'customerId': order.customer.id,
+        'resolvedAt': now.toUtc().toIso8601String(),
+        'updatedAt': now.toUtc().toIso8601String(),
+      });
+      _rememberCatalogRequest(resolved);
+      return order;
+    } catch (_) {
+      await _restoreCatalogRequest(companyId, access, requestId);
+      rethrow;
+    } finally {
+      _busyRequests.remove(requestId);
+      notifyListeners();
+    }
+  }
+
+  Future<void> rejectCatalogRequest(String requestId) async {
+    if (_busyRequests.contains(requestId)) return;
+    final companyId = _companyId;
+    final access = _requestAccess;
+    if (companyId == null || access == null) {
+      throw const SessionException('No se pudo rechazar la solicitud.');
+    }
+    final request =
+        _catalogRequestById(requestId) ??
+        await access.readRequest(companyId, requestId);
+    if (request == null || !request.isPending) {
+      throw const SessionException('Esa solicitud ya no está pendiente.');
+    }
+    _busyRequests.add(requestId);
+    notifyListeners();
+    try {
+      final now = DateTime.now().toUtc();
+      final resolved = request.copyWith(
+        status: CatalogRequestStatus.rechazado,
+        resolvedAt: now,
+        updatedAt: now,
+      );
+      await access.updateRequest(companyId, request.id, {
+        'status': CatalogRequestStatus.rechazado.name,
+        'resolvedAt': now.toUtc().toIso8601String(),
+        'updatedAt': now.toUtc().toIso8601String(),
+      });
+      _rememberCatalogRequest(resolved);
+    } catch (_) {
+      await _restoreCatalogRequest(companyId, access, requestId);
+      rethrow;
+    } finally {
+      _busyRequests.remove(requestId);
+      notifyListeners();
+    }
+  }
+
+  Future<void> _restoreCatalogRequest(
+    String companyId,
+    CatalogRequestAccess access,
+    String requestId,
+  ) async {
+    try {
+      final fresh = await access.readRequest(companyId, requestId);
+      if (fresh != null) _rememberCatalogRequest(fresh);
+    } catch (_) {}
+  }
+
+  CatalogRequest? _catalogRequestById(String requestId) {
+    for (final request in _catalogRequests) {
+      if (request.id == requestId) return request;
+    }
+    return null;
+  }
+
+  void _rememberCatalogRequest(CatalogRequest request) {
+    if (request.isDeleted) return;
+    final index = _catalogRequests.indexWhere((item) => item.id == request.id);
+    if (index >= 0) {
+      _catalogRequests[index] = request;
+    } else {
+      _catalogRequests = [request, ..._catalogRequests];
+    }
+  }
+
+  List<CatalogRequest> _mergeCatalogRequests(List<CatalogRequest> incoming) {
+    final current = {
+      for (final request in _catalogRequests) request.id: request,
+    };
+    return [
+      for (final request in incoming)
+        if (!request.isDeleted)
+          _preferCatalogRequest(current[request.id], request),
+    ];
+  }
+
+  CatalogRequest _preferCatalogRequest(
+    CatalogRequest? current,
+    CatalogRequest incoming,
+  ) {
+    // A stale listener snapshot can arrive seconds later, still pending,
+    // and put the accept/reject buttons back. Once this session resolved
+    // the request, keep that decision.
+    if (current != null && !current.isPending && incoming.isPending) {
+      return current;
+    }
+    return incoming;
+  }
+
+  Future<DraftOrder> _approveNewCatalogOrder(
+    CatalogRequest request,
+    DateTime now,
+  ) async {
+    final customer = await _customerForCatalogRequest(request, now);
+    final open = openOrderForCustomer(customer.id);
+    if (open != null && open.isCatalog && open.isActive && !open.isDeleted) {
+      return _saveCatalogLines(
+        open,
+        customer,
+        OrderLine.mergeAdded(open.lines, request.lines),
+        now,
+      );
+    }
+    final orderId = nextOrderId();
+    final shortId = orderId.length >= 8 ? orderId.substring(0, 8) : orderId;
+    final order = DraftOrder(
+      id: orderId,
+      orderNumber: 'WEB-${shortId.toUpperCase()}',
+      customer: customer,
+      lines: OrderLine.sorted(request.lines),
+      createdAt: now,
+      updatedAt: now,
+      ivaEnabled: false,
+      source: RecordSource.catalog,
+    );
+    orders.insert(0, order);
+    notifyListeners();
+    await _persistOrder(order);
+    return orderById(order.id) ?? order;
+  }
+
+  Future<DraftOrder> _approveCatalogAddition(
+    CatalogRequest request,
+    DateTime now,
+  ) async {
+    final orderId = request.targetOrderId;
+    if (orderId == null || orderId.isEmpty) {
+      throw const SessionException(
+        'Esa solicitud no tiene un pedido para actualizar.',
+      );
+    }
+    final existing = orderById(orderId);
+    if (existing == null ||
+        !existing.isCatalog ||
+        !existing.isActive ||
+        existing.isDeleted) {
+      throw const SessionException('Ese pedido ya no se puede actualizar.');
+    }
+    final customer = await _customerForCatalogRequest(
+      request,
+      now,
+      current: existing.customer,
+    );
+    return _saveCatalogLines(
+      existing,
+      customer,
+      OrderLine.mergeAdded(existing.lines, request.lines),
+      now,
+    );
+  }
+
+  Future<DraftOrder> _saveCatalogLines(
+    DraftOrder existing,
+    Customer customer,
+    List<OrderLine> lines,
+    DateTime now,
+  ) async {
+    final next = DraftOrder(
+      id: existing.id,
+      orderNumber: existing.orderNumber,
+      customer: customer,
+      lines: lines,
+      status: existing.status,
+      stockReservations: existing.stockReservations,
+      createdAt: existing.createdAt,
+      updatedAt: now,
+      closedAt: existing.closedAt,
+      deletedAt: existing.deletedAt,
+      ivaEnabled: existing.ivaEnabled,
+      ivaPercent: existing.ivaPercent,
+      includeProductCodeInInvoice: existing.includeProductCodeInInvoice,
+      sena: existing.sena,
+      source: existing.source,
+    );
+    final index = orders.indexWhere((order) => order.id == next.id);
+    if (index >= 0) orders[index] = next;
+    notifyListeners();
+    await _persistOrder(next);
+    return orderById(next.id) ?? next;
+  }
+
+  /// Same person when the base name and the phone match, with or without
+  /// the `(Catalogo)` mark and ignoring phone formatting.
+  Future<Customer> _customerForCatalogRequest(
+    CatalogRequest request,
+    DateTime now, {
+    Customer? current,
+  }) async {
+    final phone = _blankToNull(request.customerPhone);
+    final existing =
+        current ?? _findCatalogPerson(request.customerName, phone);
+    final nextName = _catalogOrderName(
+      request.customerName,
+      current: existing?.name,
+    );
+    if (existing == null) {
+      final created = Customer(
+        id: nextCustomerId(),
+        name: nextName,
+        phone: phone,
+        createdAt: now,
+        updatedAt: now,
+        source: RecordSource.catalog,
+      );
+      await upsertCustomer(created);
+      return customerById(created.id) ?? created;
+    }
+    final nextPhone = phone ?? _blankToNull(existing.phone);
+    final nameChanged = existing.name.trim() != nextName;
+    final phoneChanged =
+        nextPhone != null && !_samePhone(nextPhone, existing.phone);
+    if (!nameChanged && !phoneChanged) return existing;
+    final updated = existing.copyWith(
+      name: nextName,
+      phone: phoneChanged ? nextPhone : existing.phone,
+      updatedAt: now,
+    );
+    await upsertCustomer(updated);
+    return customerById(updated.id) ?? updated;
+  }
+
+  String _catalogOrderName(String incoming, {String? current}) {
+    if (current != null &&
+        catalogBaseName(current).toLowerCase() ==
+            catalogBaseName(incoming).toLowerCase()) {
+      if (hasCatalogNameTag(current)) return current.trim();
+      return catalogCustomerName(current);
+    }
+    return catalogCustomerName(incoming);
+  }
+
+  Customer? _findCatalogPerson(String name, String? phone) {
+    if (catalogBaseName(name).length < 2 || _phoneKey(phone) == null) {
+      return null;
+    }
+    final seen = <String>{};
+    final matches = <Customer>[];
+    void consider(Customer customer) {
+      if (!seen.add(customer.id)) return;
+      if (customer.isDeleted) return;
+      if (catalogBaseName(customer.name).toLowerCase() !=
+          catalogBaseName(name).toLowerCase()) {
+        return;
+      }
+      if (!_samePhone(customer.phone, phone)) return;
+      matches.add(customer);
+    }
+
+    for (final customer in _customers) {
+      consider(customer);
+    }
+    for (final order in [...orders, ...closedOrders]) {
+      consider(order.customer);
+    }
+    if (matches.isEmpty) return null;
+    matches.sort((a, b) {
+      final aCatalog = a.isCatalog || hasCatalogNameTag(a.name);
+      final bCatalog = b.isCatalog || hasCatalogNameTag(b.name);
+      if (aCatalog != bCatalog) return aCatalog ? -1 : 1;
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
+    return matches.first;
+  }
+
+  bool _samePhone(String? a, String? b) {
+    final left = _phoneKey(a);
+    final right = _phoneKey(b);
+    return left != null && left == right;
+  }
+
+  String? _phoneKey(String? raw) {
+    final trimmed = raw?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    final normalized = ArgentinePhone.normalize(trimmed);
+    final digits = (normalized ?? trimmed).replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return null;
+    if (digits.length >= 10) return digits.substring(digits.length - 10);
+    return digits;
+  }
+
   String nextProductId() {
     final companyId = _companyId;
     final access = _productAccess;
@@ -1579,6 +1961,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     _ordersSub?.cancel();
     _lotsSub?.cancel();
     _expensesSub?.cancel();
+    _requestsSub?.cancel();
     super.dispose();
   }
 }

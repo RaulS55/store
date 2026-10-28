@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:store_app/data/app_store.dart';
+import 'package:store_app/data/catalog_request_access.dart';
 import 'package:store_app/data/catalog_guest_store.dart';
 import 'package:store_app/data/local/catalog_cart_cache.dart';
 import 'package:store_app/data/local/hive_catalog_cache.dart';
@@ -9,12 +11,14 @@ import 'package:store_app/data/product_access.dart';
 import 'package:store_app/data/product_filter_host.dart';
 import 'package:store_app/data/session_exception.dart';
 import 'package:store_app/models/company.dart';
+import 'package:store_app/models/customer.dart';
 import 'package:store_app/models/filters.dart';
 import 'package:store_app/models/order.dart';
 import 'package:store_app/models/product.dart';
 import 'package:store_app/models/record_source.dart';
 
 import 'fakes/catalog_harness.dart';
+import 'fakes/fake_catalog_request_access.dart';
 import 'fakes/fake_company_access.dart';
 import 'fakes/fake_customer_access.dart';
 import 'fakes/fake_order_access.dart';
@@ -35,6 +39,7 @@ Future<CatalogGuestStore> _store({
   required FakeProductAccess products,
   required FakeCustomerAccess customers,
   required FakeOrderAccess orders,
+  CatalogRequestAccess? requests,
   CatalogCartCache? cart,
   String companyId = 'co1',
 }) async {
@@ -44,10 +49,35 @@ Future<CatalogGuestStore> _store({
     products: products,
     customers: customers,
     orders: orders,
+    requests: requests ?? FakeCatalogRequestAccess(),
     cart: cart,
   );
   await store.ready;
   return store;
+}
+
+Future<void> _flush() async {
+  for (var i = 0; i < 6; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+Future<DraftOrder> _approve(
+  CatalogGuestStore guest, {
+  required FakeCustomerAccess customers,
+  required FakeOrderAccess orders,
+  required FakeCatalogRequestAccess requests,
+}) async {
+  final business = AppStore(
+    customers: customers,
+    orderAccess: orders,
+    catalogRequests: requests,
+  );
+  addTearDown(business.dispose);
+  business.bindCompany('co1');
+  final order = await business.approveCatalogRequest(guest.pendingRequest!.id);
+  await _flush();
+  return order;
 }
 
 void main() {
@@ -114,18 +144,20 @@ void main() {
   );
 
   test(
-    'submit creates a catalog order, WhatsApp to the business, and keeps the cart',
+    'submit asks for approval and the business loads it as an order',
     () async {
       final companies = FakeCompanyAccess()..companies['co1'] = _company();
       final products = FakeProductAccess();
       await products.saveProduct('co1', testProduct());
       final customers = FakeCustomerAccess();
       final orders = FakeOrderAccess();
+      final requests = FakeCatalogRequestAccess();
       final store = await _store(
         companies: companies,
         products: products,
         customers: customers,
         orders: orders,
+        requests: requests,
       );
       addTearDown(store.dispose);
 
@@ -133,65 +165,96 @@ void main() {
       store.addToCart(product, product.variants.first, quantity: 2);
 
       await expectLater(
-        store.submit(name: 'J'),
+        store.submit(name: 'J', phone: '+54 9 11 5555-1234'),
         throwsA(isA<SessionException>()),
       );
+      await expectLater(
+        store.submit(name: 'Juan', phone: '123'),
+        throwsA(isA<SessionException>()),
+      );
+      expect(requests.requests['co1'], isNull);
 
-      final first = await store.submit(name: '  Juan Pérez  ');
+      final first = await store.submit(
+        name: '  Juan Pérez  ',
+        phone: '11 5555-1234',
+      );
       expect(store.cartCount, 2);
       expect(store.pendingCartLines, isEmpty);
-      expect(store.requestedCartLines.single.quantity, 2);
-      expect(store.openOrder?.orderId, first.order.id);
+      expect(store.awaitingCartLines.single.quantity, 2);
+      expect(store.requestedCartLines, isEmpty);
+      expect(store.openOrder, isNull);
+      expect(store.pendingRequest?.id, first.request.id);
       expect(first.updated, isFalse);
+      expect(first.request.isPending, isTrue);
+      expect(first.request.isAddition, isFalse);
       expect(first.order.isCatalog, isTrue);
       expect(first.order.ivaEnabled, isFalse);
       expect(first.order.customer.name, 'Juan Pérez');
       expect(first.order.customer.isCatalog, isTrue);
-      expect(first.order.customer.phone, isNull);
-      expect(first.order.orderNumber, startsWith('WEB-'));
+      expect(first.order.customer.phone, '+54 9 11 5555-1234');
+      expect(first.request.customerPhone, '+54 9 11 5555-1234');
+      expect(first.order.orderNumber, isEmpty);
       expect(first.missingPhone, isFalse);
       expect(first.whatsappUri, isNotNull);
       expect(first.whatsappUri!.path, contains('5491145550101'));
       expect(
-        OrderShare.catalogMessage(first.order),
+        OrderShare.catalogMessage(first.order, awaitingApproval: true),
         contains('Hola, soy Juan Pérez.'),
       );
       expect(
-        OrderShare.catalogMessage(first.order),
-        contains(first.order.orderNumber),
+        OrderShare.catalogMessage(first.order, awaitingApproval: true),
+        contains('Mi teléfono es +54 9 11 5555-1234.'),
       );
-      expect(OrderShare.catalogMessage(first.order), isNot(contains('Mónica')));
       expect(
-        customers.customers['co1']!.values.single.source,
-        RecordSource.catalog,
+        OrderShare.catalogMessage(first.order, awaitingApproval: true),
+        contains('Quiero este pedido:'),
       );
-      expect(orders.orders['co1']!.values.single.id, first.order.id);
+      expect(
+        OrderShare.catalogMessage(first.order, awaitingApproval: true),
+        contains('TST-0001-M-NEGRO - Remera test'),
+      );
+      expect(
+        OrderShare.catalogMessage(first.order, awaitingApproval: true),
+        isNot(contains('WEB-')),
+      );
+      expect(
+        OrderShare.catalogMessage(first.order, awaitingApproval: true),
+        isNot(contains('Mónica')),
+      );
+      expect(orders.orders['co1'], isNull);
+      expect(customers.customers['co1'], isNull);
 
-      final key = store.requestedCartLines.single.lineKey;
+      final key = store.awaitingCartLines.single.lineKey;
       store.setLineQty(key, 1);
       store.removeLine(key);
-      expect(store.requestedCartLines.single.quantity, 2);
+      expect(store.awaitingCartLines.single.quantity, 2);
       expect(store.pendingCartLines, isEmpty);
 
       store.addToCart(product, product.variants.first);
       expect(store.pendingCartLines.single.quantity, 1);
-      final second = await store.submit(name: 'Ana');
+      final second = await store.submit(name: 'Ana', phone: '11 4444-5678');
       expect(second.updated, isTrue);
-      expect(second.order.id, first.order.id);
-      expect(second.order.customer.name, 'Ana');
-      expect(orders.orders['co1']!.length, 1);
-      expect(orders.orders['co1']!.values.single.lines.single.quantity, 3);
-      expect(customers.customers['co1']!.length, 1);
+      expect(second.request.id, first.request.id);
+      expect(second.request.customerName, 'Ana');
+      expect(second.request.customerPhone, '+54 9 11 4444-5678');
+      expect(requests.requests['co1']!.length, 1);
+      expect(requests.requests['co1']!.values.single.lines.single.quantity, 3);
+      expect(orders.orders['co1'], isNull);
       expect(store.pendingCartLines, isEmpty);
-      expect(store.requestedCartLines.single.quantity, 3);
+      expect(store.awaitingCartLines.single.quantity, 3);
       expect(
-        OrderShare.catalogMessage(second.order, updated: true),
-        contains('Actualicé el pedido ${second.order.orderNumber}'),
+        OrderShare.catalogMessage(
+          second.order,
+          updated: true,
+          awaitingApproval: true,
+        ),
+        contains('Actualicé la solicitud:'),
       );
       expect(
         OrderShare.catalogMessage(
           second.order,
           updated: true,
+          awaitingApproval: true,
           addedLines: [
             OrderLine(
               product: product,
@@ -202,48 +265,216 @@ void main() {
         ),
         contains('1×'),
       );
+
+      final order = await _approve(
+        store,
+        customers: customers,
+        orders: orders,
+        requests: requests,
+      );
+      expect(order.orderNumber, startsWith('WEB-'));
+      expect(order.isCatalog, isTrue);
+      expect(order.ivaEnabled, isFalse);
+      expect(order.customer.name, 'Ana (Catalogo)');
+      expect(order.customer.isCatalog, isTrue);
+      expect(order.customer.phone, '+54 9 11 4444-5678');
+      expect(store.openOrder?.customerPhone, '+54 9 11 4444-5678');
+      expect(
+        customers.customers['co1']!.values.single.source,
+        RecordSource.catalog,
+      );
+      expect(orders.orders['co1']!.values.single.id, order.id);
+      expect(orders.orders['co1']!.values.single.lines.single.quantity, 3);
+      expect(store.openOrder?.orderId, order.id);
+      expect(store.requestedCartLines.single.quantity, 3);
+      expect(store.awaitingCartLines, isEmpty);
+      expect(store.pendingRequest, isNull);
+
+      final reloaded = AppStore(
+        customers: customers,
+        orderAccess: orders,
+        catalogRequests: requests,
+      );
+      addTearDown(reloaded.dispose);
+      reloaded.bindCompany('co1');
+      await _flush();
+      expect(reloaded.pendingCatalogRequests, isEmpty);
+      expect(reloaded.catalogRequests.single.isApproved, isTrue);
     },
   );
 
-  test('a later submit updates the same open order on this device', () async {
+  test('a later submit waits for approval before updating the order', () async {
     final companies = FakeCompanyAccess()..companies['co1'] = _company();
     final products = FakeProductAccess();
     await products.saveProduct('co1', testProduct());
     final customers = FakeCustomerAccess();
     final orders = FakeOrderAccess();
+    final requests = FakeCatalogRequestAccess();
     final cart = MemoryCatalogCartCache();
     final firstStore = await _store(
       companies: companies,
       products: products,
       customers: customers,
       orders: orders,
+      requests: requests,
       cart: cart,
     );
     addTearDown(firstStore.dispose);
     final product = firstStore.visibleProducts.single;
     firstStore.addToCart(product, product.variants.first);
-    final first = await firstStore.submit(name: 'Juan');
+    await firstStore.submit(name: 'Juan', phone: '+54 9 11 5555-1234');
+    final created = await _approve(
+      firstStore,
+      customers: customers,
+      orders: orders,
+      requests: requests,
+    );
 
     final secondStore = await _store(
       companies: companies,
       products: products,
       customers: customers,
       orders: orders,
+      requests: requests,
       cart: cart,
     );
     addTearDown(secondStore.dispose);
-    expect(secondStore.openOrder?.orderNumber, first.order.orderNumber);
+    expect(secondStore.openOrder?.orderNumber, created.orderNumber);
+    expect(secondStore.openOrder?.customerPhone, '+54 9 11 5555-1234');
     expect(secondStore.cartCount, 1);
     expect(secondStore.pendingCartLines, isEmpty);
     secondStore.addToCart(
       secondStore.visibleProducts.single,
       secondStore.visibleProducts.single.variants.first,
     );
-    final second = await secondStore.submit(name: 'Juan');
+    final second = await secondStore.submit(
+      name: 'Juan',
+      phone: '+54 9 11 5555-1234',
+    );
     expect(second.updated, isTrue);
-    expect(second.order.id, first.order.id);
+    expect(second.request.isAddition, isTrue);
+    expect(second.request.targetOrderId, created.id);
     expect(orders.orders['co1']!.length, 1);
+    expect(orders.orders['co1']!.values.single.lines.single.quantity, 1);
+    await _approve(
+      secondStore,
+      customers: customers,
+      orders: orders,
+      requests: requests,
+    );
     expect(orders.orders['co1']!.values.single.lines.single.quantity, 2);
+    expect(
+      orders.orders['co1']!.values.single.customer.name,
+      'Juan (Catalogo)',
+    );
+  });
+
+  test('same catalog name and phone stay one customer', () async {
+    final companies = FakeCompanyAccess()..companies['co1'] = _company();
+    final products = FakeProductAccess();
+    await products.saveProduct('co1', testProduct());
+    final customers = FakeCustomerAccess();
+    final orders = FakeOrderAccess();
+    final requests = FakeCatalogRequestAccess();
+    final stamp = DateTime.utc(2026, 9, 11);
+    await customers.saveCustomer(
+      'co1',
+      Customer(
+        id: 'c-staff',
+        name: 'Raul',
+        phone: '11 5555-1234',
+        createdAt: stamp,
+        updatedAt: stamp,
+      ),
+    );
+    final business = AppStore(
+      products: products,
+      customers: customers,
+      orderAccess: orders,
+      catalogRequests: requests,
+    );
+    addTearDown(business.dispose);
+    business.bindCompany('co1');
+    await _flush();
+
+    final firstGuest = await _store(
+      companies: companies,
+      products: products,
+      customers: customers,
+      orders: orders,
+      requests: requests,
+    );
+    addTearDown(firstGuest.dispose);
+    final product = firstGuest.visibleProducts.single;
+    firstGuest.addToCart(product, product.variants.first);
+    await firstGuest.submit(name: 'raul', phone: '+54 9 11 5555-1234');
+    final first = await business.approveCatalogRequest(
+      firstGuest.pendingRequest!.id,
+    );
+    expect(first.customer.id, 'c-staff');
+    expect(first.customer.name, 'Raul (Catalogo)');
+    expect(customers.customers['co1']!.length, 1);
+
+    final whileOpen = await _store(
+      companies: companies,
+      products: products,
+      customers: customers,
+      orders: orders,
+      requests: requests,
+    );
+    addTearDown(whileOpen.dispose);
+    whileOpen.addToCart(product, product.variants.first, quantity: 2);
+    await whileOpen.submit(name: 'Raul', phone: '11 5555-1234');
+    final merged = await business.approveCatalogRequest(
+      whileOpen.pendingRequest!.id,
+    );
+    expect(merged.id, first.id);
+    expect(merged.customer.id, 'c-staff');
+    expect(merged.lines.single.quantity, 3);
+    expect(customers.customers['co1']!.length, 1);
+
+    expect(business.closeOrder(first.id), isTrue);
+
+    final secondGuest = await _store(
+      companies: companies,
+      products: products,
+      customers: customers,
+      orders: orders,
+      requests: requests,
+    );
+    addTearDown(secondGuest.dispose);
+    secondGuest.addToCart(
+      secondGuest.visibleProducts.single,
+      secondGuest.visibleProducts.single.variants.first,
+    );
+    await secondGuest.submit(name: 'Raul (Catalogo)', phone: '1155551234');
+    final second = await business.approveCatalogRequest(
+      secondGuest.pendingRequest!.id,
+    );
+    expect(second.id, isNot(first.id));
+    expect(second.customer.id, 'c-staff');
+    expect(second.customer.name, 'Raul (Catalogo)');
+    expect(customers.customers['co1']!.length, 1);
+
+    final otherPhone = await _store(
+      companies: companies,
+      products: products,
+      customers: customers,
+      orders: orders,
+      requests: requests,
+    );
+    addTearDown(otherPhone.dispose);
+    otherPhone.addToCart(
+      otherPhone.visibleProducts.single,
+      otherPhone.visibleProducts.single.variants.first,
+    );
+    await otherPhone.submit(name: 'Raul', phone: '11 4444-5678');
+    final third = await business.approveCatalogRequest(
+      otherPhone.pendingRequest!.id,
+    );
+    expect(third.customer.id, isNot('c-staff'));
+    expect(third.customer.name, 'Raul (Catalogo)');
+    expect(customers.customers['co1']!.length, 2);
   });
 
   test('closing the order from the business clears the client cart', () async {
@@ -252,22 +483,31 @@ void main() {
     await products.saveProduct('co1', testProduct());
     final customers = FakeCustomerAccess();
     final orders = FakeOrderAccess();
+    final requests = FakeCatalogRequestAccess();
     final store = await _store(
       companies: companies,
       products: products,
       customers: customers,
       orders: orders,
+      requests: requests,
     );
     addTearDown(store.dispose);
     final product = store.visibleProducts.single;
     store.addToCart(product, product.variants.first);
-    final first = await store.submit(name: 'Juan');
+    await store.submit(name: 'Juan', phone: '+54 9 11 5555-1234');
+    await _approve(
+      store,
+      customers: customers,
+      orders: orders,
+      requests: requests,
+    );
     store.addToCart(product, product.variants.first);
     expect(store.pendingCartLines, isNotEmpty);
 
-    orders.orders['co1']![first.order.id]!.status = OrderStatus.cerrado;
-    orders.orders['co1']![first.order.id]!.closedAt = DateTime.utc(2026, 9, 26);
-    orders.emitOrder('co1', first.order.id);
+    final orderId = store.openOrder!.orderId;
+    orders.orders['co1']![orderId]!.status = OrderStatus.cerrado;
+    orders.orders['co1']![orderId]!.closedAt = DateTime.utc(2026, 9, 26);
+    orders.emitOrder('co1', orderId);
     await Future<void>.delayed(Duration.zero);
 
     expect(store.openOrder, isNull);
@@ -285,26 +525,31 @@ void main() {
       await products.saveProduct('co1', testProduct());
       final customers = FakeCustomerAccess();
       final orders = FakeOrderAccess();
+      final requests = FakeCatalogRequestAccess();
       final store = await _store(
         companies: companies,
         products: products,
         customers: customers,
         orders: orders,
+        requests: requests,
       );
       addTearDown(store.dispose);
       final product = store.visibleProducts.single;
       store.addToCart(product, product.variants.first);
-      final first = await store.submit(name: 'Juan');
-      store.addToCart(product, product.variants.first);
-      orders.orders['co1']![first.order.id]!.status = OrderStatus.cerrado;
-      orders.orders['co1']![first.order.id]!.closedAt = DateTime.utc(
-        2026,
-        9,
-        26,
+      await store.submit(name: 'Juan', phone: '+54 9 11 5555-1234');
+      await _approve(
+        store,
+        customers: customers,
+        orders: orders,
+        requests: requests,
       );
+      store.addToCart(product, product.variants.first);
+      final orderId = store.openOrder!.orderId;
+      orders.orders['co1']![orderId]!.status = OrderStatus.cerrado;
+      orders.orders['co1']![orderId]!.closedAt = DateTime.utc(2026, 9, 26);
 
       await expectLater(
-        store.submit(name: 'Juan'),
+        store.submit(name: 'Juan', phone: '+54 9 11 5555-1234'),
         throwsA(
           isA<SessionException>().having(
             (error) => error.message,
@@ -329,50 +574,112 @@ void main() {
     );
     final customers = FakeCustomerAccess();
     final orders = FakeOrderAccess();
+    final requests = FakeCatalogRequestAccess();
     final store = await _store(
       companies: companies,
       products: products,
       customers: customers,
       orders: orders,
+      requests: requests,
     );
     addTearDown(store.dispose);
     final shirt = store.productById('p-test')!;
     final jean = store.productById('p-jean')!;
     store.addToCart(shirt, shirt.variants.first);
     store.addToCart(jean, jean.variants.first);
-    final first = await store.submit(name: 'Juan');
+    await store.submit(name: 'Juan', phone: '+54 9 11 5555-1234');
+    final created = await _approve(
+      store,
+      customers: customers,
+      orders: orders,
+      requests: requests,
+    );
     expect(store.requestedCartLines, hasLength(2));
 
-    final remote = orders.orders['co1']![first.order.id]!;
+    final remote = orders.orders['co1']![created.id]!;
     remote.lines.removeWhere((line) => line.product.id == 'p-jean');
-    orders.emitOrder('co1', first.order.id);
+    orders.emitOrder('co1', created.id);
     await Future<void>.delayed(Duration.zero);
 
     expect(store.requestedCartLines, hasLength(1));
     expect(store.requestedCartLines.single.product.id, 'p-test');
-    expect(store.openOrder?.orderId, first.order.id);
+    expect(store.openOrder?.orderId, created.id);
   });
 
-  test('submit without a company phone still saves the order', () async {
+  test('submit without a company phone still saves the request', () async {
     final companies = FakeCompanyAccess()
       ..companies['co1'] = _company(phone: null);
     final products = FakeProductAccess();
     await products.saveProduct('co1', testProduct());
     final customers = FakeCustomerAccess();
     final orders = FakeOrderAccess();
+    final requests = FakeCatalogRequestAccess();
     final store = await _store(
       companies: companies,
       products: products,
       customers: customers,
       orders: orders,
+      requests: requests,
     );
     addTearDown(store.dispose);
     final product = store.visibleProducts.single;
     store.addToCart(product, product.variants.first);
-    final result = await store.submit(name: 'Luis');
+    final result = await store.submit(
+      name: 'Luis',
+      phone: '+54 9 11 5555-1234',
+    );
     expect(result.missingPhone, isTrue);
     expect(result.whatsappUri, isNull);
-    expect(orders.orders['co1'], isNotEmpty);
+    expect(requests.requests['co1'], isNotEmpty);
+    expect(orders.orders['co1'], isNull);
+  });
+
+  test('rejecting the request returns the garments to the cart', () async {
+    final companies = FakeCompanyAccess()..companies['co1'] = _company();
+    final products = FakeProductAccess();
+    await products.saveProduct('co1', testProduct());
+    final customers = FakeCustomerAccess();
+    final orders = FakeOrderAccess();
+    final requests = FakeCatalogRequestAccess();
+    final store = await _store(
+      companies: companies,
+      products: products,
+      customers: customers,
+      orders: orders,
+      requests: requests,
+    );
+    addTearDown(store.dispose);
+    final product = store.visibleProducts.single;
+    store.addToCart(product, product.variants.first, quantity: 2);
+    await store.submit(name: 'Juan', phone: '+54 9 11 5555-1234');
+    expect(store.awaitingCartLines.single.quantity, 2);
+
+    final business = AppStore(
+      customers: customers,
+      orderAccess: orders,
+      catalogRequests: requests,
+    );
+    addTearDown(business.dispose);
+    business.bindCompany('co1');
+    await business.rejectCatalogRequest(store.pendingRequest!.id);
+    await _flush();
+
+    expect(store.pendingRequest, isNull);
+    expect(store.awaitingCartLines, isEmpty);
+    expect(store.pendingCartLines.single.quantity, 2);
+    expect(orders.orders['co1'], isNull);
+    expect(requests.requests['co1']!.values.single.isRejected, isTrue);
+
+    final reloaded = AppStore(
+      customers: customers,
+      orderAccess: orders,
+      catalogRequests: requests,
+    );
+    addTearDown(reloaded.dispose);
+    reloaded.bindCompany('co1');
+    await _flush();
+    expect(reloaded.pendingCatalogRequests, isEmpty);
+    expect(reloaded.catalogRequests.single.isRejected, isTrue);
   });
 
   test(
@@ -389,6 +696,7 @@ void main() {
         products: products,
         customers: FakeCustomerAccess(),
         orders: FakeOrderAccess(),
+        requests: FakeCatalogRequestAccess(),
         local: cache,
         loadTimeout: const Duration(milliseconds: 50),
       );
@@ -409,6 +717,7 @@ void main() {
       products: products,
       customers: FakeCustomerAccess(),
       orders: FakeOrderAccess(),
+      requests: FakeCatalogRequestAccess(),
       loadTimeout: const Duration(milliseconds: 20),
     );
     addTearDown(() {
@@ -429,6 +738,7 @@ void main() {
       products: products,
       customers: FakeCustomerAccess(),
       orders: FakeOrderAccess(),
+      requests: FakeCatalogRequestAccess(),
       loadTimeout: const Duration(milliseconds: 50),
     );
     addTearDown(store.dispose);
@@ -465,6 +775,7 @@ void main() {
         products: products,
         customers: FakeCustomerAccess(),
         orders: FakeOrderAccess(),
+        requests: FakeCatalogRequestAccess(),
       );
       addTearDown(store.dispose);
 
@@ -511,6 +822,7 @@ void main() {
       products: products,
       customers: FakeCustomerAccess(),
       orders: FakeOrderAccess(),
+      requests: FakeCatalogRequestAccess(),
     );
     addTearDown(store.dispose);
 
@@ -578,6 +890,7 @@ void main() {
         products: products,
         customers: FakeCustomerAccess(),
         orders: FakeOrderAccess(),
+        requests: FakeCatalogRequestAccess(),
       );
       addTearDown(store.dispose);
 
@@ -614,11 +927,47 @@ void main() {
       products: products,
       customers: FakeCustomerAccess(),
       orders: FakeOrderAccess(),
+      requests: FakeCatalogRequestAccess(),
     );
     addTearDown(store.dispose);
 
     expect(store.visibleAudiences, [ApparelAudience.mujer]);
     expect(store.showAudienceFilter, isFalse);
+  });
+
+  test('guest catalog lists garments by update date', () async {
+    final companies = FakeCompanyAccess()..companies['co1'] = _company();
+    final products = FakeProductAccess();
+    await products.saveProduct(
+      'co1',
+      testProduct(
+        id: 'p-old',
+        name: 'Remera vieja',
+        sku: 'OLD-0001',
+        createdAt: DateTime.utc(2026, 8, 1),
+        updatedAt: DateTime.utc(2026, 8, 2),
+      ),
+    );
+    await products.saveProduct(
+      'co1',
+      testProduct(
+        id: 'p-new',
+        name: 'Remera nueva',
+        sku: 'NEW-0001',
+        createdAt: DateTime.utc(2026, 1, 1),
+        updatedAt: DateTime.utc(2026, 9, 1),
+      ),
+    );
+    final store = await _store(
+      companies: companies,
+      products: products,
+      customers: FakeCustomerAccess(),
+      orders: FakeOrderAccess(),
+      requests: FakeCatalogRequestAccess(),
+    );
+    addTearDown(store.dispose);
+
+    expect(store.visibleProducts.map((p) => p.id), ['p-new', 'p-old']);
   });
 
   test('guest catalog hides out of stock until name or code search', () async {
@@ -644,6 +993,7 @@ void main() {
       products: products,
       customers: FakeCustomerAccess(),
       orders: FakeOrderAccess(),
+      requests: FakeCatalogRequestAccess(),
     );
     addTearDown(store.dispose);
 
@@ -653,6 +1003,9 @@ void main() {
     expect(store.visibleProducts.map((p) => p.id), ['p-in', 'p-out']);
 
     store.setSearch('out-0001');
+    expect(store.visibleProducts.map((p) => p.id), ['p-out']);
+
+    store.setSearch('out-0001-m-negro');
     expect(store.visibleProducts.map((p) => p.id), ['p-out']);
 
     store.setSearch('urban');

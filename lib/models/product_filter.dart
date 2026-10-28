@@ -93,7 +93,7 @@ bool productMatchesText(Product product, String query) {
   final hay =
       '${product.name} ${product.sku} ${product.brand} ${product.audienceLabel}'
           .toLowerCase();
-  return hay.contains(q);
+  return hay.contains(q) || product.matchesCodeQuery(q);
 }
 
 bool productMatchesSize(Product product, String query) {
@@ -124,8 +124,13 @@ Set<String> sizeFocus({
 bool productMatchesNameOrCode(Product product, String query) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return false;
-  return product.name.toLowerCase().contains(q) ||
-      product.sku.toLowerCase().contains(q);
+  return product.name.toLowerCase().contains(q) || product.matchesCodeQuery(q);
+}
+
+int compareProductsByUpdate(Product a, Product b) {
+  final byUpdate = b.updatedAt.compareTo(a.updatedAt);
+  if (byUpdate != 0) return byUpdate;
+  return b.id.compareTo(a.id);
 }
 
 List<Product> withOutOfStockLast(

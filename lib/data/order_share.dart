@@ -41,6 +41,12 @@ class OrderShare {
     return '$sku - ${line.product.name}';
   }
 
+  static String _catalogItemName(OrderLine line) {
+    final sku = line.variantSku.trim();
+    if (sku.isEmpty) return line.product.name;
+    return '$sku - ${line.product.name}';
+  }
+
   static Uri? whatsappUri(DraftOrder order, {bool? includeProductCode}) {
     if (order.lines.isEmpty) return null;
     final digits = order.customer.whatsappDigits;
@@ -63,20 +69,32 @@ class OrderShare {
   static String catalogMessage(
     DraftOrder order, {
     bool updated = false,
+    bool awaitingApproval = false,
     List<OrderLine>? addedLines,
   }) {
-    final headline = updated
-        ? 'Actualicé el pedido ${order.orderNumber}:'
-        : 'Quiero este pedido ${order.orderNumber}:';
+    final number = order.orderNumber.trim();
+    final headline = awaitingApproval
+        ? (updated
+              ? (number.isEmpty
+                    ? 'Actualicé la solicitud:'
+                    : 'Quiero agregar al pedido $number:')
+              : 'Quiero este pedido:')
+        : (updated
+              ? 'Actualicé el pedido $number:'
+              : 'Quiero este pedido $number:');
     final lines = OrderLine.sorted(addedLines ?? order.lines);
     final total = lines.fold<double>(0, (sum, line) => sum + line.lineTotal);
-    final buffer = StringBuffer()
-      ..writeln('Hola, soy ${order.customer.name}.')
+    final phone = order.customer.phone?.trim() ?? '';
+    final buffer = StringBuffer()..writeln('Hola, soy ${order.customer.name}.');
+    if (phone.isNotEmpty) {
+      buffer.writeln('Mi teléfono es $phone.');
+    }
+    buffer
       ..writeln(headline)
       ..writeln();
     for (final line in lines) {
       buffer.writeln(
-        '• ${line.quantity}× ${line.product.name} '
+        '• ${line.quantity}× ${_catalogItemName(line)} '
         '(${line.variant.size} · ${line.variant.color}) — '
         '${MoneyFormat.detailed(line.lineTotal)}',
       );
@@ -91,6 +109,7 @@ class OrderShare {
     DraftOrder order,
     String? phone, {
     bool updated = false,
+    bool awaitingApproval = false,
     List<OrderLine>? addedLines,
   }) {
     final lines = addedLines ?? order.lines;
@@ -98,7 +117,12 @@ class OrderShare {
     final digits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
     if (digits.isEmpty) return null;
     final text = Uri.encodeComponent(
-      catalogMessage(order, updated: updated, addedLines: addedLines),
+      catalogMessage(
+        order,
+        updated: updated,
+        addedLines: addedLines,
+        awaitingApproval: awaitingApproval,
+      ),
     );
     return Uri.parse('https://wa.me/$digits?text=$text');
   }

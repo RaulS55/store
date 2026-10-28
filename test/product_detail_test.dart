@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:store_app/data/app_store.dart';
 import 'package:store_app/features/product/product_detail_page.dart';
+import 'package:store_app/features/product/product_holders.dart';
+import 'package:store_app/models/order.dart';
 import 'package:store_app/models/product.dart';
 import 'package:store_app/routing/app_router.dart';
 import 'package:store_app/widgets/product_image.dart';
@@ -111,7 +113,10 @@ void main() {
     await tester.pump();
     expect(find.text('Rosa'), findsOneWidget);
     expect(find.text('3 u.'), findsOneWidget);
-    expect(find.descendant(of: pink, matching: find.text('3u')), findsOneWidget);
+    expect(
+      find.descendant(of: pink, matching: find.text('3u')),
+      findsOneWidget,
+    );
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('variant-size-Negro-M')),
@@ -412,5 +417,128 @@ void main() {
     expect(router.state.uri.path, '/pedido');
     expect(find.text('Pedidos'), findsWidgets);
     expect(find.text('Detalle de producto'), findsNothing);
+  });
+
+  testWidgets('holders sheet lists who took each color and size', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(
+      testProduct().copyWith(
+        variants: const [
+          ProductVariant(
+            size: 'M',
+            color: 'Negro',
+            colorHex: '#1E1E1E',
+            stock: 6,
+          ),
+          ProductVariant(
+            size: 'L',
+            color: 'Rosa',
+            colorHex: '#E091A8',
+            stock: 4,
+          ),
+        ],
+        equivalentSizes: const {'M': '38', 'L': '42'},
+      ),
+    );
+    final product = store.productById('p-test')!;
+    final monica = await seedTestCustomer(store);
+    final ana = await seedTestCustomer(
+      store,
+      customer: testCustomer(id: 'c-ana', name: 'Ana López'),
+    );
+    final closed = store.createOrder(monica);
+    expect(
+      store.addToOrder(
+        product,
+        product.variants.firstWhere((variant) => variant.color == 'Negro'),
+        orderId: closed.id,
+      ),
+      isTrue,
+    );
+    expect(store.closeOrder(closed.id), isTrue);
+    final open = store.createOrder(ana);
+    expect(
+      store.addToOrder(
+        product,
+        product.variants.firstWhere((variant) => variant.color == 'Rosa'),
+        quantity: 2,
+        orderId: open.id,
+      ),
+      isTrue,
+    );
+
+    await tester.pumpWidget(_app(store));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('product-holders')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('product-holders-sheet')), findsOneWidget);
+    expect(find.text('2 clientes · 3 prendas'), findsOneWidget);
+    expect(find.text('Mónica Fernández'), findsOneWidget);
+    expect(find.textContaining('Negro · Talle M (38) · 1 u.'), findsOneWidget);
+    expect(find.textContaining('Cerrado'), findsOneWidget);
+    expect(find.text('Ana López'), findsOneWidget);
+    expect(find.textContaining('Rosa · Talle L (42) · 2 u.'), findsOneWidget);
+    expect(find.textContaining('Activo'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Mónica Fernández')).dy,
+      lessThan(tester.getTopLeft(find.text('Ana López')).dy),
+    );
+  });
+
+  testWidgets('holders sheet explains when nobody took the garment', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct());
+
+    await tester.pumpWidget(_app(store));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('product-holders')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Todavía ningún cliente se llevó esta prenda.'),
+      findsOneWidget,
+    );
+  });
+
+  test('holders merge the same color and size inside one order', () {
+    final product = testProduct();
+    final customer = testCustomer();
+    final stamp = DateTime.utc(2026, 9, 11);
+    final order = DraftOrder(
+      id: 'o-1',
+      orderNumber: 'PED-1',
+      customer: customer,
+      createdAt: stamp,
+      updatedAt: stamp,
+      lines: [
+        OrderLine(
+          product: product,
+          variant: product.variants.first,
+          quantity: 1,
+        ),
+        OrderLine(
+          product: product,
+          variant: product.variants.first,
+          quantity: 2,
+        ),
+      ],
+    );
+
+    final holders = holdersForProduct(product.id, [order]);
+
+    expect(holders, hasLength(1));
+    expect(holders.single.quantity, 3);
+    expect(holders.single.variant.color, 'Negro');
   });
 }

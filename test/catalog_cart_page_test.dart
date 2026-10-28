@@ -8,6 +8,7 @@ import 'package:store_app/models/company.dart';
 import 'package:store_app/widgets/qty_stepper.dart';
 
 import 'fakes/catalog_harness.dart';
+import 'fakes/fake_catalog_request_access.dart';
 import 'fakes/fake_company_access.dart';
 import 'fakes/fake_customer_access.dart';
 import 'fakes/fake_order_access.dart';
@@ -20,7 +21,7 @@ FilledButton _sendButton(WidgetTester tester) {
 }
 
 void main() {
-  testWidgets('whatsapp send stays off until the client types a name', (
+  testWidgets('whatsapp send stays off until name and phone are valid', (
     tester,
   ) async {
     final companies = FakeCompanyAccess()
@@ -33,11 +34,13 @@ void main() {
       );
     final products = FakeProductAccess();
     await products.saveProduct('co1', testProduct());
+    final requests = FakeCatalogRequestAccess();
     final bindings = CatalogBindings(
       companies: companies,
       products: products,
       customers: FakeCustomerAccess(),
       orders: FakeOrderAccess(),
+      requests: requests,
     );
     addTearDown(bindings.dispose);
 
@@ -82,8 +85,53 @@ void main() {
       'Juan',
     );
     await tester.pump();
+    expect(_sendButton(tester).onPressed, isNull);
+
+    expect(find.text('+54'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('catalog-client-phone')))
+          .controller!
+          .text,
+      isEmpty,
+    );
+    expect(find.textContaining('Ej.: 11 5555-1234'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('catalog-client-phone')),
+      '123',
+    );
+    await tester.pump();
+    expect(_sendButton(tester).onPressed, isNull);
+    expect(find.textContaining('número de Argentina'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('catalog-client-phone')),
+      '11 5555-1234',
+    );
+    await tester.pump();
     expect(_sendButton(tester).onPressed, isNotNull);
     expect(find.text('Realizar pedido'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('catalog-send')));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('el vendedor va a recibir una notificación'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('WhatsApp'), findsOneWidget);
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(requests.requests['co1'], isNull);
+
+    await tester.tap(find.byKey(const ValueKey('catalog-send')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirmar'));
+    await tester.pumpAndSettle();
+    final saved = requests.requests['co1']!.values.single;
+    expect(saved.customerName, 'Juan');
+    expect(saved.customerPhone, '+54 9 11 5555-1234');
   });
 
   testWidgets('an open catalog order shows its id and the update action', (
@@ -104,6 +152,7 @@ void main() {
       products: products,
       customers: FakeCustomerAccess(),
       orders: FakeOrderAccess(),
+      requests: FakeCatalogRequestAccess(),
     );
     addTearDown(bindings.dispose);
 
@@ -111,7 +160,7 @@ void main() {
     await store.ready;
     final product = store.visibleProducts.single;
     store.addToCart(product, product.variants.first);
-    final submitted = await store.submit(name: 'Juan');
+    await store.submit(name: 'Juan', phone: '+54 9 11 5555-1234');
 
     final router = GoRouter(
       initialLocation: '/catalogo/co1/pedido',
@@ -135,14 +184,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('catalog-open-order')), findsOneWidget);
-    expect(find.textContaining(submitted.order.orderNumber), findsOneWidget);
-    expect(find.text('Actualizar pedido'), findsOneWidget);
-    expect(find.text('Ya solicitado'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('catalog-requested-separator')),
+      find.byKey(const ValueKey('catalog-awaiting-approval')),
       findsOneWidget,
     );
+    expect(find.text('Esperando aprobación'), findsOneWidget);
+    expect(find.text('Ya solicitado'), findsNothing);
+    expect(find.text('Actualizar solicitud'), findsOneWidget);
+    expect(find.text('Actualizar pedido'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('catalog-awaiting-separator')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('catalog-open-order')), findsNothing);
     expect(find.byType(QtyStepper), findsNothing);
     expect(find.byIcon(Icons.delete_outline), findsNothing);
     expect(_sendButton(tester).onPressed, isNull);
@@ -169,6 +223,7 @@ void main() {
       products: products,
       customers: FakeCustomerAccess(),
       orders: FakeOrderAccess(),
+      requests: FakeCatalogRequestAccess(),
     );
     addTearDown(bindings.dispose);
 
@@ -176,7 +231,7 @@ void main() {
     await store.ready;
     final product = store.visibleProducts.single;
     store.addToCart(product, product.variants.first);
-    await store.submit(name: 'Juan');
+    await store.submit(name: 'Juan', phone: '+54 9 11 5555-1234');
     store.addToCart(product, product.variants.first);
 
     final router = GoRouter(
@@ -201,10 +256,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Ya solicitado'), findsOneWidget);
+    expect(find.text('Esperando aprobación'), findsOneWidget);
     expect(find.byType(QtyStepper), findsOneWidget);
     expect(_sendButton(tester).onPressed, isNotNull);
-    expect(find.text('Actualizar pedido'), findsOneWidget);
+    expect(find.text('Actualizar solicitud'), findsOneWidget);
     expect(find.text('Nuevo'), findsOneWidget);
     expect(find.text('Total del pedido'), findsOneWidget);
     expect(

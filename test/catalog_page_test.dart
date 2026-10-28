@@ -9,6 +9,7 @@ import 'package:store_app/models/company.dart';
 import 'package:store_app/models/product.dart';
 
 import 'fakes/catalog_harness.dart';
+import 'fakes/fake_catalog_request_access.dart';
 import 'fakes/fake_company_access.dart';
 import 'fakes/fake_customer_access.dart';
 import 'fakes/fake_order_access.dart';
@@ -53,6 +54,7 @@ Future<CatalogBindings> _bindings() async {
     products: products,
     customers: FakeCustomerAccess(),
     orders: FakeOrderAccess(),
+    requests: FakeCatalogRequestAccess(),
   );
   await bindings.storeFor('co1').ready;
   return bindings;
@@ -133,40 +135,42 @@ void main() {
     expect(find.widgetWithText(FilterChip, 'Bebé'), findsNothing);
   });
 
-  testWidgets('client catalog hides audience filter when only one public exists', (
-    tester,
-  ) async {
-    _setPhoneView(tester);
-    final companies = FakeCompanyAccess()
-      ..companies['co1'] = Company(
-        id: 'co1',
-        name: 'Moda Stock',
-        ownerId: 'u1',
-        createdAt: DateTime.utc(2026, 9, 11),
+  testWidgets(
+    'client catalog hides audience filter when only one public exists',
+    (tester) async {
+      _setPhoneView(tester);
+      final companies = FakeCompanyAccess()
+        ..companies['co1'] = Company(
+          id: 'co1',
+          name: 'Moda Stock',
+          ownerId: 'u1',
+          createdAt: DateTime.utc(2026, 9, 11),
+        );
+      final products = FakeProductAccess();
+      await products.saveProduct(
+        'co1',
+        testProduct(audience: ApparelAudience.mujer),
       );
-    final products = FakeProductAccess();
-    await products.saveProduct(
-      'co1',
-      testProduct(audience: ApparelAudience.mujer),
-    );
-    final bindings = CatalogBindings(
-      companies: companies,
-      products: products,
-      customers: FakeCustomerAccess(),
-      orders: FakeOrderAccess(),
-    );
-    addTearDown(bindings.dispose);
-    await bindings.storeFor('co1').ready;
-    await tester.pumpWidget(_app(bindings));
-    await tester.pumpAndSettle();
+      final bindings = CatalogBindings(
+        companies: companies,
+        products: products,
+        customers: FakeCustomerAccess(),
+        orders: FakeOrderAccess(),
+        requests: FakeCatalogRequestAccess(),
+      );
+      addTearDown(bindings.dispose);
+      await bindings.storeFor('co1').ready;
+      await tester.pumpWidget(_app(bindings));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('audience-chip-all')), findsNothing);
-    expect(find.byKey(const ValueKey('audience-chip-mujer')), findsNothing);
+      expect(find.byKey(const ValueKey('audience-chip-all')), findsNothing);
+      expect(find.byKey(const ValueKey('audience-chip-mujer')), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('catalog-filters')));
-    await tester.pumpAndSettle();
-    expect(find.text('Público'), findsNothing);
-  });
+      await tester.tap(find.byKey(const ValueKey('catalog-filters')));
+      await tester.pumpAndSettle();
+      expect(find.text('Público'), findsNothing);
+    },
+  );
 
   testWidgets('client catalog shows the business logo and contact links', (
     tester,
@@ -180,15 +184,16 @@ void main() {
         createdAt: DateTime.utc(2026, 9, 11),
         phone: '+54 9 11 5555-0000',
         logoUrl: 'https://example.com/logo.jpg',
-        instagram: '@casanorte',
-        tiktok: 'https://www.tiktok.com/@casanorte',
-        facebook: 'casanorte',
+        instagram: const ['@casanorte', '@mayorista'],
+        tiktok: const ['https://www.tiktok.com/@casanorte'],
+        facebook: const ['casanorte'],
       );
     final bindings = CatalogBindings(
       companies: companies,
       products: FakeProductAccess(),
       customers: FakeCustomerAccess(),
       orders: FakeOrderAccess(),
+      requests: FakeCatalogRequestAccess(),
     );
     addTearDown(bindings.dispose);
     await bindings.storeFor('co1').ready;
@@ -200,12 +205,19 @@ void main() {
     expect(find.byKey(const ValueKey('catalog-contacts')), findsOneWidget);
     expect(find.byKey(const ValueKey('catalog-whatsapp')), findsOneWidget);
     expect(find.byIcon(FontAwesomeIcons.whatsapp.data), findsOneWidget);
-    expect(find.byIcon(FontAwesomeIcons.instagram.data), findsOneWidget);
+    expect(find.byIcon(FontAwesomeIcons.instagram.data), findsNWidgets(2));
     expect(find.byIcon(FontAwesomeIcons.tiktok.data), findsOneWidget);
     expect(find.byIcon(FontAwesomeIcons.facebook.data), findsOneWidget);
-    expect(find.text('Instagram · @casanorte'), findsOneWidget);
-    expect(find.text('TikTok'), findsOneWidget);
-    expect(find.text('Facebook · @casanorte'), findsOneWidget);
-    expect(find.text('Contacto'), findsOneWidget);
+    expect(find.text('WhatsApp'), findsNothing);
+    expect(find.text('Contacto'), findsNothing);
+    expect(find.text('Instagram · @casanorte'), findsNothing);
+    expect(find.text('Instagram · @mayorista'), findsNothing);
+    expect(find.text('TikTok · @casanorte'), findsNothing);
+    expect(find.text('Facebook · @casanorte'), findsNothing);
+    expect(find.byTooltip('WhatsApp'), findsOneWidget);
+    expect(find.byTooltip('Instagram · @casanorte'), findsOneWidget);
+    expect(find.byTooltip('Instagram · @mayorista'), findsOneWidget);
+    expect(find.byTooltip('TikTok · @casanorte'), findsOneWidget);
+    expect(find.byTooltip('Facebook · @casanorte'), findsOneWidget);
   });
 }

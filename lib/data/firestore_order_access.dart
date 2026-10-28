@@ -67,6 +67,17 @@ class FirestoreOrderAccess implements IncrementalOrderAccess {
   }
 
   @override
+  Future<DraftOrder?> readOrder(String companyId, String orderId) async {
+    final snap = await _orders(companyId).doc(orderId).get();
+    if (!snap.exists) return null;
+    final data = snap.data();
+    if (data == null) return null;
+    final order = DraftOrder.fromMap(snap.id, data);
+    if (order.isDeleted) return null;
+    return order;
+  }
+
+  @override
   Future<void> saveOrder(String companyId, DraftOrder order) {
     return _orders(companyId).doc(order.id).set(order.toMap());
   }

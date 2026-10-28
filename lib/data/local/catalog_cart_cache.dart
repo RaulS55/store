@@ -9,6 +9,7 @@ class CatalogCartLine {
     required this.color,
     required this.quantity,
     this.requested = false,
+    this.awaiting = false,
   });
 
   final String productId;
@@ -16,16 +17,18 @@ class CatalogCartLine {
   final String color;
   final int quantity;
   final bool requested;
+  final bool awaiting;
 
   String get lineKey => '$productId::$size|$color';
 
-  CatalogCartLine copyWith({int? quantity, bool? requested}) {
+  CatalogCartLine copyWith({int? quantity, bool? requested, bool? awaiting}) {
     return CatalogCartLine(
       productId: productId,
       size: size,
       color: color,
       quantity: quantity ?? this.quantity,
       requested: requested ?? this.requested,
+      awaiting: awaiting ?? this.awaiting,
     );
   }
 
@@ -36,6 +39,7 @@ class CatalogCartLine {
       'color': color,
       'quantity': quantity,
       'requested': requested,
+      'awaiting': awaiting,
     };
   }
 
@@ -46,6 +50,7 @@ class CatalogCartLine {
       color: map['color'] as String? ?? '',
       quantity: (map['quantity'] as num?)?.toInt() ?? 0,
       requested: map['requested'] as bool? ?? false,
+      awaiting: map['awaiting'] as bool? ?? false,
     );
   }
 }
@@ -56,6 +61,7 @@ class CatalogOpenOrder {
     required this.orderNumber,
     required this.customerId,
     required this.customerName,
+    this.customerPhone,
     required this.orderCreatedAt,
     required this.customerCreatedAt,
   });
@@ -64,15 +70,17 @@ class CatalogOpenOrder {
   final String orderNumber;
   final String customerId;
   final String customerName;
+  final String? customerPhone;
   final DateTime orderCreatedAt;
   final DateTime customerCreatedAt;
 
-  CatalogOpenOrder copyWith({String? customerName}) {
+  CatalogOpenOrder copyWith({String? customerName, String? customerPhone}) {
     return CatalogOpenOrder(
       orderId: orderId,
       orderNumber: orderNumber,
       customerId: customerId,
       customerName: customerName ?? this.customerName,
+      customerPhone: customerPhone ?? this.customerPhone,
       orderCreatedAt: orderCreatedAt,
       customerCreatedAt: customerCreatedAt,
     );
@@ -84,6 +92,7 @@ class CatalogOpenOrder {
       'orderNumber': orderNumber,
       'customerId': customerId,
       'customerName': customerName,
+      'customerPhone': customerPhone,
       'orderCreatedAt': orderCreatedAt.toUtc().toIso8601String(),
       'customerCreatedAt': customerCreatedAt.toUtc().toIso8601String(),
     };
@@ -95,6 +104,7 @@ class CatalogOpenOrder {
     final orderNumber = (map['orderNumber'] as String? ?? '').trim();
     final customerId = (map['customerId'] as String? ?? '').trim();
     final customerName = (map['customerName'] as String? ?? '').trim();
+    final customerPhone = (map['customerPhone'] as String?)?.trim();
     final orderCreatedAt = DateTime.tryParse(
       (map['orderCreatedAt'] as String? ?? '').trim(),
     )?.toUtc();
@@ -114,6 +124,9 @@ class CatalogOpenOrder {
       orderNumber: orderNumber,
       customerId: customerId,
       customerName: customerName,
+      customerPhone: customerPhone == null || customerPhone.isEmpty
+          ? null
+          : customerPhone,
       orderCreatedAt: orderCreatedAt,
       customerCreatedAt: customerCreatedAt,
     );
@@ -130,11 +143,16 @@ abstract class CatalogCartCache {
   CatalogOpenOrder? loadOpenOrder(String companyId);
 
   Future<void> saveOpenOrder(String companyId, CatalogOpenOrder? order);
+
+  Map<String, dynamic>? loadPendingRequest(String companyId);
+
+  Future<void> savePendingRequest(String companyId, Map<String, dynamic>? data);
 }
 
 class MemoryCatalogCartCache implements CatalogCartCache {
   final _data = <String, List<CatalogCartLine>>{};
   final _openOrders = <String, CatalogOpenOrder>{};
+  final _pendingRequests = <String, Map<String, dynamic>>{};
 
   @override
   List<CatalogCartLine> load(String companyId) {
@@ -161,6 +179,25 @@ class MemoryCatalogCartCache implements CatalogCartCache {
       return;
     }
     _openOrders[companyId] = order;
+  }
+
+  @override
+  Map<String, dynamic>? loadPendingRequest(String companyId) {
+    final data = _pendingRequests[companyId];
+    if (data == null) return null;
+    return Map<String, dynamic>.from(data);
+  }
+
+  @override
+  Future<void> savePendingRequest(
+    String companyId,
+    Map<String, dynamic>? data,
+  ) async {
+    if (data == null) {
+      _pendingRequests.remove(companyId);
+      return;
+    }
+    _pendingRequests[companyId] = Map<String, dynamic>.from(data);
   }
 }
 
@@ -243,5 +280,35 @@ class HiveCatalogCartCache implements CatalogCartCache {
       return;
     }
     await box.put(key, order.toMap());
+  }
+
+  String _pendingKey(String companyId) => '$companyId::__pendingRequest';
+
+  @override
+  Map<String, dynamic>? loadPendingRequest(String companyId) {
+    final box = _box;
+    if (box == null) return _memory.loadPendingRequest(companyId);
+    final raw = box.get(_pendingKey(companyId));
+    if (raw is! Map) return null;
+    return raw.map((key, value) => MapEntry('$key', value));
+  }
+
+  @override
+  Future<void> savePendingRequest(
+    String companyId,
+    Map<String, dynamic>? data,
+  ) async {
+    await ensureOpen();
+    final box = _box;
+    if (box == null) {
+      await _memory.savePendingRequest(companyId, data);
+      return;
+    }
+    final key = _pendingKey(companyId);
+    if (data == null) {
+      await box.delete(key);
+      return;
+    }
+    await box.put(key, data);
   }
 }

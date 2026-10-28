@@ -776,6 +776,18 @@ class Product {
   String variantSku(ProductVariant variant) =>
       '$sku-${variant.effectiveSkuSuffix}';
 
+  /// Base SKU, or a variant code when [query] looks like one (`TST-0001-M-NEGRO`).
+  bool matchesCodeQuery(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return false;
+    if (sku.toLowerCase().contains(q)) return true;
+    if (!RegExp(r'[\d-]').hasMatch(q)) return false;
+    for (final variant in variants) {
+      if (variantSku(variant).toLowerCase().contains(q)) return true;
+    }
+    return false;
+  }
+
   factory Product.fromMap(String id, Map<String, dynamic> map) {
     final data = coerceStringKeyMap(map);
     final record = SyncRecord.fromMap(id, data);

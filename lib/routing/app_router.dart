@@ -14,6 +14,7 @@ import '../features/customers/customers_page.dart';
 import '../features/lots/lot_detail_page.dart';
 import '../features/lots/lots_page.dart';
 import '../features/more/more_page.dart';
+import '../features/notifications/notifications_page.dart';
 import '../features/order/invoice_page.dart';
 import '../features/order/order_page.dart';
 import '../features/order/orders_page.dart';
@@ -93,17 +94,13 @@ GoRouter createRouter(
         routes: [
           GoRoute(
             path: '/',
-            pageBuilder: (context, state) => NoTransitionPage(
-              key: state.pageKey,
-              child: const StockPage(),
-            ),
+            pageBuilder: (context, state) =>
+                NoTransitionPage(key: state.pageKey, child: const StockPage()),
           ),
           GoRoute(
             path: '/pedido',
-            pageBuilder: (context, state) => NoTransitionPage(
-              key: state.pageKey,
-              child: const OrdersPage(),
-            ),
+            pageBuilder: (context, state) =>
+                NoTransitionPage(key: state.pageKey, child: const OrdersPage()),
             routes: [
               GoRoute(
                 path: ':orderId',
@@ -168,10 +165,8 @@ GoRouter createRouter(
           ),
           GoRoute(
             path: '/lotes',
-            pageBuilder: (context, state) => NoTransitionPage(
-              key: state.pageKey,
-              child: const LotsPage(),
-            ),
+            pageBuilder: (context, state) =>
+                NoTransitionPage(key: state.pageKey, child: const LotsPage()),
             routes: [
               GoRoute(
                 path: ':lotId',
@@ -184,17 +179,13 @@ GoRouter createRouter(
           ),
           GoRoute(
             path: '/estadisticas',
-            pageBuilder: (context, state) => NoTransitionPage(
-              key: state.pageKey,
-              child: const StatsPage(),
-            ),
+            pageBuilder: (context, state) =>
+                NoTransitionPage(key: state.pageKey, child: const StatsPage()),
           ),
           GoRoute(
             path: '/equipo',
-            pageBuilder: (context, state) => NoTransitionPage(
-              key: state.pageKey,
-              child: const TeamPage(),
-            ),
+            pageBuilder: (context, state) =>
+                NoTransitionPage(key: state.pageKey, child: const TeamPage()),
           ),
           GoRoute(
             path: '/config',
@@ -204,11 +195,16 @@ GoRouter createRouter(
             ),
           ),
           GoRoute(
-            path: '/mas',
+            path: '/notificaciones',
             pageBuilder: (context, state) => NoTransitionPage(
               key: state.pageKey,
-              child: const MorePage(),
+              child: const NotificationsPage(),
             ),
+          ),
+          GoRoute(
+            path: '/mas',
+            pageBuilder: (context, state) =>
+                NoTransitionPage(key: state.pageKey, child: const MorePage()),
           ),
         ],
       ),

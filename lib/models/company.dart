@@ -2,6 +2,7 @@ import 'map_date.dart';
 
 const maxCompanyNameLength = 80;
 const maxCompanySocialLength = 120;
+const maxCompanySocialAccounts = 8;
 
 enum CompanyRubro {
   ropa('Ropa'),
@@ -33,7 +34,7 @@ enum CompanyRubro {
 }
 
 class Company {
-  const Company({
+  Company({
     required this.id,
     required this.name,
     required this.ownerId,
@@ -41,10 +42,12 @@ class Company {
     this.rubro = CompanyRubro.ambos,
     this.phone,
     this.logoUrl,
-    this.instagram,
-    this.tiktok,
-    this.facebook,
-  });
+    List<String> instagram = const [],
+    List<String> tiktok = const [],
+    List<String> facebook = const [],
+  }) : instagram = normalizeSocialAccounts(instagram),
+       tiktok = normalizeSocialAccounts(tiktok),
+       facebook = normalizeSocialAccounts(facebook);
 
   final String id;
   final String name;
@@ -53,20 +56,20 @@ class Company {
   final CompanyRubro rubro;
   final String? phone;
   final String? logoUrl;
-  final String? instagram;
-  final String? tiktok;
-  final String? facebook;
+  final List<String> instagram;
+  final List<String> tiktok;
+  final List<String> facebook;
 
   String get whatsappDigits => (phone ?? '').replaceAll(RegExp(r'\D'), '');
 
-  String? get instagramUrl =>
-      socialProfileUrl(instagram, host: 'www.instagram.com');
+  List<String> get instagramUrls =>
+      socialProfileUrls(instagram, host: 'www.instagram.com');
 
-  String? get tiktokUrl =>
-      socialProfileUrl(tiktok, host: 'www.tiktok.com', atHandle: true);
+  List<String> get tiktokUrls =>
+      socialProfileUrls(tiktok, host: 'www.tiktok.com', atHandle: true);
 
-  String? get facebookUrl =>
-      socialProfileUrl(facebook, host: 'www.facebook.com');
+  List<String> get facebookUrls =>
+      socialProfileUrls(facebook, host: 'www.facebook.com');
 
   factory Company.fromMap(String id, Map<String, dynamic> map) {
     return Company(
@@ -77,9 +80,9 @@ class Company {
       rubro: CompanyRubro.fromStorage(map['rubro'] as String?),
       phone: blankToNull(map['phone'] as String?),
       logoUrl: blankToNull(map['logoUrl'] as String?),
-      instagram: blankToNull(map['instagram'] as String?),
-      tiktok: blankToNull(map['tiktok'] as String?),
-      facebook: blankToNull(map['facebook'] as String?),
+      instagram: socialAccountsFromStorage(map['instagram']),
+      tiktok: socialAccountsFromStorage(map['tiktok']),
+      facebook: socialAccountsFromStorage(map['facebook']),
     );
   }
 
@@ -91,9 +94,9 @@ class Company {
       'rubro': rubro.name,
       'phone': phone?.trim(),
       'logoUrl': logoUrl?.trim(),
-      'instagram': instagram?.trim(),
-      'tiktok': tiktok?.trim(),
-      'facebook': facebook?.trim(),
+      'instagram': storedSocialAccounts(instagram),
+      'tiktok': storedSocialAccounts(tiktok),
+      'facebook': storedSocialAccounts(facebook),
     };
   }
 
@@ -105,9 +108,9 @@ class Company {
     CompanyRubro? rubro,
     Object? phone = _unset,
     Object? logoUrl = _unset,
-    Object? instagram = _unset,
-    Object? tiktok = _unset,
-    Object? facebook = _unset,
+    List<String>? instagram,
+    List<String>? tiktok,
+    List<String>? facebook,
   }) {
     return Company(
       id: id ?? this.id,
@@ -117,13 +120,9 @@ class Company {
       rubro: rubro ?? this.rubro,
       phone: identical(phone, _unset) ? this.phone : phone as String?,
       logoUrl: identical(logoUrl, _unset) ? this.logoUrl : logoUrl as String?,
-      instagram: identical(instagram, _unset)
-          ? this.instagram
-          : instagram as String?,
-      tiktok: identical(tiktok, _unset) ? this.tiktok : tiktok as String?,
-      facebook: identical(facebook, _unset)
-          ? this.facebook
-          : facebook as String?,
+      instagram: instagram ?? this.instagram,
+      tiktok: tiktok ?? this.tiktok,
+      facebook: facebook ?? this.facebook,
     );
   }
 }
@@ -134,6 +133,53 @@ String? blankToNull(String? value) {
   final trimmed = value?.trim();
   if (trimmed == null || trimmed.isEmpty) return null;
   return trimmed;
+}
+
+List<String> socialAccountsFromStorage(Object? value) {
+  if (value is String) return normalizeSocialAccounts([value]);
+  if (value is Iterable) {
+    return normalizeSocialAccounts([
+      for (final item in value)
+        if (item is String) item,
+    ]);
+  }
+  return const [];
+}
+
+List<String> normalizeSocialAccounts(Iterable<String> values) {
+  final next = <String>[];
+  for (final value in values) {
+    final trimmed = blankToNull(value);
+    if (trimmed == null) continue;
+    final duplicate = next.any(
+      (item) => item.toLowerCase() == trimmed.toLowerCase(),
+    );
+    if (duplicate) continue;
+    next.add(trimmed);
+    if (next.length >= maxCompanySocialAccounts) break;
+  }
+  return List.unmodifiable(next);
+}
+
+/// One account stays a string so existing documents keep their shape.
+/// Several accounts are stored as a list.
+Object? storedSocialAccounts(List<String> values) {
+  if (values.isEmpty) return null;
+  if (values.length == 1) return values.single;
+  return values;
+}
+
+List<String> socialProfileUrls(
+  List<String> values, {
+  required String host,
+  bool atHandle = false,
+}) {
+  final urls = <String>[];
+  for (final value in values) {
+    final url = socialProfileUrl(value, host: host, atHandle: atHandle);
+    if (url != null) urls.add(url);
+  }
+  return urls;
 }
 
 String? socialProfileUrl(

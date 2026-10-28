@@ -10,6 +10,7 @@ import 'package:store_app/models/product.dart';
 import 'package:store_app/widgets/product_image.dart';
 
 import 'fakes/catalog_harness.dart';
+import 'fakes/fake_catalog_request_access.dart';
 import 'fakes/fake_company_access.dart';
 import 'fakes/fake_customer_access.dart';
 import 'fakes/fake_order_access.dart';
@@ -43,6 +44,7 @@ Future<CatalogBindings> _bindingsWithGallery() async {
     products: products,
     customers: FakeCustomerAccess(),
     orders: FakeOrderAccess(),
+    requests: FakeCatalogRequestAccess(),
   );
   await bindings.storeFor('co1').ready;
   return bindings;
@@ -81,6 +83,7 @@ void main() {
     await tester.pumpWidget(_app(bindings));
     await tester.pumpAndSettle();
 
+    expect(find.text('SKU: TST-0001-M-NEGRO'), findsOneWidget);
     expect(_pagerController(tester).page, 0);
     expect(
       find.byKey(ValueKey('product-pager-image-0-${_images[0]}')),
@@ -224,6 +227,7 @@ void main() {
       products: products,
       customers: FakeCustomerAccess(),
       orders: FakeOrderAccess(),
+      requests: FakeCatalogRequestAccess(),
     );
     addTearDown(bindings.dispose);
     await bindings.storeFor('co1').ready;

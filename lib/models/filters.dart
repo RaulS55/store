@@ -3,7 +3,7 @@ import 'product.dart';
 enum StockViewMode { cards, table }
 
 enum StockSort {
-  recent('Más recientes'),
+  recent('Actualización'),
   name('Nombre'),
   priceAsc('Precio: menor a mayor'),
   priceDesc('Precio: mayor a menor'),

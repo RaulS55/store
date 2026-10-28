@@ -247,6 +247,14 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
                   ),
                   const SizedBox(height: 4),
                   Text(
+                    _skuLabel(product, selection),
+                    key: const ValueKey('catalog-product-sku'),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.mutedText,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
                     MoneyFormat.compact(product.price),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: AppColors.terracotta,
@@ -304,6 +312,14 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
         ),
       ),
     );
+  }
+
+  String _skuLabel(Product product, VariantSelection selection) {
+    final variants = selection.addableVariants(product);
+    final code = variants.length == 1
+        ? product.variantSku(variants.first)
+        : product.sku;
+    return 'SKU: $code';
   }
 
   void _back(BuildContext context, String companyId) {

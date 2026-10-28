@@ -72,8 +72,8 @@ abstract class CompanyAccess {
 
   Future<void> updateCompanySocials(
     String companyId, {
-    String? instagram,
-    String? tiktok,
-    String? facebook,
+    required List<String> instagram,
+    required List<String> tiktok,
+    required List<String> facebook,
   });
 }

@@ -119,8 +119,14 @@ void main() {
     );
 
     expect(find.text('TST-0001 - REMERA TEST'), findsOneWidget);
-    expect(find.text('Remeras · Talle M · Negro ×2'), findsOneWidget);
-    expect(find.text('Remeras · Talle L · Rojo'), findsOneWidget);
+    expect(
+      find.text('TST-0001-M-NEGRO · Remeras · Talle M · Negro ×2'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('TST-0001-L-ROJO · Remeras · Talle L · Rojo'),
+      findsOneWidget,
+    );
     expect(find.text(r'$10.000,00'), findsOneWidget);
     expect(find.text(r'$30.000,00'), findsWidgets);
     expect(find.text('Remeras · Talle M · Negro'), findsNothing);

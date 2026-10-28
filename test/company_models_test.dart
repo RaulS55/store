@@ -128,14 +128,28 @@ void main() {
       'facebook': 'https://www.facebook.com/modastock',
     });
     expect(branded.logoUrl, 'https://cdn.moda.stock/logo.jpg');
-    expect(branded.instagram, '@moda.stock');
-    expect(branded.tiktok, 'moda.stock');
-    expect(branded.facebook, 'https://www.facebook.com/modastock');
-    expect(branded.instagramUrl, 'https://www.instagram.com/moda.stock');
-    expect(branded.tiktokUrl, 'https://www.tiktok.com/@moda.stock');
-    expect(branded.facebookUrl, 'https://www.facebook.com/modastock');
+    expect(branded.instagram, ['@moda.stock']);
+    expect(branded.tiktok, ['moda.stock']);
+    expect(branded.facebook, ['https://www.facebook.com/modastock']);
+    expect(branded.instagramUrls, ['https://www.instagram.com/moda.stock']);
+    expect(branded.tiktokUrls, ['https://www.tiktok.com/@moda.stock']);
+    expect(branded.facebookUrls, ['https://www.facebook.com/modastock']);
     expect(branded.copyWith(logoUrl: null).logoUrl, isNull);
     expect(branded.toMap()['instagram'], '@moda.stock');
+
+    final several = Company.fromMap('co1', {
+      'name': 'Moda Stock',
+      'ownerId': 'u1',
+      'createdAt': createdAt,
+      'instagram': [' @moda.stock ', '@moda.stock', '@mayorista', ''],
+      'tiktok': '@moda.stock',
+    });
+    expect(several.instagram, ['@moda.stock', '@mayorista']);
+    expect(several.tiktok, ['@moda.stock']);
+    expect(several.facebook, isEmpty);
+    expect(several.toMap()['instagram'], ['@moda.stock', '@mayorista']);
+    expect(several.toMap()['tiktok'], '@moda.stock');
+    expect(several.toMap()['facebook'], isNull);
 
     final footwear = Company.fromMap('co2', {
       'name': 'Zapas',

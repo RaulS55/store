@@ -60,6 +60,11 @@ class FakeOrderAccess implements OrderAccess {
   }
 
   @override
+  Future<DraftOrder?> readOrder(String companyId, String orderId) async {
+    return _doc(companyId, orderId);
+  }
+
+  @override
   Stream<DraftOrder?> watchOrder(String companyId, String orderId) {
     final key = _orderKey(companyId, orderId);
     return Stream<DraftOrder?>.multi((listener) {
