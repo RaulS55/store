@@ -148,6 +148,7 @@ void main() {
     expect(find.byKey(const ValueKey('cancel-order')), findsOneWidget);
     expect(find.byKey(const ValueKey('share-order')), findsOneWidget);
     expect(find.byKey(const ValueKey('edit-order-sena')), findsOneWidget);
+    expect(find.byKey(const ValueKey('edit-order-payments')), findsNothing);
 
     final stock = tester.getRect(
       find.byKey(const ValueKey('save-order-stock')),
@@ -259,6 +260,63 @@ void main() {
     expect(find.text('Restante'), findsOneWidget);
     expect(find.text(r'$2.500,00'), findsOneWidget);
     expect(find.text(r'$7.500,00'), findsOneWidget);
+  });
+
+  testWidgets('open orders can add partial payments on top of the deposit', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.setOrderSena(order.id, 2500), isTrue);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('edit-order-sena')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('edit-order-sena-field')), findsOneWidget);
+    expect(
+      find.text(
+        'Cada pago se suma a la seña. El restante descuenta seña y pagos por igual.',
+      ),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('edit-order-payment-field')),
+      '1000',
+    );
+    await tester.tap(find.byKey(const ValueKey('edit-order-payment-add')));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('edit-order-payment-field')),
+      '500',
+    );
+    await tester.tap(find.text('Guardar'));
+    await tester.pumpAndSettle();
+
+    expect(order.payments.map((payment) => payment.amount), [1000, 500]);
+    expect(order.remaining, 6000);
+    expect(find.text('Seña'), findsOneWidget);
+    expect(find.text('Pago 1'), findsOneWidget);
+    expect(find.text('Pago 2'), findsOneWidget);
+    expect(find.text('Restante'), findsOneWidget);
+    expect(find.text(r'$6.000,00'), findsOneWidget);
+
+    expect(store.closeOrder(order.id), isTrue);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('edit-order-sena')), findsNothing);
+    expect(find.text('Pago 1'), findsOneWidget);
+    expect(find.text('Pago 2'), findsOneWidget);
+    expect(order.sena, 2500);
+
+    expect(store.reopenOrder(order.id), ReopenOrderResult.reopened);
+    await tester.pump();
+    expect(order.payments.map((payment) => payment.amount), [1000, 500]);
+    expect(order.sena, 2500);
+    expect(find.text('Pago 2'), findsOneWidget);
+    expect(find.byKey(const ValueKey('edit-order-sena')), findsOneWidget);
   });
 
   testWidgets('closing an order prefills the loaded deposit', (tester) async {

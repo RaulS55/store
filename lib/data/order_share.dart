@@ -24,10 +24,11 @@ class OrderShare {
       buffer.writeln('${order.ivaLabel}: ${MoneyFormat.detailed(order.iva)}');
     }
     buffer.writeln('Total: ${MoneyFormat.detailed(order.total)}');
-    if (order.hasSena) {
-      buffer
-        ..writeln('Seña: ${MoneyFormat.detailed(order.sena ?? 0)}')
-        ..writeln('Restante: ${MoneyFormat.detailed(order.remaining)}');
+    for (final line in order.paidLines) {
+      buffer.writeln('${line.label}: ${MoneyFormat.detailed(line.amount)}');
+    }
+    if (order.paidLines.isNotEmpty) {
+      buffer.writeln('Restante: ${MoneyFormat.detailed(order.remaining)}');
     }
     buffer
       ..writeln()

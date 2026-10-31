@@ -269,12 +269,14 @@ class _ShareOrderButtonState extends State<ShareOrderButton> {
 
 Future<void> editOrderSenaFlow(BuildContext context, DraftOrder order) async {
   if (!order.isActive) return;
-  final amount = await showDialog<double>(
+  final result = await showDialog<({double sena, List<OrderPayment> payments})>(
     context: context,
     builder: (context) => _EditOrderSenaDialog(order: order),
   );
-  if (amount == null || !context.mounted) return;
-  context.read<AppStore>().setOrderSena(order.id, amount);
+  if (result == null || !context.mounted) return;
+  final store = context.read<AppStore>();
+  store.setOrderSena(order.id, result.sena);
+  store.setOrderPayments(order.id, result.payments);
 }
 
 class OrderSenaButton extends StatelessWidget {
@@ -284,12 +286,17 @@ class OrderSenaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final paid = order.hasSena;
+    final paid = order.hasSena || order.hasPayments;
+    final tooltip = paid
+        ? [
+            if (order.hasSena) 'Seña ${MoneyFormat.compact(order.sena ?? 0)}',
+            if (order.hasPayments)
+              'Pagos ${MoneyFormat.compact(order.paymentsTotal)}',
+          ].join(' · ')
+        : 'Cargar seña';
     return IconButton(
       key: const ValueKey('edit-order-sena'),
-      tooltip: paid
-          ? 'Seña ${MoneyFormat.compact(order.sena ?? 0)}'
-          : 'Cargar seña',
+      tooltip: tooltip,
       onPressed: () => editOrderSenaFlow(context, order),
       style: paid
           ? IconButton.styleFrom(foregroundColor: AppColors.terracotta)
@@ -309,54 +316,134 @@ class _EditOrderSenaDialog extends StatefulWidget {
 }
 
 class _EditOrderSenaDialogState extends State<_EditOrderSenaDialog> {
+  final _payments = <OrderPayment>[];
   late final TextEditingController _sena;
+  late final TextEditingController _payment;
 
   @override
   void initState() {
     super.initState();
+    _payments.addAll(widget.order.payments);
     _sena = TextEditingController(
       text: MoneyFormat.grouped(widget.order.sena ?? 0),
     );
+    _payment = TextEditingController();
   }
 
   @override
   void dispose() {
     _sena.dispose();
+    _payment.dispose();
     super.dispose();
   }
 
+  void _addPending() {
+    final amount = MoneyFormat.parse(_payment.text) ?? 0;
+    if (amount <= 0) return;
+    setState(() {
+      _payments.add(
+        OrderPayment(amount: amount, createdAt: DateTime.now().toUtc()),
+      );
+      _payment.clear();
+    });
+  }
+
   void _save() {
-    Navigator.pop(context, MoneyFormat.parse(_sena.text) ?? 0);
+    final pending = MoneyFormat.parse(_payment.text) ?? 0;
+    final payments = [..._payments];
+    if (pending > 0) {
+      payments.add(
+        OrderPayment(amount: pending, createdAt: DateTime.now().toUtc()),
+      );
+    }
+    Navigator.pop(context, (
+      sena: MoneyFormat.parse(_sena.text) ?? 0,
+      payments: payments,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
+    final hint = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText);
     return AlertDialog(
       title: const Text('Seña'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Cantidad ya pagada. Se usa al facturar y al cerrar el pedido.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            key: const ValueKey('edit-order-sena-field'),
-            controller: _sena,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            inputFormatters: [MoneyFormat.inputFormatter],
-            decoration: const InputDecoration(
-              labelText: 'Seña',
-              prefixText: '\$ ',
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Cantidad ya pagada. Se usa al facturar y al cerrar el pedido.',
+              style: hint,
             ),
-            onSubmitted: (_) => _save(),
-          ),
-        ],
+            const SizedBox(height: 16),
+            TextField(
+              key: const ValueKey('edit-order-sena-field'),
+              controller: _sena,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [MoneyFormat.inputFormatter],
+              decoration: const InputDecoration(
+                labelText: 'Seña',
+                prefixText: '\$ ',
+              ),
+              onSubmitted: (_) => _save(),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Pagos',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Cada pago se suma a la seña. El restante descuenta seña y pagos por igual.',
+              style: hint,
+            ),
+            if (_payments.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              for (var i = 0; i < _payments.length; i++)
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${DateFormatters.short.format(_payments[i].createdAt.toLocal())} · ${MoneyFormat.detailed(_payments[i].amount)}',
+                      ),
+                    ),
+                    IconButton(
+                      key: ValueKey('edit-order-payment-delete-$i'),
+                      tooltip: 'Quitar pago',
+                      onPressed: () => setState(() => _payments.removeAt(i)),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+            ],
+            const SizedBox(height: 16),
+            TextField(
+              key: const ValueKey('edit-order-payment-field'),
+              controller: _payment,
+              keyboardType: TextInputType.number,
+              inputFormatters: [MoneyFormat.inputFormatter],
+              decoration: const InputDecoration(
+                labelText: 'Nuevo pago',
+                prefixText: '\$ ',
+              ),
+              onSubmitted: (_) => _addPending(),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                key: const ValueKey('edit-order-payment-add'),
+                onPressed: _addPending,
+                child: const Text('Agregar'),
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -469,6 +556,12 @@ class _CloseOrderDialogState extends State<_CloseOrderDialog> {
             ),
             onSubmitted: (_) => _accept(),
           ),
+          if (widget.order.hasPayments) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Pagos cargados: ${MoneyFormat.detailed(widget.order.paymentsTotal)}. Se mantienen al cerrar.',
+            ),
+          ],
         ],
       ),
       actions: [

@@ -311,6 +311,35 @@ void main() {
     expect(text, contains('Restante'));
   });
 
+  test('an invoice pdf lists partial payments with the deposit', () async {
+    final open = DraftOrder(
+      id: 'o-pagos',
+      orderNumber: 'PED-13',
+      customer: customer,
+      createdAt: stamp,
+      updatedAt: stamp,
+      sena: 2500,
+      payments: [
+        OrderPayment(amount: 1000, createdAt: stamp),
+        OrderPayment(amount: 500, createdAt: stamp),
+      ],
+      lines: [
+        OrderLine(
+          product: product,
+          variant: product.variants.first,
+          quantity: 1,
+        ),
+      ],
+    );
+    final text = _pdfText(await buildInvoicePdf(open));
+    expect(text, contains('Seña'));
+    expect(text, contains('Pago'));
+    expect(text, contains(r'$1.000,00'));
+    expect(text, contains(r'$500,00'));
+    expect(text, contains(r'$6.000,00'));
+    expect(text, contains('Restante'));
+  });
+
   test('an empty order cannot share an invoice pdf', () async {
     var shared = false;
     final ok = await shareInvoicePdf(

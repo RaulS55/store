@@ -83,10 +83,10 @@ Future<Uint8List> buildInvoicePdf(
             MoneyFormat.detailed(order.total),
             emphasize: true,
           ),
-          if (order.hasSena) ...[
-            _kv('Seña', MoneyFormat.detailed(order.sena ?? 0)),
+          for (final line in order.paidLines)
+            _kv(line.label, MoneyFormat.detailed(line.amount)),
+          if (order.paidLines.isNotEmpty)
             _kv('Restante', MoneyFormat.detailed(order.remaining)),
-          ],
         ];
       },
     ),

@@ -127,6 +127,56 @@ void main() {
     expect(access.orders['co1']![order.id]!.sena, 2500);
   });
 
+  test(
+    'partial payments stay with the deposit after close and reopen',
+    () async {
+      final access = FakeOrderAccess();
+      final store = AppStore(
+        orderAccess: access,
+        customers: FakeCustomerAccess(),
+        products: FakeProductAccess(),
+      );
+      addTearDown(store.dispose);
+      store.bindCompany('co1');
+      await _flush();
+      final order = await seedTestOrder(store);
+      await _flush();
+      final paidAt = DateTime.utc(2026, 10, 1, 12);
+      expect(store.setOrderSena(order.id, 2500), isTrue);
+      expect(
+        store.setOrderPayments(order.id, [
+          OrderPayment(amount: 1000, createdAt: paidAt),
+          OrderPayment(amount: -20, createdAt: paidAt),
+          OrderPayment(amount: 500, createdAt: paidAt),
+        ]),
+        isTrue,
+      );
+      await _flush();
+      expect(order.payments.map((payment) => payment.amount), [1000, 500]);
+      expect(order.paid, 4000);
+      expect(order.remaining, 6000);
+
+      expect(store.closeOrder(order.id, sena: 3000), isTrue);
+      await _flush();
+      final closed = access.orders['co1']![order.id]!;
+      expect(closed.status, OrderStatus.cerrado);
+      expect(closed.sena, 3000);
+      expect(closed.payments.map((payment) => payment.amount), [1000, 500]);
+      expect(closed.remaining, 5500);
+      expect(closed.toMap()['payments'], hasLength(2));
+      expect(store.setOrderPayments(order.id, const []), isFalse);
+      expect(order.payments, hasLength(2));
+
+      expect(store.reopenOrder(order.id), ReopenOrderResult.reopened);
+      await _flush();
+      final reopened = access.orders['co1']![order.id]!;
+      expect(reopened.status, OrderStatus.borrador);
+      expect(reopened.sena, 3000);
+      expect(reopened.payments.map((payment) => payment.amount), [1000, 500]);
+      expect(reopened.remaining, 5500);
+    },
+  );
+
   test('a second store sees open and closed orders from access', () async {
     final access = FakeOrderAccess();
     final customers = FakeCustomerAccess();

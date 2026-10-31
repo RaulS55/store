@@ -963,10 +963,10 @@ class _Totals extends StatelessWidget {
         (order.ivaLabel, MoneyFormat.detailed(order.iva), false),
       ],
       ('Total', MoneyFormat.detailed(order.total), true),
-      if (order.hasSena) ...[
-        ('Seña', MoneyFormat.detailed(order.sena ?? 0), false),
+      for (final line in order.paidLines)
+        (line.label, MoneyFormat.detailed(line.amount), false),
+      if (order.paidLines.isNotEmpty)
         ('Restante', MoneyFormat.detailed(order.remaining), false),
-      ],
     ];
     return Column(
       children: [

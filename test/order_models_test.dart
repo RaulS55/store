@@ -64,7 +64,11 @@ void main() {
     expect(order.includeProductCodeInInvoice, isTrue);
     expect(order.sena, isNull);
     expect(order.hasSena, isFalse);
+    expect(order.payments, isEmpty);
+    expect(order.hasPayments, isFalse);
+    expect(order.paidLines, isEmpty);
     expect(order.toMap().containsKey('sena'), isFalse);
+    expect(order.toMap().containsKey('payments'), isFalse);
   });
 
   test('stock reservations round-trip and track unsaved edits', () {
@@ -270,6 +274,70 @@ void main() {
     expect(order.hasSena, isFalse);
     expect(order.toMap()['sena'], 0);
   });
+
+  test(
+    'DraftOrder treats deposit and partial payments as the same paid amount',
+    () {
+      final paidAt = DateTime.utc(2026, 9, 12, 15);
+      final order = DraftOrder.fromMap('o-pagos', {
+        'id': 'o-pagos',
+        'orderNumber': 'PED-12',
+        'status': 'cerrado',
+        'sena': 3000,
+        'payments': [
+          {'amount': 2000, 'createdAt': paidAt.toIso8601String()},
+          {'amount': 0, 'createdAt': paidAt.toIso8601String()},
+          {'amount': -100},
+          'no',
+        ],
+        'createdAt': stamp.toIso8601String(),
+        'updatedAt': stamp.toIso8601String(),
+        'customer': customer.toMap(),
+        'lines': [
+          {
+            'quantity': 1,
+            'product': product.toMap(),
+            'variant': product.variants.first.toMap(),
+          },
+        ],
+      });
+      expect(order.payments, hasLength(1));
+      expect(order.payments.single.amount, 2000);
+      expect(order.payments.single.createdAt, paidAt);
+      expect(order.hasPayments, isTrue);
+      expect(order.paymentsTotal, 2000);
+      expect(order.paid, 5000);
+      expect(order.remaining, 5000);
+      expect(order.paidLines.map((line) => line.label), ['Seña', 'Pago']);
+      expect(order.toMap()['payments'], [
+        {'amount': 2000, 'createdAt': paidAt.toIso8601String()},
+      ]);
+
+      final parts = DraftOrder(
+        id: 'o-parts',
+        orderNumber: 'PED-13',
+        customer: customer,
+        sena: 1000,
+        payments: [
+          OrderPayment(amount: 1500, createdAt: paidAt),
+          OrderPayment(amount: 500, createdAt: paidAt),
+        ],
+        lines: [
+          OrderLine(
+            product: product,
+            variant: product.variants.first,
+            quantity: 1,
+          ),
+        ],
+      );
+      expect(parts.paidLines.map((line) => line.label), [
+        'Seña',
+        'Pago 1',
+        'Pago 2',
+      ]);
+      expect(parts.remaining, 7000);
+    },
+  );
 
   test('DraftOrder.fromMap reads a catalog source', () {
     final order = DraftOrder.fromMap('o3', {

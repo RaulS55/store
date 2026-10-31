@@ -806,6 +806,26 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     return true;
   }
 
+  bool setOrderPayments(String orderId, List<OrderPayment> payments) {
+    final order = orderById(orderId);
+    if (order == null || !order.isActive) return false;
+    final next = <OrderPayment>[
+      for (final payment in payments)
+        if (_normalizeSena(payment.amount) > 0)
+          OrderPayment(
+            amount: _normalizeSena(payment.amount),
+            createdAt: payment.createdAt.toUtc(),
+          ),
+    ];
+    if (_samePayments(order.payments, next)) return true;
+    order.payments
+      ..clear()
+      ..addAll(next);
+    notifyListeners();
+    unawaited(_persistOrder(order));
+    return true;
+  }
+
   void setRubro(CompanyRubro next) {
     if (rubro == next) return;
     rubro = next;
@@ -1155,6 +1175,15 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
   double _normalizeSena(double value) {
     if (!value.isFinite || value <= 0) return 0;
     return value;
+  }
+
+  bool _samePayments(List<OrderPayment> current, List<OrderPayment> next) {
+    if (current.length != next.length) return false;
+    for (var i = 0; i < current.length; i++) {
+      if (current[i].amount != next[i].amount) return false;
+      if (current[i].createdAt != next[i].createdAt) return false;
+    }
+    return true;
   }
 
   Future<void> setCustomerPhone(String customerId, String phone) async {
@@ -1797,6 +1826,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
       ivaPercent: existing.ivaPercent,
       includeProductCodeInInvoice: existing.includeProductCodeInInvoice,
       sena: existing.sena,
+      payments: existing.payments,
       source: existing.source,
     );
     final index = orders.indexWhere((order) => order.id == next.id);
@@ -1814,8 +1844,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     Customer? current,
   }) async {
     final phone = _blankToNull(request.customerPhone);
-    final existing =
-        current ?? _findCatalogPerson(request.customerName, phone);
+    final existing = current ?? _findCatalogPerson(request.customerName, phone);
     final nextName = _catalogOrderName(
       request.customerName,
       current: existing?.name,

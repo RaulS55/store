@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/data/app_store.dart';
 import 'package:store_app/data/order_share.dart';
+import 'package:store_app/models/order.dart';
 
 import 'fakes/catalog_harness.dart';
 
@@ -132,6 +133,27 @@ void main() {
       expect(uri.path.replaceAll('/', ''), isEmpty);
       expect(uri.queryParameters['text'], contains(order.orderNumber));
       expect(uri.queryParameters['text'], contains(customer.name));
+    },
+  );
+
+  test(
+    'WhatsApp text counts the deposit and partial payments together',
+    () async {
+      final store = AppStore();
+      final order = await seedTestOrder(store);
+      expect(store.setOrderSena(order.id, 2500), isTrue);
+      expect(
+        store.setOrderPayments(order.id, [
+          OrderPayment(amount: 1000, createdAt: DateTime.utc(2026, 10, 1)),
+          OrderPayment(amount: 500, createdAt: DateTime.utc(2026, 10, 2)),
+        ]),
+        isTrue,
+      );
+      final text = OrderShare.message(order);
+      expect(text, contains('Seña: \$2.500,00'));
+      expect(text, contains('Pago 1: \$1.000,00'));
+      expect(text, contains('Pago 2: \$500,00'));
+      expect(text, contains('Restante: \$6.000,00'));
     },
   );
 }

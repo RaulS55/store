@@ -44,6 +44,8 @@ void main() {
     expect(stats.reservedUnits, 0);
     expect(stats.availableValue, 0);
     expect(stats.reservedValue, 0);
+    expect(stats.reservedPaid, 0);
+    expect(stats.reservedRemaining, 0);
     expect(stats.garmentValue, 0);
     expect(stats.soldUnits, 0);
     expect(stats.soldValue, 0);
@@ -131,6 +133,8 @@ void main() {
     expect(stats.soldUnits, 0);
     expect(stats.availableValue, 90000);
     expect(stats.reservedValue, 30000);
+    expect(stats.reservedPaid, 0);
+    expect(stats.reservedRemaining, 30000);
     expect(stats.garmentValue, 120000);
     expect(stats.soldValue, 0);
   });
@@ -153,6 +157,42 @@ void main() {
     expect(stats.reservedValue, 20000);
     expect(stats.soldValue, 0);
   });
+
+  test(
+    'open orders count deposit and payments against reserved value',
+    () async {
+      final store = AppStore();
+      addTearDown(store.dispose);
+      final product = testProduct(id: 'p1', stock: 8, price: 15000);
+      await store.upsertProduct(product);
+      final order = await seedTestOrder(store, product: product);
+      store.setLineQty(order.id, order.lines.first.lineKey, 2);
+      expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+      expect(store.setOrderSena(order.id, 5000), isTrue);
+      expect(
+        store.setOrderPayments(order.id, [
+          OrderPayment(amount: 3000, createdAt: DateTime.utc(2026, 10, 1)),
+        ]),
+        isTrue,
+      );
+
+      final other = await seedTestCustomer(
+        store,
+        customer: testCustomer(id: 'c-other', name: 'Ana López'),
+      );
+      final closed = store.createOrder(other);
+      final live = store.productById('p1')!;
+      store.addToOrder(live, live.variants.first);
+      expect(store.setOrderSena(closed.id, 4000), isTrue);
+      expect(store.closeOrder(closed.id), isTrue);
+
+      final stats = store.statsForCompany();
+      expect(stats.reservedValue, 30000);
+      expect(stats.reservedPaid, 8000);
+      expect(stats.reservedRemaining, 22000);
+      expect(stats.soldValue, 15000);
+    },
+  );
 
   test('sold totals use the sale override instead of list price', () {
     final product = testProduct(id: 'p1', stock: 7, price: 15000);

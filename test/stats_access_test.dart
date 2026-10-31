@@ -226,7 +226,9 @@ void main() {
     expect(find.text('\$90.000'), findsOneWidget);
     expect(find.text('Reservadas'), findsOneWidget);
     expect(find.text('2 unidades'), findsOneWidget);
-    expect(find.text('\$30.000'), findsOneWidget);
+    expect(find.text('\$30.000'), findsNWidgets(2));
+    expect(find.text('Pagado'), findsOneWidget);
+    expect(find.text('Restante'), findsOneWidget);
     expect(find.text('Vendidas'), findsOneWidget);
     expect(find.text('0 unidades'), findsOneWidget);
     expect(find.text('\$0'), findsWidgets);

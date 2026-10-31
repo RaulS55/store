@@ -166,6 +166,28 @@ class OrderLine {
   }
 }
 
+class OrderPayment {
+  const OrderPayment({required this.amount, required this.createdAt});
+
+  final double amount;
+  final DateTime createdAt;
+
+  factory OrderPayment.fromMap(Map<String, dynamic> map) {
+    final data = coerceStringKeyMap(map);
+    final raw = (data['amount'] as num?)?.toDouble() ?? 0;
+    return OrderPayment(
+      amount: raw.isFinite && raw > 0 ? raw : 0,
+      createdAt:
+          parseOptionalMapDate(data['createdAt']) ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {'amount': amount, 'createdAt': createdAt.toUtc().toIso8601String()};
+  }
+}
+
 class DraftOrder {
   DraftOrder({
     required this.id,
@@ -182,9 +204,11 @@ class DraftOrder {
     this.ivaPercent = 21,
     this.includeProductCodeInInvoice = true,
     this.sena,
+    List<OrderPayment>? payments,
     this.source = RecordSource.staff,
   }) : lines = lines ?? <OrderLine>[],
        stockReservations = stockReservations ?? <StockReservation>[],
+       payments = payments ?? <OrderPayment>[],
        createdAt = createdAt ?? DateTime.now().toUtc(),
        updatedAt = updatedAt ?? createdAt ?? DateTime.now().toUtc();
 
@@ -202,6 +226,7 @@ class DraftOrder {
   double ivaPercent;
   bool includeProductCodeInInvoice;
   double? sena;
+  final List<OrderPayment> payments;
   RecordSource source;
 
   bool get isClosed => status == OrderStatus.cerrado;
@@ -256,7 +281,33 @@ class DraftOrder {
 
   bool get hasSena => (sena ?? 0) > 0;
 
-  double get remaining => total - (sena ?? 0);
+  double get paymentsTotal =>
+      payments.fold(0, (sum, payment) => sum + payment.amount);
+
+  bool get hasPayments => paymentsTotal > 0;
+
+  /// Deposit and partial payments, in the order they should be shown.
+  List<({String label, double amount})> get paidLines {
+    final entries = <({String label, double amount})>[];
+    if (hasSena) {
+      entries.add((label: 'Seña', amount: sena ?? 0));
+    }
+    final amounts = [
+      for (final payment in payments)
+        if (payment.amount > 0) payment.amount,
+    ];
+    for (var i = 0; i < amounts.length; i++) {
+      entries.add((
+        label: amounts.length == 1 ? 'Pago' : 'Pago ${i + 1}',
+        amount: amounts[i],
+      ));
+    }
+    return entries;
+  }
+
+  double get paid => paidLines.fold(0, (sum, line) => sum + line.amount);
+
+  double get remaining => total - paid;
 
   String get ivaLabel => 'IVA ($_ivaPercentText%)';
 
@@ -289,6 +340,11 @@ class DraftOrder {
     final customerId = (customerMap['id'] as String?)?.trim() ?? '';
     final rawLines = data['lines'] as List<dynamic>? ?? const [];
     final rawHolds = data['stockReservations'] as List<dynamic>? ?? const [];
+    final rawPayments = data['payments'] as List<dynamic>? ?? const [];
+    final payments = <OrderPayment>[
+      for (final raw in rawPayments)
+        if (raw is Map) OrderPayment.fromMap(coerceStringKeyMap(raw)),
+    ].where((payment) => payment.amount > 0).toList();
     final rawStatus = data['status'] as String? ?? OrderStatus.borrador.name;
     return DraftOrder(
       id: record.id,
@@ -314,6 +370,7 @@ class DraftOrder {
       sena: data.containsKey('sena')
           ? (data['sena'] as num?)?.toDouble()
           : null,
+      payments: payments,
       source: RecordSource.fromStorage(data['source'] as String?),
     );
   }
@@ -336,6 +393,8 @@ class DraftOrder {
       'ivaPercent': ivaPercent,
       'includeProductCodeInInvoice': includeProductCodeInInvoice,
       if (sena != null) 'sena': sena,
+      if (payments.isNotEmpty)
+        'payments': [for (final payment in payments) payment.toMap()],
       'source': source.name,
     };
   }

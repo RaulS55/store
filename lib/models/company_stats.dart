@@ -10,6 +10,8 @@ class CompanyStats {
     required this.reservedUnits,
     required this.availableValue,
     required this.reservedValue,
+    required this.reservedPaid,
+    required this.reservedRemaining,
     required this.garmentValue,
     required this.soldUnits,
     required this.soldValue,
@@ -25,6 +27,8 @@ class CompanyStats {
   final int reservedUnits;
   final double availableValue;
   final double reservedValue;
+  final double reservedPaid;
+  final double reservedRemaining;
   final double garmentValue;
   final int soldUnits;
   final double soldValue;
@@ -91,8 +95,10 @@ CompanyStats computeCompanyStats({
 
   var reservedUnits = 0;
   var reservedValue = 0.0;
+  var reservedPaid = 0.0;
   for (final order in openOrders) {
     if (order.isDeleted || !order.isActive) continue;
+    reservedPaid += order.paid;
     final linesByKey = {for (final line in order.lines) line.lineKey: line};
     for (final hold in order.stockReservations) {
       final product = byId[hold.productId];
@@ -145,6 +151,8 @@ CompanyStats computeCompanyStats({
     reservedUnits: reservedUnits,
     availableValue: availableValue,
     reservedValue: reservedValue,
+    reservedPaid: reservedPaid,
+    reservedRemaining: reservedValue - reservedPaid,
     garmentValue: availableValue + reservedValue,
     soldUnits: soldUnits,
     soldValue: soldValue,

@@ -83,6 +83,34 @@ void main() {
     expect(find.text(r'$7.500,00'), findsOneWidget);
   });
 
+  testWidgets('invoice lists partial payments with the deposit', (
+    tester,
+  ) async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.setOrderSena(order.id, 2500), isTrue);
+    expect(
+      store.setOrderPayments(order.id, [
+        OrderPayment(amount: 1000, createdAt: DateTime.utc(2026, 10, 1)),
+      ]),
+      isTrue,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp(home: InvoicePage(orderId: order.id)),
+      ),
+    );
+
+    expect(find.text('Seña'), findsOneWidget);
+    expect(find.text('Pago'), findsOneWidget);
+    expect(find.text('Restante'), findsOneWidget);
+    expect(find.text(r'$1.000,00'), findsOneWidget);
+    expect(find.text(r'$6.500,00'), findsOneWidget);
+  });
+
   testWidgets('invoice groups variants of the same product', (tester) async {
     final store = AppStore();
     addTearDown(store.dispose);

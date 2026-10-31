@@ -96,6 +96,8 @@ class _StatsPageState extends State<StatsPage> {
       units: stats.reservedUnits,
       value: stats.reservedValue,
       accent: AppColors.warning,
+      paid: stats.reservedPaid,
+      remaining: stats.reservedRemaining,
     );
     final sold = _StatCard(
       title: 'Vendidas',
@@ -202,6 +204,8 @@ class _StatCard extends StatelessWidget {
     required this.units,
     required this.value,
     required this.accent,
+    this.paid,
+    this.remaining,
   });
 
   final String title;
@@ -210,6 +214,8 @@ class _StatCard extends StatelessWidget {
   final int units;
   final double value;
   final Color accent;
+  final double? paid;
+  final double? remaining;
 
   @override
   Widget build(BuildContext context) {
@@ -254,6 +260,22 @@ class _StatCard extends StatelessWidget {
               value: MoneyFormat.compact(value),
               isDark: isDark,
             ),
+            if (paid != null && remaining != null) ...[
+              _StatLine(
+                icon: Icons.account_balance_wallet_outlined,
+                iconColor: accent,
+                label: 'Pagado',
+                value: MoneyFormat.compact(paid!),
+                isDark: isDark,
+              ),
+              _StatLine(
+                icon: Icons.savings_outlined,
+                iconColor: accent,
+                label: 'Restante',
+                value: MoneyFormat.compact(remaining!),
+                isDark: isDark,
+              ),
+            ],
           ],
         ),
       ),
