@@ -13,6 +13,7 @@ Product testProduct({
   ApparelAudience? audience,
   String brand = 'Test',
   double price = 10000,
+  double? salePrice,
   int stock = 10,
   String lotId = '',
   DateTime? createdAt,
@@ -28,6 +29,7 @@ Product testProduct({
     audience: audience,
     brand: brand,
     price: price,
+    salePrice: salePrice,
     images: const [],
     variants: [
       ProductVariant(

@@ -3,10 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
-import '../../data/formatters.dart';
 import '../../data/session_store.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/offer_price.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/product_image_pager.dart';
@@ -241,12 +241,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      MoneyFormat.compact(product.price),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppColors.terracotta,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    OfferPrice(
+                      product: product,
+                      saleStyle: Theme.of(context).textTheme.titleLarge
+                          ?.copyWith(
+                            color: AppColors.terracotta,
+                            fontWeight: product.onSale
+                                ? FontWeight.w800
+                                : FontWeight.w700,
+                          ),
                     ),
                     const SizedBox(height: 16),
                     if (product.categoryLabel.isNotEmpty)
@@ -490,11 +493,13 @@ class _WideDetail extends StatelessWidget {
               const SizedBox(height: 8),
               _TotalStock(stock: product.stock),
               const SizedBox(height: 8),
-              Text(
-                MoneyFormat.compact(product.price),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              OfferPrice(
+                product: product,
+                saleStyle: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: AppColors.terracotta,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: product.onSale
+                      ? FontWeight.w800
+                      : FontWeight.w700,
                 ),
               ),
               if (lotLabel != null) ...[

@@ -617,9 +617,9 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
         case StockSort.name:
           return a.name.compareTo(b.name);
         case StockSort.priceAsc:
-          return a.price.compareTo(b.price);
+          return a.sellingPrice.compareTo(b.sellingPrice);
         case StockSort.priceDesc:
-          return b.price.compareTo(a.price);
+          return b.sellingPrice.compareTo(a.sellingPrice);
         case StockSort.stockAsc:
           return a.stock.compareTo(b.stock);
       }
@@ -1328,7 +1328,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     final index = order.lines.indexWhere((l) => l.lineKey == lineKey);
     if (index < 0) return;
     final line = order.lines[index];
-    final next = price == null || price == line.listPrice
+    final next = price == null || price == line.product.sellingPrice
         ? line.copyWith(clearUnitPriceOverride: true)
         : line.copyWith(unitPriceOverride: price);
     order.lines[index] = next;

@@ -23,15 +23,23 @@ class StockDot extends StatelessWidget {
 }
 
 class StockLabel extends StatelessWidget {
-  const StockLabel({super.key, required this.stock, this.compact = true});
+  const StockLabel({
+    super.key,
+    required this.stock,
+    this.compact = true,
+    this.size,
+  });
 
   final int stock;
   final bool compact;
+  final String? size;
 
   @override
   Widget build(BuildContext context) {
     final out = stock <= 0;
     final low = !out && stock <= Product.lowStockThreshold;
+    final namedSize = size?.trim() ?? '';
+    final amount = compact ? '$stock u.' : '$stock unidades';
     final style = Theme.of(context).textTheme.bodySmall?.copyWith(
       color: out
           ? AppColors.stockLow
@@ -43,10 +51,21 @@ class StockLabel extends StatelessWidget {
       children: [
         StockDot(low: out || low),
         const SizedBox(width: 6),
-        Text(
-          out ? 'Sin stock' : (compact ? '$stock u.' : '$stock unidades'),
-          style: style,
-        ),
+        if (out || namedSize.isEmpty)
+          Text(out ? 'Sin stock' : amount, style: style)
+        else
+          Text.rich(
+            TextSpan(
+              style: style,
+              children: [
+                TextSpan(
+                  text: namedSize,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                TextSpan(text: ' · $amount'),
+              ],
+            ),
+          ),
       ],
     );
   }

@@ -379,6 +379,182 @@ void main() {
     final label = tester.widget<Text>(find.text('Sin stock en S').first);
     expect(label.style?.color, AppColors.stockGap);
   });
+
+  test('onlySizeInStock is the single size that still has units', () {
+    expect(_sizedProduct('p-m', {'M': 3}).sizesInStock, ['M']);
+    expect(_sizedProduct('p-m', {'M': 3}).onlySizeInStock, 'M');
+    expect(_sizedProduct('p-gap', {'S': 0, 'M': 4}).sizesInStock, ['M']);
+    expect(_sizedProduct('p-gap', {'S': 0, 'M': 4}).onlySizeInStock, 'M');
+    expect(_sizedProduct('p-both', {'S': 1, 'L': 2}).onlySizeInStock, isNull);
+    expect(_sizedProduct('p-both', {'S': 1, 'L': 2}).sizesInStock, ['S', 'L']);
+    expect(_sizedProduct('p-out', {'S': 0, 'M': 0}).onlySizeInStock, isNull);
+  });
+
+  testWidgets('card names the only size that still has stock', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 220,
+            height: 360,
+            child: ProductCard(
+              product: _sizedProduct('p-m', {'M': 3}),
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('M · 3 u.'), findsOneWidget);
+    final size = tester.widget<Text>(find.text('M · 3 u.')).textSpan!;
+    expect(
+      (size as TextSpan).children!.first.style?.fontWeight,
+      FontWeight.w700,
+    );
+  });
+
+  testWidgets('card keeps the missing-size warning and names the size left', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 220,
+            height: 360,
+            child: ProductCard(
+              product: _sizedProduct('p-gap', {'S': 0, 'M': 3}),
+              filteredSizes: const {'S'},
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Sin stock en S'), findsWidgets);
+    expect(find.text('M · 3 u.'), findsOneWidget);
+  });
+
+  testWidgets('card does not name a size when several still have stock', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 220,
+            height: 360,
+            child: ProductCard(
+              product: _sizedProduct('p-both', {'S': 2, 'M': 3}),
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('5 u.'), findsOneWidget);
+    expect(find.textContaining('·'), findsNothing);
+  });
+
+  testWidgets('stock table names the only size that still has stock', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: AppStore(),
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: ProductTable(
+              products: [
+                _sizedProduct('p-m', {'M': 9}),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('M · 9'), findsOneWidget);
+    final size = tester.widget<Text>(find.text('M · 9')).textSpan!;
+    expect(
+      (size as TextSpan).children!.first.style?.fontWeight,
+      FontWeight.w700,
+    );
+    expect(find.text('Stock: 9'), findsNothing);
+    expect(find.text('Disponible'), findsOneWidget);
+  });
+
+  testWidgets(
+    'stock table keeps the missing-size warning and names the size left',
+    (tester) async {
+      tester.view.physicalSize = const Size(1400, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: AppStore(),
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: ProductTable(
+                products: [
+                  _sizedProduct('p-gap', {'S': 0, 'M': 4, 'L': 0}),
+                ],
+                filteredSizes: const {'S'},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('M · 4'), findsOneWidget);
+      expect(find.text('Sin stock en S'), findsWidgets);
+      expect(find.text('Stock: 4'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'stock table does not name a size when several still have stock',
+    (tester) async {
+      tester.view.physicalSize = const Size(1400, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: AppStore(),
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: ProductTable(
+                products: [
+                  _sizedProduct('p-both', {'S': 2, 'M': 3}),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Stock: 5'), findsOneWidget);
+      expect(find.textContaining('·'), findsNothing);
+    },
+  );
 }
 
 Product _sizedProduct(

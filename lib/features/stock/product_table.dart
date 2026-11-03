@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
-import '../../data/formatters.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/offer_price.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/product_image_viewer.dart';
 import '../../widgets/stock_dot.dart';
@@ -48,7 +48,7 @@ class ProductTable extends StatelessWidget {
             showCheckboxColumn: false,
             headingRowHeight: 48,
             dataRowMinHeight: 68,
-            dataRowMaxHeight: 76,
+            dataRowMaxHeight: 96,
             headingTextStyle: headerStyle,
             columns: const [
               DataColumn(label: Text('PRODUCTO')),
@@ -159,21 +159,9 @@ class ProductTable extends StatelessWidget {
                         ),
                       ),
                       DataCell(
-                        Text(
-                          missingLabel.isNotEmpty && !product.isOutOfStock
-                              ? missingLabel
-                              : product.isOutOfStock
-                              ? 'Sin stock'
-                              : 'Stock: ${product.stock}',
-                          style: TextStyle(
-                            color:
-                                missingLabel.isNotEmpty && !product.isOutOfStock
-                                ? AppColors.stockGap
-                                : product.isOutOfStock || product.isLowStock
-                                ? AppColors.stockLow
-                                : null,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        _StockColumnText(
+                          product: product,
+                          missingLabel: missingLabel,
                         ),
                       ),
                       DataCell(
@@ -181,10 +169,15 @@ class ProductTable extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              MoneyFormat.compact(product.price),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
+                            OfferPrice(
+                              product: product,
+                              saleStyle: TextStyle(
+                                fontWeight: product.onSale
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                                color: product.onSale
+                                    ? AppColors.terracotta
+                                    : null,
                               ),
                             ),
                             if (ivaEnabled)
@@ -242,5 +235,48 @@ class ProductTable extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _StockColumnText extends StatelessWidget {
+  const _StockColumnText({required this.product, required this.missingLabel});
+
+  final Product product;
+  final String missingLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final onlySize = product.onlySizeInStock;
+    final gap =
+        onlySize == null && missingLabel.isNotEmpty && !product.isOutOfStock;
+    final style = TextStyle(
+      color: gap
+          ? AppColors.stockGap
+          : product.isOutOfStock || product.isLowStock
+          ? AppColors.stockLow
+          : null,
+      fontWeight: FontWeight.w600,
+    );
+    if (product.isOutOfStock) {
+      return Text('Sin stock', style: style);
+    }
+    if (onlySize != null) {
+      return Text.rich(
+        TextSpan(
+          style: style,
+          children: [
+            TextSpan(
+              text: onlySize,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            TextSpan(text: ' · ${product.stock}'),
+          ],
+        ),
+      );
+    }
+    if (missingLabel.isNotEmpty) {
+      return Text(missingLabel, style: style);
+    }
+    return Text('Stock: ${product.stock}', style: style);
   }
 }

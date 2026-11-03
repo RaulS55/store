@@ -78,10 +78,11 @@ bool matchesProductFilters({
           : !product.isLowStock)) {
     return false;
   }
-  if (filters.minPrice != null && product.price < filters.minPrice!) {
+  if (filters.onlyOnSale && !product.onSale) return false;
+  if (filters.minPrice != null && product.sellingPrice < filters.minPrice!) {
     return false;
   }
-  if (filters.maxPrice != null && product.price > filters.maxPrice!) {
+  if (filters.maxPrice != null && product.sellingPrice > filters.maxPrice!) {
     return false;
   }
   return true;

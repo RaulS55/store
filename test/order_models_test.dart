@@ -191,6 +191,24 @@ void main() {
     expect(restored.toMap().containsKey('unitPriceOverride'), isFalse);
   });
 
+  test('OrderLine charges the offer price unless a manual price wins', () {
+    final offer = testProduct(price: 15000, salePrice: 10000);
+    final line = OrderLine(
+      product: offer,
+      variant: offer.variants.first,
+      quantity: 2,
+    );
+    expect(line.listPrice, 15000);
+    expect(line.unitPrice, 10000);
+    expect(line.hasCustomPrice, isFalse);
+    expect(line.lineTotal, 20000);
+
+    final custom = line.copyWith(unitPriceOverride: 12000);
+    expect(custom.unitPrice, 12000);
+    expect(custom.listPrice, 15000);
+    expect(custom.lineTotal, 24000);
+  });
+
   test('OrderLine.fromMap reads a missing override as list price', () {
     final line = OrderLine.fromMap({
       'quantity': 1,

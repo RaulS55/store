@@ -90,7 +90,7 @@ CompanyStats computeCompanyStats({
   final availableUnits = live.fold(0, (sum, product) => sum + product.stock);
   final availableValue = live.fold<double>(
     0,
-    (sum, product) => sum + product.price * product.stock,
+    (sum, product) => sum + product.sellingPrice * product.stock,
   );
 
   var reservedUnits = 0;
@@ -105,7 +105,8 @@ CompanyStats computeCompanyStats({
       if (product == null || hold.quantity <= 0) continue;
       reservedUnits += hold.quantity;
       final line = linesByKey[hold.key];
-      reservedValue += (line?.unitPrice ?? product.price) * hold.quantity;
+      reservedValue +=
+          (line?.unitPrice ?? product.sellingPrice) * hold.quantity;
     }
   }
 

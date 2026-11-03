@@ -83,7 +83,7 @@ class OrderLine {
 
   bool get hasCustomPrice => unitPriceOverride != null;
 
-  double get unitPrice => unitPriceOverride ?? product.price;
+  double get unitPrice => unitPriceOverride ?? product.sellingPrice;
   double get lineTotal => unitPrice * quantity;
 
   OrderLine copyWith({

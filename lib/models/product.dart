@@ -636,6 +636,7 @@ class Product {
     this.audience,
     required this.brand,
     required this.price,
+    this.salePrice,
     required this.images,
     required this.variants,
     this.equivalentSizes = const {},
@@ -653,6 +654,7 @@ class Product {
   final ApparelAudience? audience;
   final String brand;
   final double price;
+  final double? salePrice;
   final List<String> images;
   final List<ProductVariant> variants;
   final Map<String, String> equivalentSizes;
@@ -665,6 +667,25 @@ class Product {
   bool get isDeleted => deletedAt != null;
 
   bool get hasLot => lotId.trim().isNotEmpty;
+
+  /// Offer price counts only when it is a real discount on [price].
+  bool get onSale {
+    final sale = salePrice;
+    return sale != null &&
+        sale.isFinite &&
+        price.isFinite &&
+        sale > 0 &&
+        sale < price;
+  }
+
+  double get sellingPrice => onSale ? salePrice! : price;
+
+  static double? parseSalePrice(double price, dynamic raw) {
+    final sale = raw is num ? raw.toDouble() : null;
+    if (sale == null || !sale.isFinite || !price.isFinite) return null;
+    if (sale <= 0 || sale >= price) return null;
+    return sale;
+  }
 
   static const lowStockThreshold = 8;
 
@@ -747,6 +768,19 @@ class Product {
         .fold(0, (sum, v) => sum + v.stock);
   }
 
+  List<String> get sizesInStock {
+    return ApparelSizes.sorted([
+      for (final size in sizes)
+        if (stockForSize(size) > 0) size,
+    ]);
+  }
+
+  String? get onlySizeInStock {
+    final available = sizesInStock;
+    if (available.length != 1) return null;
+    return available.single;
+  }
+
   /// Sizes from [selected] that this garment offers, when every one of them is
   /// out of stock. Empty when the filter is empty, the garment does not offer
   /// those sizes, or at least one selected size still has units.
@@ -795,6 +829,7 @@ class Product {
     final rawImages = data['images'] as List<dynamic>? ?? const [];
     final rawCategory = (data['category'] as String? ?? '').trim();
     final rawAudience = (data['audience'] as String? ?? '').trim();
+    final price = (data['price'] as num?)?.toDouble() ?? 0;
     return Product(
       id: record.id,
       name: (data['name'] as String? ?? '').trim(),
@@ -806,7 +841,8 @@ class Product {
           ? null
           : ApparelAudience.fromStorage(rawAudience),
       brand: (data['brand'] as String? ?? '').trim(),
-      price: (data['price'] as num?)?.toDouble() ?? 0,
+      price: price,
+      salePrice: parseSalePrice(price, data['salePrice']),
       images: [for (final image in rawImages) '$image'],
       variants: [
         for (final variant in rawVariants)
@@ -838,6 +874,7 @@ class Product {
       'audience': audience?.name ?? '',
       'brand': brand.trim(),
       'price': price,
+      if (onSale) 'salePrice': salePrice,
       'images': images,
       'variants': [for (final variant in variants) variant.toMap()],
       'equivalentSizes': storedEquivalentSizes,
@@ -872,6 +909,8 @@ class Product {
     ApparelAudience? audience,
     String? brand,
     double? price,
+    double? salePrice,
+    bool clearSalePrice = false,
     List<String>? images,
     List<ProductVariant>? variants,
     Map<String, String>? equivalentSizes,
@@ -889,6 +928,7 @@ class Product {
       audience: audience ?? this.audience,
       brand: brand ?? this.brand,
       price: price ?? this.price,
+      salePrice: clearSalePrice ? null : (salePrice ?? this.salePrice),
       images: images ?? this.images,
       variants: variants ?? this.variants,
       equivalentSizes: equivalentSizes ?? this.equivalentSizes,

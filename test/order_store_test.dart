@@ -646,6 +646,27 @@ void main() {
     },
   );
 
+  test(
+    'setLineUnitPrice stores the list price while an offer is active',
+    () async {
+      final store = AppStore();
+      addTearDown(store.dispose);
+      final product = testProduct(price: 15000, salePrice: 10000);
+      final order = await seedTestOrder(store, product: product);
+      final lineKey = order.lines.first.lineKey;
+      expect(order.lines.first.unitPrice, 10000);
+      expect(order.lines.first.hasCustomPrice, isFalse);
+
+      store.setLineUnitPrice(order.id, lineKey, 15000);
+      expect(order.lines.first.hasCustomPrice, isTrue);
+      expect(order.lines.first.unitPrice, 15000);
+
+      store.setLineUnitPrice(order.id, lineKey, 10000);
+      expect(order.lines.first.hasCustomPrice, isFalse);
+      expect(order.lines.first.unitPrice, 10000);
+    },
+  );
+
   test('setLineUnitPrice ignores closed orders', () async {
     final store = AppStore();
     addTearDown(store.dispose);

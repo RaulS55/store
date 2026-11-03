@@ -280,6 +280,15 @@ class _FiltersEditorState extends State<FiltersEditor> {
                     activeThumbColor: Colors.white,
                     activeTrackColor: AppColors.terracotta,
                   ),
+                  SwitchListTile(
+                    value: _draft.onlyOnSale,
+                    onChanged: (v) =>
+                        setState(() => _draft = _draft.copyWith(onlyOnSale: v)),
+                    title: const Text('Solo en oferta'),
+                    contentPadding: EdgeInsets.zero,
+                    activeThumbColor: Colors.white,
+                    activeTrackColor: AppColors.terracotta,
+                  ),
                   if (!widget.host.listsOutOfStock)
                     SwitchListTile(
                       value: _draft.includeOutOfStock,
@@ -554,6 +563,15 @@ class WebFilterBar extends StatelessWidget {
                         selectedColor: AppColors.terracottaChip,
                         onSelected: (v) => store.applyFilters(
                           store.filters.copyWith(onlyLowStock: v),
+                        ),
+                      ),
+                      FilterChip(
+                        label: const Text('En oferta'),
+                        selected: store.filters.onlyOnSale,
+                        showCheckmark: false,
+                        selectedColor: AppColors.terracottaChip,
+                        onSelected: (v) => store.applyFilters(
+                          store.filters.copyWith(onlyOnSale: v),
                         ),
                       ),
                       if (!store.listsOutOfStock)

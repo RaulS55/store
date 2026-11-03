@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/catalog_guest_store.dart';
-import '../../data/formatters.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/offer_price.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/product_image_pager.dart';
@@ -254,11 +254,13 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    MoneyFormat.compact(product.price),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  OfferPrice(
+                    product: product,
+                    saleStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: AppColors.terracotta,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: product.onSale
+                          ? FontWeight.w800
+                          : FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 16),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../data/formatters.dart';
 import '../models/product.dart';
 import '../theme/tokens.dart';
+import 'offer_price.dart';
 import 'product_image.dart';
 import 'stock_dot.dart';
 
@@ -25,6 +25,7 @@ class ProductCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
     final missingLabel = product.missingSizeStockLabel(filteredSizes);
+    final onlySize = product.onlySizeInStock;
     final sizeGap = missingLabel.isNotEmpty && !product.isOutOfStock;
     final out = product.isOutOfStock;
     final marked = sizeGap || out;
@@ -167,7 +168,9 @@ class ProductCard extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 8),
-                    if (sizeGap)
+                    if (onlySize != null)
+                      StockLabel(stock: product.stock, size: onlySize)
+                    else if (sizeGap)
                       Text(
                         missingLabel,
                         maxLines: 1,
@@ -180,9 +183,10 @@ class ProductCard extends StatelessWidget {
                     else
                       StockLabel(stock: product.stock),
                     const SizedBox(height: 6),
-                    Text(
-                      MoneyFormat.labeled(product.price),
-                      style: theme.textTheme.titleSmall?.copyWith(
+                    OfferPrice(
+                      product: product,
+                      labeled: true,
+                      saleStyle: theme.textTheme.titleSmall?.copyWith(
                         color: AppColors.terracotta,
                         fontWeight: FontWeight.w700,
                       ),

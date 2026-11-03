@@ -476,9 +476,23 @@ class _LineTile extends StatelessWidget {
                   '${line.variant.size} · ${line.variant.color}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                if (line.product.onSale && !line.hasCustomPrice)
+                  Text(
+                    MoneyFormat.detailed(line.listPrice * line.quantity),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.mutedText,
+                      decoration: TextDecoration.lineThrough,
+                      decorationColor: AppColors.mutedText,
+                    ),
+                  ),
                 Text(
                   MoneyFormat.detailed(line.lineTotal),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: line.product.onSale && !line.hasCustomPrice
+                        ? AppColors.terracotta
+                        : null,
+                  ),
                 ),
               ],
             ),
@@ -556,12 +570,28 @@ class _RequestedTile extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              MoneyFormat.detailed(line.lineTotal),
-              style: textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: AppColors.slate,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (line.product.onSale && !line.hasCustomPrice)
+                  Text(
+                    MoneyFormat.detailed(line.listPrice * line.quantity),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: AppColors.slate,
+                      decoration: TextDecoration.lineThrough,
+                      decorationColor: AppColors.slate,
+                    ),
+                  ),
+                Text(
+                  MoneyFormat.detailed(line.lineTotal),
+                  style: textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: line.product.onSale && !line.hasCustomPrice
+                        ? AppColors.terracotta
+                        : AppColors.slate,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

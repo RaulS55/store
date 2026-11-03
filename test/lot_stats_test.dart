@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/data/app_store.dart';
 import 'package:store_app/models/lot_stats.dart';
+import 'package:store_app/models/order.dart';
 
 import 'fakes/catalog_harness.dart';
 
@@ -209,5 +210,54 @@ void main() {
     expect(stats.recoveryRemainingPercent, 0);
     expect(stats.currentProfit, 25000);
     expect(stats.expectedProfit, 130000);
+  });
+
+  test('assigned garments on sale use the offer price', () {
+    final stats = computeLotStats(
+      lot: testLot(id: 'l1', cost: 40000, quantity: 10, unitCost: 4000),
+      products: [
+        testProduct(lotId: 'l1', stock: 8, price: 15000, salePrice: 10000),
+      ],
+      openOrders: const [],
+      closedOrders: const [],
+    );
+    expect(stats.garmentValue, 80000);
+    expect(stats.expectedValue, 80000);
+  });
+
+  test('closed lot sales keep the charged offer after it ends', () {
+    final lot = testLot(id: 'l1', cost: 40000, quantity: 10, unitCost: 4000);
+    final live = testProduct(id: 'p1', lotId: 'l1', stock: 7, price: 15000);
+    final soldAs = testProduct(
+      id: 'p1',
+      lotId: 'l1',
+      stock: 8,
+      price: 15000,
+      salePrice: 10000,
+    );
+    final stats = computeLotStats(
+      lot: lot,
+      products: [live],
+      openOrders: const [],
+      closedOrders: [
+        DraftOrder(
+          id: 'o1',
+          orderNumber: 'o1',
+          customer: testCustomer(),
+          status: OrderStatus.cerrado,
+          closedAt: DateTime.utc(2026, 9, 20),
+          lines: [
+            OrderLine(
+              product: soldAs,
+              variant: soldAs.variants.first,
+              quantity: 1,
+            ),
+          ],
+        ),
+      ],
+    );
+    expect(stats.soldValue, 10000);
+    expect(stats.garmentValue, 115000);
+    expect(stats.expectedValue, 115000);
   });
 }

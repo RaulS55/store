@@ -405,4 +405,63 @@ void main() {
       isFalse,
     );
   });
+
+  test('offer price values available stock and keeps closed sales', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final product = testProduct(
+      id: 'p1',
+      stock: 8,
+      price: 15000,
+      salePrice: 10000,
+    );
+    await store.upsertProduct(product);
+    final order = await seedTestOrder(store, product: product);
+    expect(order.lines.first.listPrice, 15000);
+    expect(order.lines.first.unitPrice, 10000);
+    expect(order.lines.first.hasCustomPrice, isFalse);
+    expect(store.closeOrder(order.id), isTrue);
+
+    var stats = store.statsForCompany();
+    expect(stats.soldUnits, 1);
+    expect(stats.soldValue, 10000);
+    expect(stats.availableUnits, 7);
+    expect(stats.availableValue, 70000);
+
+    await store.upsertProduct(
+      store.productById('p1')!.copyWith(clearSalePrice: true),
+    );
+    stats = store.statsForCompany();
+    expect(stats.soldValue, 10000);
+    expect(stats.availableValue, 105000);
+    expect(stats.expectedGross, 115000);
+  });
+
+  test(
+    'reserved stock uses the offer price unless the line overrides it',
+    () async {
+      final store = AppStore();
+      addTearDown(store.dispose);
+      final product = testProduct(
+        id: 'p1',
+        stock: 8,
+        price: 15000,
+        salePrice: 10000,
+      );
+      await store.upsertProduct(product);
+      final order = await seedTestOrder(store, product: product);
+      store.setLineQty(order.id, order.lines.first.lineKey, 2);
+      expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+
+      var stats = store.statsForCompany();
+      expect(stats.availableValue, 60000);
+      expect(stats.reservedValue, 20000);
+
+      store.setLineUnitPrice(order.id, order.lines.first.lineKey, 12000);
+      stats = store.statsForCompany();
+      expect(stats.reservedValue, 24000);
+      expect(stats.availableValue, 60000);
+      expect(order.lines.first.hasCustomPrice, isTrue);
+    },
+  );
 }

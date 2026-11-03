@@ -36,6 +36,8 @@ class _ProductFormPageState extends State<ProductFormPage> {
   late final TextEditingController _name;
   late final TextEditingController _sku;
   late final TextEditingController _price;
+  late final TextEditingController _salePrice;
+  var _onSale = false;
   late final VariantDraft _draft;
   ApparelCategory? _category;
   String _categoryQuery = '';
@@ -58,6 +60,12 @@ class _ProductFormPageState extends State<ProductFormPage> {
     _sku = TextEditingController(text: existing?.sku ?? store.suggestedSku());
     _price = TextEditingController(
       text: existing == null ? '' : MoneyFormat.grouped(existing.price),
+    );
+    _onSale = existing?.onSale ?? false;
+    _salePrice = TextEditingController(
+      text: existing != null && existing.onSale
+          ? MoneyFormat.grouped(existing.salePrice!)
+          : '',
     );
     _category = existing?.category;
     _categoryQuery = existing?.categoryLabel ?? '';
@@ -83,6 +91,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
     _name.dispose();
     _sku.dispose();
     _price.dispose();
+    _salePrice.dispose();
     super.dispose();
   }
 
@@ -187,6 +196,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
         audience: _audience,
         brand: store.resolveBrand(_brandQuery),
         price: MoneyFormat.parse(_price.text)!,
+        salePrice: _onSale ? MoneyFormat.parse(_salePrice.text) : null,
         images: urls,
         variants: List.of(_draft.variants),
         equivalentSizes: _draft.storedEquivalentSizes,
@@ -480,7 +490,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
         ),
       ),
       _LabeledField(
-        label: 'Precio',
+        label: 'Precio de lista',
         required: true,
         icon: Icons.attach_money,
         child: TextFormField(
@@ -489,8 +499,31 @@ class _ProductFormPageState extends State<ProductFormPage> {
           inputFormatters: [MoneyFormat.inputFormatter],
           decoration: const InputDecoration(hintText: 'Ej. 12.500'),
           validator: _priceValidator,
+          onChanged: (_) => setState(() {}),
         ),
       ),
+      SwitchListTile(
+        value: _onSale,
+        onChanged: (value) => setState(() => _onSale = value),
+        title: const Text('En oferta'),
+        contentPadding: EdgeInsets.zero,
+        activeThumbColor: Colors.white,
+        activeTrackColor: AppColors.terracotta,
+      ),
+      if (_onSale)
+        _LabeledField(
+          label: 'Precio de oferta',
+          required: true,
+          icon: Icons.local_offer_outlined,
+          child: TextFormField(
+            key: const ValueKey('product-sale-price'),
+            controller: _salePrice,
+            keyboardType: TextInputType.number,
+            inputFormatters: [MoneyFormat.inputFormatter],
+            decoration: const InputDecoration(hintText: 'Ej. 9.900'),
+            validator: _salePriceValidator,
+          ),
+        ),
       if (context.watch<SessionStore?>()?.canManageLots ?? false)
         _LabeledField(
           label: 'Lote',
@@ -543,6 +576,20 @@ class _ProductFormPageState extends State<ProductFormPage> {
     if (required != null) return required;
     if (MoneyFormat.parse(value!) == null) {
       return 'Ingresá un número';
+    }
+    return null;
+  }
+
+  String? _salePriceValidator(String? value) {
+    if (!_onSale) return null;
+    final required = _required(value);
+    if (required != null) return required;
+    final sale = MoneyFormat.parse(value!);
+    if (sale == null) return 'Ingresá un número';
+    final list = MoneyFormat.parse(_price.text);
+    if (list == null) return 'Primero ingresá el precio de lista';
+    if (sale <= 0 || sale >= list) {
+      return 'Tiene que ser menor al precio de lista';
     }
     return null;
   }

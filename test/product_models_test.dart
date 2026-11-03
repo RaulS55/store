@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store_app/data/app_store.dart';
+import 'package:store_app/models/filters.dart';
 import 'package:store_app/models/product.dart';
+import 'package:store_app/models/product_filter.dart';
 import 'package:store_app/models/sync_record.dart';
 
 import 'fakes/catalog_harness.dart';
@@ -166,7 +168,10 @@ void main() {
     final names = [for (final color in Swatches.all) color.name];
     expect(Swatches.all.length, greaterThanOrEqualTo(12));
     expect(names.toSet().length, Swatches.all.length);
-    expect(names, containsAll(['Negro', 'Blanco', 'Gris', 'Beige', 'Chocolate']));
+    expect(
+      names,
+      containsAll(['Negro', 'Blanco', 'Gris', 'Beige', 'Chocolate']),
+    );
     expect(
       names,
       containsAll([
@@ -451,5 +456,79 @@ void main() {
     expect(product.lotId, 'l1');
     expect(product.hasLot, isTrue);
     expect(product.toMap()['lotId'], 'l1');
+  });
+
+  test('sale price counts only as a discount and round-trips', () {
+    final offer = testProduct(price: 15000, salePrice: 10000);
+    expect(offer.onSale, isTrue);
+    expect(offer.sellingPrice, 10000);
+    expect(offer.toMap()['salePrice'], 10000);
+
+    final stored = Product.fromMap(offer.id, offer.toMap());
+    expect(stored.salePrice, 10000);
+    expect(stored.onSale, isTrue);
+    expect(stored.sellingPrice, 10000);
+
+    final cleared = offer.copyWith(clearSalePrice: true);
+    expect(cleared.onSale, isFalse);
+    expect(cleared.sellingPrice, 15000);
+    expect(cleared.toMap().containsKey('salePrice'), isFalse);
+
+    final base = testProduct(price: 15000).toMap();
+    for (final raw in [0, 15000, 20000, -1]) {
+      final ignored = Product.fromMap('p-sale', {...base, 'salePrice': raw});
+      expect(ignored.salePrice, isNull);
+      expect(ignored.onSale, isFalse);
+      expect(ignored.sellingPrice, 15000);
+    }
+
+    final missing = Product.fromMap('p-sale', base);
+    expect(missing.onSale, isFalse);
+    expect(missing.toMap().containsKey('salePrice'), isFalse);
+  });
+
+  test('sale filter and price range use the selling price', () {
+    final sale = testProduct(id: 'sale', price: 15000, salePrice: 8000);
+    final regular = testProduct(id: 'regular', sku: 'TST-0002', price: 9000);
+
+    bool match(Product product, ProductFilters filters) {
+      return matchesProductFilters(
+        product: product,
+        searchQuery: '',
+        visibleCategories: const [ApparelCategory.remeras],
+        visibleAudiences: const [],
+        filters: filters,
+      );
+    }
+
+    expect(match(sale, const ProductFilters(onlyOnSale: true)), isTrue);
+    expect(match(regular, const ProductFilters(onlyOnSale: true)), isFalse);
+    expect(const ProductFilters(onlyOnSale: true).isEmpty, isFalse);
+    expect(const ProductFilters(onlyOnSale: true).activeCount, 1);
+    expect(match(sale, const ProductFilters(minPrice: 9000)), isFalse);
+    expect(match(sale, const ProductFilters(maxPrice: 8000)), isTrue);
+    expect(
+      match(regular, const ProductFilters(minPrice: 9000, maxPrice: 9000)),
+      isTrue,
+    );
+  });
+
+  test('price sort uses the selling price', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct(id: 'list', price: 5000));
+    await store.upsertProduct(
+      testProduct(id: 'offer', sku: 'TST-0002', price: 20000, salePrice: 4000),
+    );
+    store.setSort(StockSort.priceAsc);
+    expect(store.filteredProducts.map((product) => product.id), [
+      'offer',
+      'list',
+    ]);
+    store.setSort(StockSort.priceDesc);
+    expect(store.filteredProducts.map((product) => product.id), [
+      'list',
+      'offer',
+    ]);
   });
 }

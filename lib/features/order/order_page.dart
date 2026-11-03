@@ -10,6 +10,7 @@ import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_confirm_dialog.dart';
 import '../../widgets/app_snack_bar.dart';
+import '../../widgets/offer_price.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/qty_stepper.dart';
 import '../../widgets/search_field.dart';
@@ -564,7 +565,9 @@ class _HitTile extends StatelessWidget {
         ),
       ),
       title: Text(product.name),
-      subtitle: Text('${product.sku} · ${MoneyFormat.compact(product.price)}'),
+      subtitle: product.onSale
+          ? OfferPrice(product: product, prefix: product.sku)
+          : Text('${product.sku} · ${MoneyFormat.compact(product.price)}'),
       trailing: const Icon(Icons.add, color: AppColors.terracotta),
     );
   }
@@ -821,10 +824,19 @@ class _LineUnitPrice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final price = Text(
-      MoneyFormat.detailed(line.unitPrice),
-      style: Theme.of(context).textTheme.bodySmall,
-    );
+    final price = line.product.onSale && !line.hasCustomPrice
+        ? OfferPrice(
+            product: line.product,
+            alignment: CrossAxisAlignment.end,
+            saleStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.terracotta,
+              fontWeight: FontWeight.w800,
+            ),
+          )
+        : Text(
+            MoneyFormat.detailed(line.unitPrice),
+            style: Theme.of(context).textTheme.bodySmall,
+          );
     final listHint = line.hasCustomPrice
         ? Text(
             'Lista: ${MoneyFormat.detailed(line.listPrice)}',
@@ -921,6 +933,16 @@ class _EditLinePriceDialogState extends State<_EditLinePriceDialog> {
               context,
             ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
           ),
+          if (widget.line.product.onSale) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Oferta: ${MoneyFormat.detailed(widget.line.product.sellingPrice)}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.terracotta,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           TextField(
             key: const ValueKey('line-unit-price-field'),
