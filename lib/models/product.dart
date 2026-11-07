@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'map_value.dart';
+import 'stock_layer.dart';
 import 'sync_record.dart';
 
 enum ApparelLine { ropa, calzado }
@@ -554,6 +555,7 @@ class ProductVariant {
     this.colorHex,
     required this.stock,
     this.skuSuffix,
+    this.layers = const [],
   });
 
   final String size;
@@ -561,6 +563,7 @@ class ProductVariant {
   final String? colorHex;
   final int stock;
   final String? skuSuffix;
+  final List<StockLayer> layers;
 
   String get key => '$size|$color';
 
@@ -591,12 +594,20 @@ class ProductVariant {
 
   factory ProductVariant.fromMap(Map<String, dynamic> map) {
     final data = coerceStringKeyMap(map);
+    final rawLayers = data['layers'] as List<dynamic>? ?? const [];
+    final layers = StockLayers.sorted([
+      for (final layer in rawLayers)
+        if (tryCoerceStringKeyMap(layer) case final layerMap?)
+          StockLayer.fromMap(layerMap),
+    ]);
+    final storedStock = (data['stock'] as num?)?.toInt() ?? 0;
     return ProductVariant(
       size: ApparelSizes.resolve(data['size'] as String? ?? ''),
       color: data['color'] as String? ?? '',
       colorHex: data['colorHex'] as String?,
-      stock: (data['stock'] as num?)?.toInt() ?? 0,
+      stock: layers.isEmpty ? storedStock : StockLayers.quantityOf(layers),
       skuSuffix: data['skuSuffix'] as String?,
+      layers: layers,
     );
   }
 
@@ -607,6 +618,8 @@ class ProductVariant {
       'colorHex': colorHex,
       'stock': stock,
       if (skuSuffix != null) 'skuSuffix': skuSuffix,
+      if (layers.isNotEmpty)
+        'layers': [for (final layer in layers) layer.toMap()],
     };
   }
 
@@ -616,6 +629,7 @@ class ProductVariant {
     String? colorHex,
     int? stock,
     String? skuSuffix,
+    List<StockLayer>? layers,
   }) {
     return ProductVariant(
       size: size ?? this.size,
@@ -623,8 +637,22 @@ class ProductVariant {
       colorHex: colorHex ?? this.colorHex,
       stock: stock ?? this.stock,
       skuSuffix: skuSuffix ?? this.skuSuffix,
+      layers: layers ?? this.layers,
     );
   }
+}
+
+/// Units of one lot still available on a garment, across every size and color.
+class LotHolding {
+  const LotHolding({
+    required this.lotId,
+    required this.quantity,
+    required this.receivedAt,
+  });
+
+  final String lotId;
+  final int quantity;
+  final DateTime receivedAt;
 }
 
 class Product {
@@ -666,7 +694,120 @@ class Product {
 
   bool get isDeleted => deletedAt != null;
 
-  bool get hasLot => lotId.trim().isNotEmpty;
+  bool get hasLot => persistedLotId.isNotEmpty || lotHoldings.isNotEmpty;
+
+  /// Lot id written back to storage: the oldest lot that still has units.
+  String get persistedLotId {
+    if (!variants.any((variant) => variant.layers.isNotEmpty)) {
+      return lotId.trim();
+    }
+    return StockLayers.oldestLotId([
+      for (final variant in variants) ...variant.layers,
+    ]);
+  }
+
+  List<StockLayer> layersOf(ProductVariant variant) {
+    if (variant.layers.isNotEmpty) return StockLayers.sorted(variant.layers);
+    if (variant.stock <= 0) return const [];
+    return [
+      StockLayer(
+        lotId: lotId.trim(),
+        quantity: variant.stock,
+        receivedAt: createdAt,
+      ),
+    ];
+  }
+
+  int unitsInLot(String id) {
+    final lot = id.trim();
+    if (lot.isEmpty) return 0;
+    var sum = 0;
+    for (final variant in variants) {
+      for (final layer in layersOf(variant)) {
+        if (layer.lotId == lot) sum += layer.quantity;
+      }
+    }
+    return sum;
+  }
+
+  List<LotHolding> get lotHoldings {
+    final byLot = <String, LotHolding>{};
+    for (final variant in variants) {
+      for (final layer in layersOf(variant)) {
+        final id = layer.lotId.trim();
+        if (id.isEmpty || layer.quantity <= 0) continue;
+        final existing = byLot[id];
+        if (existing == null) {
+          byLot[id] = LotHolding(
+            lotId: id,
+            quantity: layer.quantity,
+            receivedAt: layer.receivedAt,
+          );
+        } else {
+          byLot[id] = LotHolding(
+            lotId: id,
+            quantity: existing.quantity + layer.quantity,
+            receivedAt: layer.receivedAt.isBefore(existing.receivedAt)
+                ? layer.receivedAt
+                : existing.receivedAt,
+          );
+        }
+      }
+    }
+    final holdings = byLot.values.toList()
+      ..sort((a, b) => a.receivedAt.compareTo(b.receivedAt));
+    return holdings;
+  }
+
+  static ({List<ProductVariant> variants, String lotId, bool needsLot})
+  assignLots({
+    required Product? previous,
+    required List<ProductVariant> variants,
+    required String? addedLotId,
+    required bool canAssignLot,
+    required bool isEditing,
+    required DateTime receivedAt,
+  }) {
+    final planned = <ProductVariant>[];
+    var needsLot = false;
+    for (final next in variants) {
+      final prior = previous?.variantFor(next.size, next.color);
+      final plan = planVariantStock(
+        previousLayers: prior == null || previous == null
+            ? const []
+            : previous.layersOf(prior),
+        isNew: prior == null,
+        nextStock: next.stock,
+        addedLotId: canAssignLot ? addedLotId : null,
+        requireLot: isEditing && canAssignLot,
+        claimUnassignedLots: isEditing && canAssignLot,
+        fallbackLotId: previous?.lotId ?? '',
+        receivedAt: receivedAt,
+      );
+      if (plan.needsLot) needsLot = true;
+      planned.add(
+        next.copyWith(
+          stock: StockLayers.quantityOf(plan.layers),
+          layers: plan.layers,
+        ),
+      );
+    }
+    final hadLayers =
+        previous != null &&
+        previous.variants.any(
+          (variant) => previous.layersOf(variant).isNotEmpty,
+        );
+    final tracked =
+        hadLayers || planned.any((variant) => variant.layers.isNotEmpty);
+    final lotId = tracked
+        ? StockLayers.oldestLotId([
+            for (final variant in planned) ...variant.layers,
+          ])
+        : (previous?.lotId.trim().isNotEmpty ?? false)
+        ? previous!.lotId.trim()
+        : (addedLotId?.trim() ?? '');
+    return (variants: planned, lotId: lotId, needsLot: needsLot);
+  }
 
   /// Offer price counts only when it is a real discount on [price].
   bool get onSale {
@@ -830,6 +971,7 @@ class Product {
     final rawCategory = (data['category'] as String? ?? '').trim();
     final rawAudience = (data['audience'] as String? ?? '').trim();
     final price = (data['price'] as num?)?.toDouble() ?? 0;
+    final lotId = (data['lotId'] as String? ?? '').trim();
     return Product(
       id: record.id,
       name: (data['name'] as String? ?? '').trim(),
@@ -847,7 +989,11 @@ class Product {
       variants: [
         for (final variant in rawVariants)
           if (tryCoerceStringKeyMap(variant) case final map?)
-            ProductVariant.fromMap(map),
+            _withLegacyLayer(
+              ProductVariant.fromMap(map),
+              lotId: lotId,
+              receivedAt: record.createdAt,
+            ),
       ],
       equivalentSizes: readEquivalentSizes(data['equivalentSizes']),
       createdAt: record.createdAt,
@@ -856,7 +1002,24 @@ class Product {
       status: ProductStatus.fromStorage(
         data['status'] as String? ?? ProductStatus.activo.name,
       ),
-      lotId: (data['lotId'] as String? ?? '').trim(),
+      lotId: lotId,
+    );
+  }
+
+  static ProductVariant _withLegacyLayer(
+    ProductVariant variant, {
+    required String lotId,
+    required DateTime receivedAt,
+  }) {
+    if (variant.layers.isNotEmpty || variant.stock <= 0) return variant;
+    return variant.copyWith(
+      layers: [
+        StockLayer(
+          lotId: lotId,
+          quantity: variant.stock,
+          receivedAt: receivedAt,
+        ),
+      ],
     );
   }
 
@@ -879,7 +1042,7 @@ class Product {
       'variants': [for (final variant in variants) variant.toMap()],
       'equivalentSizes': storedEquivalentSizes,
       'status': status.name,
-      'lotId': lotId.trim(),
+      'lotId': persistedLotId,
     };
   }
 

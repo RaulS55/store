@@ -14,6 +14,7 @@ import '../models/lot_stats.dart';
 import '../models/order.dart';
 import '../models/product.dart';
 import '../models/product_filter.dart';
+import '../models/stock_layer.dart';
 import '../models/record_source.dart';
 import 'catalog_request_access.dart';
 import 'customer_access.dart';
@@ -31,20 +32,6 @@ import 'session_exception.dart';
 enum SaveStockResult { saved, unchanged, insufficient }
 
 enum ReopenOrderResult { reopened, unchanged, customerBusy }
-
-class _StockChange {
-  const _StockChange({
-    required this.productId,
-    required this.size,
-    required this.color,
-    required this.stock,
-  });
-
-  final String productId;
-  final String size;
-  final String color;
-  final int stock;
-}
 
 class AppStore extends ChangeNotifier implements ProductFilterHost {
   @override
@@ -1016,17 +1003,93 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     required int stock,
     bool notify = true,
   }) {
-    final index = _products.indexWhere((p) => p.id == productId);
+    final product = productById(productId);
+    final variant = product?.variantFor(size, color);
+    if (product == null || variant == null) return;
+    final layers = product.layersOf(variant);
+    var target = stock;
+    if (target < 0) target = 0;
+    if (target > 999999) target = 999999;
+    final delta = target - StockLayers.quantityOf(layers);
+    final List<StockLayer> next;
+    if (delta > 0) {
+      final lot = StockLayers.lastLotId(layers) ?? product.lotId.trim();
+      next = StockLayers.receive(
+        layers: layers,
+        lotId: lot,
+        quantity: delta,
+        receivedAt: DateTime.now().toUtc(),
+      );
+    } else if (delta < 0) {
+      next = StockLayers.consume(layers, -delta).layers;
+    } else {
+      next = layers;
+    }
+    _commitLayers(product, {variant.key: next}, notify: notify);
+  }
+
+  Future<bool> restockProduct({
+    required String productId,
+    required String lotId,
+    required Map<String, int> quantities,
+  }) async {
+    final id = lotId.trim();
+    final product = productById(productId);
+    if (product == null || id.isEmpty) return false;
+    final when = DateTime.now().toUtc();
+    final layersByKey = <String, List<StockLayer>>{};
+    var changed = false;
+    for (final variant in product.variants) {
+      final add = quantities[variant.key] ?? 0;
+      if (add <= 0) continue;
+      changed = true;
+      layersByKey[variant.key] = StockLayers.receive(
+        layers: product.layersOf(variant),
+        lotId: id,
+        quantity: add,
+        receivedAt: when,
+      );
+    }
+    if (!changed) return false;
+    _commitLayers(product, layersByKey);
+    return true;
+  }
+
+  ProductVariant _materializeVariant(Product product, ProductVariant variant) {
+    if (variant.layers.isNotEmpty) return variant;
+    final layers = product.layersOf(variant);
+    if (layers.isEmpty) return variant;
+    return variant.copyWith(
+      layers: layers,
+      stock: StockLayers.quantityOf(layers),
+    );
+  }
+
+  void _commitLayers(
+    Product product,
+    Map<String, List<StockLayer>> layersByKey, {
+    bool notify = true,
+  }) {
+    final index = _products.indexWhere((item) => item.id == product.id);
     if (index < 0) return;
-    final product = _products[index];
     final variants = [
       for (final variant in product.variants)
-        if (variant.size == size && variant.color == color)
-          variant.copyWith(stock: stock.clamp(0, 999999))
+        if (layersByKey[variant.key] case final layers?)
+          variant.copyWith(
+            layers: layers,
+            stock: StockLayers.quantityOf(layers),
+          )
         else
-          variant,
+          _materializeVariant(product, variant),
     ];
-    final next = _stamp(product.copyWith(variants: variants));
+    final next = _stamp(
+      product.copyWith(
+        variants: variants,
+        lotId: StockLayers.oldestLotId([
+          for (final variant in variants) ...variant.layers,
+        ]),
+      ),
+    );
     _products[index] = next;
     if (notify) notifyListeners();
     unawaited(_persist(next));
@@ -1353,13 +1416,19 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
       return SaveStockResult.unchanged;
     }
 
-    final changes = <_StockChange>[];
+    final nextHolds = <StockReservation>[];
+    final pending = <String, Map<String, List<StockLayer>>>{};
     final keys = {...desired.keys, ...reserved.keys};
     for (final key in keys) {
       final next = desired[key];
       final previous = reserved[key];
-      final delta = (next?.quantity ?? 0) - (previous?.quantity ?? 0);
-      if (delta == 0) continue;
+      final nextQty = next?.quantity ?? 0;
+      final prevQty = previous?.quantity ?? 0;
+      final delta = nextQty - prevQty;
+      if (delta == 0) {
+        if (previous != null && previous.quantity > 0) nextHolds.add(previous);
+        continue;
+      }
       final sample = next ?? previous!;
       final product = productById(sample.productId);
       final variant = product?.variantFor(sample.size, sample.color);
@@ -1367,27 +1436,53 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
         if (delta > 0) return SaveStockResult.insufficient;
         continue;
       }
-      if (variant.stock - delta < 0) return SaveStockResult.insufficient;
-      changes.add(
-        _StockChange(
-          productId: product.id,
-          size: variant.size,
-          color: variant.color,
-          stock: variant.stock - delta,
-        ),
-      );
+      final current =
+          pending[product.id]?[variant.key] ?? product.layersOf(variant);
+      if (delta > 0) {
+        final consumed = StockLayers.consume(current, delta);
+        if (consumed.shortage > 0) return SaveStockResult.insufficient;
+        final prior = previous == null
+            ? const <LotAllocation>[]
+            : _knownAllocations(previous, product, order);
+        pending.putIfAbsent(product.id, () => {})[variant.key] =
+            consumed.layers;
+        nextHolds.add(
+          StockReservation(
+            productId: sample.productId,
+            size: sample.size,
+            color: sample.color,
+            quantity: nextQty,
+            allocations: StockLayers.mergeAllocations([
+              ...prior,
+              ...consumed.taken,
+            ]),
+          ),
+        );
+      } else {
+        final prior = _knownAllocations(previous!, product, order);
+        final split = StockLayers.release(prior, -delta);
+        pending.putIfAbsent(product.id, () => {})[variant.key] =
+            StockLayers.restore(current, split.returned);
+        if (nextQty > 0) {
+          nextHolds.add(
+            StockReservation(
+              productId: sample.productId,
+              size: sample.size,
+              color: sample.color,
+              quantity: nextQty,
+              allocations: split.kept,
+            ),
+          );
+        }
+      }
     }
 
-    for (final change in changes) {
-      updateVariantStock(
-        change.productId,
-        change.size,
-        change.color,
-        stock: change.stock,
-        notify: false,
-      );
+    for (final entry in pending.entries) {
+      final product = productById(entry.key);
+      if (product == null) continue;
+      _commitLayers(product, entry.value, notify: false);
     }
-    order.stockReservations = desired.values.toList();
+    order.stockReservations = nextHolds;
     notifyListeners();
     unawaited(_persistOrder(order));
     return SaveStockResult.saved;
@@ -1443,13 +1538,7 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     if (order == null || order.isClosed || order.isDeleted) return false;
     final previousDeletedAt = order.deletedAt;
     final previousHolds = [
-      for (final hold in order.stockReservations)
-        StockReservation(
-          productId: hold.productId,
-          size: hold.size,
-          color: hold.color,
-          quantity: hold.quantity,
-        ),
+      for (final hold in order.stockReservations) hold.copyWith(),
     ];
     order.deletedAt = DateTime.now().toUtc();
     _returnReservedStock(order);
@@ -1498,6 +1587,12 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
         size: hold.size,
         color: hold.color,
         quantity: (previous?.quantity ?? 0) + hold.quantity,
+        allocations: StockLayers.mergeAllocations([
+          ...(previous == null
+              ? const <LotAllocation>[]
+              : previous.allocations),
+          ...hold.allocations,
+        ]),
       );
     }
     return grouped;
@@ -1514,35 +1609,78 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
     return true;
   }
 
+  List<LotAllocation> _knownAllocations(
+    StockReservation hold,
+    Product product,
+    DraftOrder order,
+  ) {
+    final explicit = [
+      for (final allocation in hold.allocations)
+        if (allocation.quantity > 0) allocation,
+    ];
+    final covered = explicit.fold<int>(
+      0,
+      (sum, allocation) => sum + allocation.quantity,
+    );
+    if (covered >= hold.quantity) return explicit;
+    OrderLine? line;
+    for (final item in order.lines) {
+      if (item.lineKey == hold.key) {
+        line = item;
+        break;
+      }
+    }
+    final snapshot = line?.product.lotId.trim() ?? '';
+    return StockLayers.mergeAllocations([
+      ...explicit,
+      LotAllocation(
+        lotId: snapshot.isNotEmpty ? snapshot : product.persistedLotId,
+        quantity: hold.quantity - covered,
+        receivedAt: line?.product.createdAt ?? product.createdAt,
+      ),
+    ]);
+  }
+
   void _returnReservedStock(DraftOrder order) {
+    final pending = <String, Map<String, List<StockLayer>>>{};
     for (final hold in _mergedReservations(order.stockReservations).values) {
       final product = productById(hold.productId);
       final variant = product?.variantFor(hold.size, hold.color);
       if (product == null || variant == null) continue;
-      updateVariantStock(
-        product.id,
-        variant.size,
-        variant.color,
-        stock: variant.stock + hold.quantity,
-        notify: false,
-      );
+      final current =
+          pending[product.id]?[variant.key] ?? product.layersOf(variant);
+      pending.putIfAbsent(product.id, () => {})[variant.key] =
+          StockLayers.restore(current, _knownAllocations(hold, product, order));
+    }
+    for (final entry in pending.entries) {
+      final product = productById(entry.key);
+      if (product == null) continue;
+      _commitLayers(product, entry.value, notify: false);
     }
     order.stockReservations = [];
   }
 
   void _restoreReservedStock(DraftOrder order, List<StockReservation> holds) {
     order.stockReservations = holds;
+    final pending = <String, Map<String, List<StockLayer>>>{};
     for (final hold in _mergedReservations(holds).values) {
       final product = productById(hold.productId);
       final variant = product?.variantFor(hold.size, hold.color);
       if (product == null || variant == null) continue;
-      updateVariantStock(
+      final current =
+          pending[product.id]?[variant.key] ?? product.layersOf(variant);
+      pending.putIfAbsent(
         product.id,
-        variant.size,
-        variant.color,
-        stock: (variant.stock - hold.quantity).clamp(0, 999999),
-        notify: false,
+        () => {},
+      )[variant.key] = StockLayers.removeAllocations(
+        current,
+        _knownAllocations(hold, product, order),
       );
+    }
+    for (final entry in pending.entries) {
+      final product = productById(entry.key);
+      if (product == null) continue;
+      _commitLayers(product, entry.value, notify: false);
     }
     notifyListeners();
   }

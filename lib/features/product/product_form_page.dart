@@ -169,6 +169,21 @@ class _ProductFormPageState extends State<ProductFormPage> {
       setState(() => _error = 'Agregá al menos una variante talle × color.');
       return;
     }
+    final existing = widget.id == null ? null : store.productById(widget.id!);
+    final now = DateTime.now().toUtc();
+    final canAssignLot = context.read<SessionStore?>()?.canManageLots ?? false;
+    final assignment = Product.assignLots(
+      previous: existing,
+      variants: List.of(_draft.variants),
+      addedLotId: canAssignLot ? store.resolveLot(_lotQuery)?.id : null,
+      canAssignLot: canAssignLot,
+      isEditing: isEditing,
+      receivedAt: now,
+    );
+    if (assignment.needsLot) {
+      setState(() => _error = 'Elegí el lote de las unidades nuevas');
+      return;
+    }
     setState(() => _saving = true);
     try {
       await Future.wait([
@@ -184,10 +199,6 @@ class _ProductFormPageState extends State<ProductFormPage> {
           ?url,
       ];
       if (!mounted) return;
-      final existing = widget.id == null ? null : store.productById(widget.id!);
-      final now = DateTime.now().toUtc();
-      final canAssignLot =
-          context.read<SessionStore?>()?.canManageLots ?? false;
       final product = Product(
         id: _productId,
         name: _name.text.trim(),
@@ -198,14 +209,12 @@ class _ProductFormPageState extends State<ProductFormPage> {
         price: MoneyFormat.parse(_price.text)!,
         salePrice: _onSale ? MoneyFormat.parse(_salePrice.text) : null,
         images: urls,
-        variants: List.of(_draft.variants),
+        variants: assignment.variants,
         equivalentSizes: _draft.storedEquivalentSizes,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
         deletedAt: existing?.deletedAt,
-        lotId: canAssignLot
-            ? (store.resolveLot(_lotQuery)?.id ?? '')
-            : (existing?.lotId ?? ''),
+        lotId: assignment.lotId,
       );
       await store.upsertProduct(product);
       if (!mounted) return;
@@ -524,9 +533,9 @@ class _ProductFormPageState extends State<ProductFormPage> {
             validator: _salePriceValidator,
           ),
         ),
-      if (context.watch<SessionStore?>()?.canManageLots ?? false)
+      if (context.watch<SessionStore?>()?.canManageLots ?? false) ...[
         _LabeledField(
-          label: 'Lote',
+          label: isEditing ? 'Lote de las unidades nuevas' : 'Lote',
           child: Autocomplete<Lot>(
             initialValue: TextEditingValue(text: _lotQuery),
             displayStringForOption: (lot) => lot.displayName,
@@ -543,8 +552,10 @@ class _ProductFormPageState extends State<ProductFormPage> {
                     controller: controller,
                     focusNode: focusNode,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      hintText: 'Ej. Lote feria',
+                    decoration: InputDecoration(
+                      hintText: isEditing
+                          ? 'Lote al que entran las unidades que sumes'
+                          : 'Ej. Lote feria',
                     ),
                     onChanged: (value) => _lotQuery = value,
                     onFieldSubmitted: (_) => onFieldSubmitted(),
@@ -553,6 +564,17 @@ class _ProductFormPageState extends State<ProductFormPage> {
                 },
           ),
         ),
+        if (isEditing)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              'Las unidades que sumes entran en este lote. Bajar el stock descuenta el lote más viejo.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
+            ),
+          ),
+      ],
     ];
   }
 

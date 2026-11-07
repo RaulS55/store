@@ -16,6 +16,7 @@ import '../../widgets/variant_picker.dart';
 import '../order/order_actions.dart';
 import 'product_actions.dart';
 import 'product_holders.dart';
+import 'restock_sheet.dart';
 
 class ProductDetailPage extends StatefulWidget {
   const ProductDetailPage({super.key, required this.id});
@@ -75,10 +76,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final wide = AppBreakpoints.isWide(context);
     final canDelete = canDeleteProduct(context);
     final canSeeLot = context.watch<SessionStore?>()?.canManageLots ?? false;
-    final lot = canSeeLot && product.hasLot
-        ? store.lotById(product.lotId)
+    final lotLines = <String>[
+      if (canSeeLot)
+        for (final holding in product.lotHoldings)
+          if (store.lotById(holding.lotId) case final lot?)
+            '${lot.displayName} · ${holding.quantity}',
+    ];
+    final lotSection = canSeeLot
+        ? _LotSection(
+            lines: lotLines,
+            onRestock: () => showRestockSheet(context, product.id),
+          )
         : null;
-    final lotLabel = lot?.displayName;
 
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -160,7 +169,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               product: product,
                             )
                           : null,
-                      lotLabel: lotLabel,
+                      lotSection: lotSection,
                     )
                   else ...[
                     ProductImagePager(
@@ -266,8 +275,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                     if (product.brand.trim().isNotEmpty)
                       _Attr('Marca', product.brand, Icons.storefront_outlined),
-                    if (lotLabel != null)
-                      _Attr('Lote', lotLabel, Icons.inventory_2_outlined),
+                    ?lotSection,
                     if (product.sizes.isNotEmpty) ...[
                       _Attr(
                         'Talle en prenda',
@@ -396,7 +404,7 @@ class _WideDetail extends StatelessWidget {
     required this.onAdd,
     required this.onEdit,
     this.onDelete,
-    this.lotLabel,
+    this.lotSection,
   });
 
   final Product product;
@@ -413,7 +421,7 @@ class _WideDetail extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onEdit;
   final VoidCallback? onDelete;
-  final String? lotLabel;
+  final Widget? lotSection;
 
   @override
   Widget build(BuildContext context) {
@@ -502,9 +510,9 @@ class _WideDetail extends StatelessWidget {
                       : FontWeight.w700,
                 ),
               ),
-              if (lotLabel != null) ...[
+              if (lotSection != null) ...[
                 const SizedBox(height: 8),
-                _Attr('Lote', lotLabel!, Icons.inventory_2_outlined),
+                lotSection!,
               ],
               const SizedBox(height: 16),
               if (product.sizes.isNotEmpty) ...[
@@ -547,6 +555,33 @@ class _WideDetail extends StatelessWidget {
                   label: const Text('Eliminar prenda'),
                 ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LotSection extends StatelessWidget {
+  const _LotSection({required this.lines, required this.onRestock});
+
+  final List<String> lines;
+  final VoidCallback onRestock;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final line in lines)
+          _Attr('Lote', line, Icons.inventory_2_outlined),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const ValueKey('restock-product'),
+            onPressed: onRestock,
+            icon: const Icon(Icons.add_box_outlined, size: 18),
+            label: const Text('Reponer stock'),
           ),
         ),
       ],

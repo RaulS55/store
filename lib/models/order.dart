@@ -3,6 +3,7 @@ import 'map_date.dart';
 import 'map_value.dart';
 import 'product.dart';
 import 'record_source.dart';
+import 'stock_layer.dart';
 import 'sync_record.dart';
 
 enum OrderStatus {
@@ -33,22 +34,46 @@ class StockReservation {
     required this.size,
     required this.color,
     required this.quantity,
+    this.allocations = const [],
   });
 
   final String productId;
   final String size;
   final String color;
   final int quantity;
+  final List<LotAllocation> allocations;
 
   String get key => '$productId::$size|$color';
 
+  StockReservation copyWith({
+    String? productId,
+    String? size,
+    String? color,
+    int? quantity,
+    List<LotAllocation>? allocations,
+  }) {
+    return StockReservation(
+      productId: productId ?? this.productId,
+      size: size ?? this.size,
+      color: color ?? this.color,
+      quantity: quantity ?? this.quantity,
+      allocations: allocations ?? this.allocations,
+    );
+  }
+
   factory StockReservation.fromMap(Map<String, dynamic> map) {
     final data = coerceStringKeyMap(map);
+    final rawAllocations = data['allocations'] as List<dynamic>? ?? const [];
     return StockReservation(
       productId: (data['productId'] as String? ?? '').trim(),
       size: data['size'] as String? ?? '',
       color: data['color'] as String? ?? '',
       quantity: (data['quantity'] as num?)?.toInt() ?? 0,
+      allocations: [
+        for (final allocation in rawAllocations)
+          if (tryCoerceStringKeyMap(allocation) case final allocationMap?)
+            LotAllocation.fromMap(allocationMap),
+      ],
     );
   }
 
@@ -58,6 +83,10 @@ class StockReservation {
       'size': size,
       'color': color,
       'quantity': quantity,
+      if (allocations.isNotEmpty)
+        'allocations': [
+          for (final allocation in allocations) allocation.toMap(),
+        ],
     };
   }
 }

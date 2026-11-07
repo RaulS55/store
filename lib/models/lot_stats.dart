@@ -1,6 +1,7 @@
 import 'lot.dart';
 import 'order.dart';
 import 'product.dart';
+import 'stock_layer.dart';
 
 class LotStats {
   const LotStats({
@@ -38,20 +39,20 @@ LotStats computeLotStats({
   required List<DraftOrder> openOrders,
   required List<DraftOrder> closedOrders,
 }) {
-  final assigned = [
-    for (final product in products)
-      if (!product.isDeleted && product.lotId == lot.id) product,
-  ];
-  final byId = {for (final product in assigned) product.id: product};
+  final live = <String, Product>{};
+  for (final product in products) {
+    if (product.isDeleted) continue;
+    live[product.id] = product;
+  }
 
-  final availableUnits = assigned.fold(
-    0,
-    (sum, product) => sum + product.stock,
-  );
-  final availableValue = assigned.fold<double>(
-    0,
-    (sum, product) => sum + product.sellingPrice * product.stock,
-  );
+  var availableUnits = 0;
+  var availableValue = 0.0;
+  for (final product in live.values) {
+    final units = product.unitsInLot(lot.id);
+    if (units <= 0) continue;
+    availableUnits += units;
+    availableValue += product.sellingPrice * units;
+  }
 
   var reservedUnits = 0;
   var reservedValue = 0.0;
@@ -59,12 +60,20 @@ LotStats computeLotStats({
     if (order.isDeleted || !order.isActive) continue;
     final linesByKey = {for (final line in order.lines) line.lineKey: line};
     for (final hold in order.stockReservations) {
-      final product = byId[hold.productId];
-      if (product == null || hold.quantity <= 0) continue;
-      reservedUnits += hold.quantity;
+      if (hold.quantity <= 0) continue;
+      final product = live[hold.productId];
+      if (product == null) continue;
       final line = linesByKey[hold.key];
-      reservedValue +=
-          (line?.unitPrice ?? product.sellingPrice) * hold.quantity;
+      final units = unitsForLot(
+        lotId: lot.id,
+        hold: hold,
+        line: line,
+        product: product,
+      );
+      if (units <= 0) continue;
+      reservedUnits += units;
+      final unitPrice = line?.unitPrice ?? product.sellingPrice;
+      reservedValue += unitPrice * units;
     }
   }
 
@@ -72,10 +81,22 @@ LotStats computeLotStats({
   var soldValue = 0.0;
   for (final order in closedOrders) {
     if (order.isDeleted || !order.isClosed) continue;
+    final holdsByKey = {
+      for (final hold in order.stockReservations) hold.key: hold,
+    };
     for (final line in order.lines) {
-      if (!byId.containsKey(line.product.id)) continue;
-      soldUnits += line.quantity;
-      soldValue += line.lineTotal;
+      if (line.quantity <= 0) continue;
+      final product = live[line.product.id];
+      if (product == null) continue;
+      final units = unitsForLot(
+        lotId: lot.id,
+        hold: holdsByKey[line.lineKey],
+        line: line,
+        product: product,
+      );
+      if (units <= 0) continue;
+      soldUnits += units;
+      soldValue += line.unitPrice * units;
     }
   }
 
@@ -102,6 +123,33 @@ LotStats computeLotStats({
     currentProfit: recovered > lot.cost ? recovered - lot.cost : 0,
     expectedProfit: expectedValue > lot.cost ? expectedValue - lot.cost : 0,
   );
+}
+
+/// Units of [lotId] in a reservation, or in the line when the order is older
+/// and does not record which lot the units came from.
+int unitsForLot({
+  required String lotId,
+  required StockReservation? hold,
+  required OrderLine? line,
+  required Product? product,
+}) {
+  final allocations = hold?.allocations ?? const <LotAllocation>[];
+  if (allocations.any((allocation) => allocation.quantity > 0)) {
+    var sum = 0;
+    for (final allocation in allocations) {
+      if (allocation.lotId == lotId && allocation.quantity > 0) {
+        sum += allocation.quantity;
+      }
+    }
+    return sum;
+  }
+  final snapshot = line?.product.lotId.trim() ?? '';
+  final fallback = snapshot.isNotEmpty
+      ? snapshot
+      : (product?.persistedLotId ?? '');
+  if (fallback != lotId) return 0;
+  if (hold != null) return hold.quantity;
+  return line?.quantity ?? 0;
 }
 
 double _remainingPercent(double cost, double recovered) {
