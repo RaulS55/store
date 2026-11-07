@@ -45,6 +45,7 @@ void main() {
     expect(stats.availableValue, 0);
     expect(stats.reservedValue, 0);
     expect(stats.reservedPaid, 0);
+    expect(stats.reservedCustomerCredit, 0);
     expect(stats.reservedRemaining, 0);
     expect(stats.garmentValue, 0);
     expect(stats.soldUnits, 0);
@@ -134,6 +135,7 @@ void main() {
     expect(stats.availableValue, 90000);
     expect(stats.reservedValue, 30000);
     expect(stats.reservedPaid, 0);
+    expect(stats.reservedCustomerCredit, 0);
     expect(stats.reservedRemaining, 30000);
     expect(stats.garmentValue, 120000);
     expect(stats.soldValue, 0);
@@ -189,8 +191,63 @@ void main() {
       final stats = store.statsForCompany();
       expect(stats.reservedValue, 30000);
       expect(stats.reservedPaid, 8000);
+      expect(stats.reservedCustomerCredit, 0);
       expect(stats.reservedRemaining, 22000);
       expect(stats.soldValue, 15000);
+    },
+  );
+
+  test('a deposit above reserved clothes becomes customer credit', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final product = testProduct(id: 'p1', stock: 8, price: 15000);
+    await store.upsertProduct(product);
+    final order = await seedTestOrder(store, product: product);
+    store.setLineQty(order.id, order.lines.first.lineKey, 2);
+    expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+    expect(store.setOrderSena(order.id, 25000), isTrue);
+    expect(
+      store.setOrderPayments(order.id, [
+        OrderPayment(amount: 15000, createdAt: DateTime.utc(2026, 10, 2)),
+      ]),
+      isTrue,
+    );
+
+    final stats = store.statsForCompany();
+    expect(stats.reservedUnits, 2);
+    expect(stats.reservedValue, 30000);
+    expect(stats.reservedPaid, 40000);
+    expect(stats.reservedCustomerCredit, 10000);
+    expect(stats.reservedRemaining, 0);
+  });
+
+  test(
+    'customer credit on one order does not reduce what another still owes',
+    () async {
+      final store = AppStore();
+      addTearDown(store.dispose);
+      final product = testProduct(id: 'p1', stock: 8, price: 15000);
+      await store.upsertProduct(product);
+      final overpaid = await seedTestOrder(store, product: product);
+      store.setLineQty(overpaid.id, overpaid.lines.first.lineKey, 2);
+      expect(store.saveOrderStock(overpaid.id), SaveStockResult.saved);
+      expect(store.setOrderSena(overpaid.id, 40000), isTrue);
+
+      final other = await seedTestCustomer(
+        store,
+        customer: testCustomer(id: 'c-other', name: 'Ana López'),
+      );
+      final owing = store.createOrder(other);
+      final live = store.productById('p1')!;
+      store.addToOrder(live, live.variants.first);
+      expect(store.saveOrderStock(owing.id), SaveStockResult.saved);
+      expect(store.setOrderSena(owing.id, 5000), isTrue);
+
+      final stats = store.statsForCompany();
+      expect(stats.reservedValue, 45000);
+      expect(stats.reservedPaid, 45000);
+      expect(stats.reservedCustomerCredit, 10000);
+      expect(stats.reservedRemaining, 10000);
     },
   );
 

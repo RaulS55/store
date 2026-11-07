@@ -97,6 +97,7 @@ class _StatsPageState extends State<StatsPage> {
       value: stats.reservedValue,
       accent: AppColors.warning,
       paid: stats.reservedPaid,
+      customerCredit: stats.reservedCustomerCredit,
       remaining: stats.reservedRemaining,
     );
     final sold = _StatCard(
@@ -205,6 +206,7 @@ class _StatCard extends StatelessWidget {
     required this.value,
     required this.accent,
     this.paid,
+    this.customerCredit,
     this.remaining,
   });
 
@@ -215,6 +217,7 @@ class _StatCard extends StatelessWidget {
   final double value;
   final Color accent;
   final double? paid;
+  final double? customerCredit;
   final double? remaining;
 
   @override
@@ -260,20 +263,38 @@ class _StatCard extends StatelessWidget {
               value: MoneyFormat.compact(value),
               isDark: isDark,
             ),
-            if (paid != null && remaining != null) ...[
+            if (paid != null &&
+                customerCredit != null &&
+                remaining != null) ...[
               _StatLine(
                 icon: Icons.account_balance_wallet_outlined,
                 iconColor: accent,
-                label: 'Pagado',
+                label: 'Total pagado',
                 value: MoneyFormat.compact(paid!),
                 isDark: isDark,
               ),
               _StatLine(
                 icon: Icons.savings_outlined,
                 iconColor: accent,
-                label: 'Restante',
+                label: 'Saldo a clientes',
+                value: MoneyFormat.compact(customerCredit!),
+                isDark: isDark,
+              ),
+              _StatLine(
+                icon: Icons.request_quote_outlined,
+                iconColor: accent,
+                label: 'Restante a cobrar',
                 value: MoneyFormat.compact(remaining!),
                 isDark: isDark,
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'El restante a cobrar no considera el saldo a favor del cliente. Muestra solo lo que falta pagar.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+                ),
               ),
             ],
           ],

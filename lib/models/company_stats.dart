@@ -11,6 +11,7 @@ class CompanyStats {
     required this.availableValue,
     required this.reservedValue,
     required this.reservedPaid,
+    required this.reservedCustomerCredit,
     required this.reservedRemaining,
     required this.garmentValue,
     required this.soldUnits,
@@ -28,6 +29,7 @@ class CompanyStats {
   final double availableValue;
   final double reservedValue;
   final double reservedPaid;
+  final double reservedCustomerCredit;
   final double reservedRemaining;
   final double garmentValue;
   final int soldUnits;
@@ -96,17 +98,30 @@ CompanyStats computeCompanyStats({
   var reservedUnits = 0;
   var reservedValue = 0.0;
   var reservedPaid = 0.0;
+  var reservedCustomerCredit = 0.0;
+  var reservedRemaining = 0.0;
   for (final order in openOrders) {
     if (order.isDeleted || !order.isActive) continue;
     reservedPaid += order.paid;
+    var orderReserved = 0.0;
     final linesByKey = {for (final line in order.lines) line.lineKey: line};
     for (final hold in order.stockReservations) {
       final product = byId[hold.productId];
       if (product == null || hold.quantity <= 0) continue;
       reservedUnits += hold.quantity;
       final line = linesByKey[hold.key];
-      reservedValue +=
+      final holdValue =
           (line?.unitPrice ?? product.sellingPrice) * hold.quantity;
+      reservedValue += holdValue;
+      orderReserved += holdValue;
+    }
+    // A deposit can exceed this order's reserved clothes. That excess is
+    // credit for the customer and does not reduce what other orders still owe.
+    final gap = orderReserved - order.paid;
+    if (gap < 0) {
+      reservedCustomerCredit += -gap;
+    } else {
+      reservedRemaining += gap;
     }
   }
 
@@ -153,7 +168,8 @@ CompanyStats computeCompanyStats({
     availableValue: availableValue,
     reservedValue: reservedValue,
     reservedPaid: reservedPaid,
-    reservedRemaining: reservedValue - reservedPaid,
+    reservedCustomerCredit: reservedCustomerCredit,
+    reservedRemaining: reservedRemaining,
     garmentValue: availableValue + reservedValue,
     soldUnits: soldUnits,
     soldValue: soldValue,

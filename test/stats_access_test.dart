@@ -227,8 +227,15 @@ void main() {
     expect(find.text('Reservadas'), findsOneWidget);
     expect(find.text('2 unidades'), findsOneWidget);
     expect(find.text('\$30.000'), findsNWidgets(2));
-    expect(find.text('Pagado'), findsOneWidget);
-    expect(find.text('Restante'), findsOneWidget);
+    expect(find.text('Total pagado'), findsOneWidget);
+    expect(find.text('Saldo a clientes'), findsOneWidget);
+    expect(find.text('Restante a cobrar'), findsOneWidget);
+    expect(
+      find.text(
+        'El restante a cobrar no considera el saldo a favor del cliente. Muestra solo lo que falta pagar.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Vendidas'), findsOneWidget);
     expect(find.text('0 unidades'), findsOneWidget);
     expect(find.text('\$0'), findsWidgets);
