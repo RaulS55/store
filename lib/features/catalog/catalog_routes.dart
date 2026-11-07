@@ -4,11 +4,16 @@ import 'package:provider/provider.dart';
 
 import '../../data/catalog_bindings.dart';
 import '../../data/catalog_guest_store.dart';
+import '../../data/firebase_bootstrap.dart';
 
 String catalogPath(String companyId) => '/catalogo/$companyId';
 
 String catalogProductPath(String companyId, String productId) {
   return '/catalogo/$companyId/producto/$productId';
+}
+
+String catalogProductShareUrl(String companyId, String productId) {
+  return 'https://$customAppHost${catalogProductPath(companyId, productId)}';
 }
 
 String catalogCartPath(String companyId) => '/catalogo/$companyId/pedido';

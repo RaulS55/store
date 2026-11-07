@@ -123,12 +123,6 @@ service cloud.firestore {
       return resource.data.deletedAt == null;
     }
 
-    function isShareCode(code) {
-      return code is string
-        && code.size() == 5
-        && code.matches('^[abcdefghjkmnpqrstuvwxyz23456789]{5}$');
-    }
-
     function isCatalogCustomerCreate(customerId) {
       return request.resource.data.source == 'catalog'
         && hasSyncFields(customerId)
@@ -478,20 +472,6 @@ service cloud.firestore {
           && request.resource.data.createdAt == resource.data.createdAt;
         allow delete: if false;
       }
-    }
-
-    match /shareLinks/{code} {
-      allow get: if true;
-      allow list: if false;
-      allow create: if signedIn()
-        && isShareCode(code)
-        && request.resource.data.keys().hasOnly(['companyId', 'productId'])
-        && request.resource.data.companyId is string
-        && request.resource.data.companyId.size() > 0
-        && request.resource.data.productId is string
-        && request.resource.data.productId.size() > 0
-        && isMember(request.resource.data.companyId);
-      allow update, delete: if false;
     }
 
     match /{path=**}/invitations/{invitationId} {

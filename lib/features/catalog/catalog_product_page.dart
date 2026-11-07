@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/catalog_bindings.dart';
 import '../../data/catalog_guest_store.dart';
+import '../../data/product_share.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/offer_price.dart';
@@ -13,29 +13,34 @@ import '../../widgets/product_image_pager.dart';
 import '../../widgets/qty_stepper.dart';
 import '../../widgets/stock_dot.dart';
 import '../../widgets/variant_picker.dart';
+import '../product/product_share_button.dart';
 import 'catalog_routes.dart';
 
 class CatalogProductPage extends StatelessWidget {
-  const CatalogProductPage({super.key, required this.id, this.companyId});
+  const CatalogProductPage({
+    super.key,
+    required this.id,
+    this.shareProduct = shareProductLink,
+  });
 
   final String id;
-  final String? companyId;
+  final ProductLinkSharer shareProduct;
 
   @override
   Widget build(BuildContext context) {
-    final resolved = (companyId ?? catalogCompanyIdOf(context)).trim();
-    final store = context.read<CatalogBindings>().storeFor(resolved);
+    final store = catalogStoreOf(context);
     return ChangeNotifierProvider.value(
       value: store,
-      child: _CatalogProductView(id: id),
+      child: _CatalogProductView(id: id, shareProduct: shareProduct),
     );
   }
 }
 
 class _CatalogProductView extends StatefulWidget {
-  const _CatalogProductView({required this.id});
+  const _CatalogProductView({required this.id, required this.shareProduct});
 
   final String id;
+  final ProductLinkSharer shareProduct;
 
   @override
   State<_CatalogProductView> createState() => _CatalogProductViewState();
@@ -142,6 +147,11 @@ class _CatalogProductViewState extends State<_CatalogProductView> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                  ),
+                  ShareProductButton(
+                    product: product,
+                    companyId: store.companyId,
+                    share: widget.shareProduct,
                   ),
                   IconButton(
                     tooltip: 'Pedido',

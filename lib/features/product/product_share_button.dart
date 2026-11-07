@@ -1,26 +1,23 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/app_store.dart';
 import '../../data/product_share.dart';
 import '../../data/session_store.dart';
-import '../../data/share_link_access.dart';
 import '../../models/product.dart';
+import '../catalog/catalog_routes.dart';
 import '../../widgets/app_snack_bar.dart';
 
 class ShareProductButton extends StatefulWidget {
   const ShareProductButton({
     super.key,
     required this.product,
+    this.companyId,
     this.share = shareProductLink,
-    this.random,
   });
 
   final Product product;
+  final String? companyId;
   final ProductLinkSharer share;
-  final Random? random;
 
   @override
   State<ShareProductButton> createState() => _ShareProductButtonState();
@@ -37,42 +34,30 @@ class _ShareProductButtonState extends State<ShareProductButton> {
 
   Future<void> _share() async {
     if (_busy) return;
-    setState(() => _busy = true);
+    _busy = true;
     var outcome = ProductShareOutcome.failed;
     try {
-      final companyId = context.read<SessionStore?>()?.companyId?.trim() ?? '';
-      ShareLinkAccess? links;
-      try {
-        links = context.read<ShareLinkAccess>();
-      } on ProviderNotFoundException {
-        links = null;
-      }
-      if (companyId.isEmpty || links == null) {
+      final companyId =
+          widget.companyId?.trim() ??
+          context.read<SessionStore?>()?.companyId?.trim() ??
+          '';
+      if (companyId.isEmpty) {
         outcome = ProductShareOutcome.failed;
       } else {
-        final code = await ensureProductShareCode(
-          companyId: companyId,
-          product: widget.product,
-          links: links,
-          saveProduct: context.read<AppStore>().upsertProduct,
-          random: widget.random,
+        final url = catalogProductShareUrl(companyId, widget.product.id);
+        outcome = await widget.share(
+          text: productShareText(name: widget.product.name, url: url),
+          url: url,
+          title: widget.product.name.trim(),
+          sharePositionOrigin: _origin(),
         );
-        if (code != null && mounted) {
-          final url = productShareUrl(code);
-          outcome = await widget.share(
-            text: productShareText(name: widget.product.name, url: url),
-            url: url,
-            title: widget.product.name.trim(),
-            sharePositionOrigin: _origin(),
-          );
-        }
       }
     } catch (error, stack) {
       debugPrint('Product share failed: $error');
       debugPrint('$stack');
     }
+    _busy = false;
     if (!mounted) return;
-    setState(() => _busy = false);
     final message = switch (outcome) {
       ProductShareOutcome.shared => null,
       ProductShareOutcome.copied => 'Copiamos el enlace.',
@@ -87,14 +72,8 @@ class _ShareProductButtonState extends State<ShareProductButton> {
     return IconButton(
       key: const ValueKey('share-product'),
       tooltip: 'Compartir prenda',
-      onPressed: _busy ? null : _share,
-      icon: _busy
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.share_outlined),
+      onPressed: _share,
+      icon: const Icon(Icons.share_outlined),
     );
   }
 }

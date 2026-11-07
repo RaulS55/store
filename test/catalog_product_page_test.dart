@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:store_app/data/catalog_bindings.dart';
+import 'package:store_app/data/product_share.dart';
 import 'package:store_app/features/catalog/catalog_product_page.dart';
 import 'package:store_app/models/company.dart';
 import 'package:store_app/models/product.dart';
@@ -50,7 +51,7 @@ Future<CatalogBindings> _bindingsWithGallery() async {
   return bindings;
 }
 
-Widget _app(CatalogBindings bindings) {
+Widget _app(CatalogBindings bindings, {ProductLinkSharer? shareProduct}) {
   final router = GoRouter(
     initialLocation: '/catalogo/co1/producto/p-test',
     routes: [
@@ -60,8 +61,10 @@ Widget _app(CatalogBindings bindings) {
         routes: [
           GoRoute(
             path: 'producto/:id',
-            builder: (context, state) =>
-                CatalogProductPage(id: state.pathParameters['id']!),
+            builder: (context, state) => CatalogProductPage(
+              id: state.pathParameters['id']!,
+              shareProduct: shareProduct ?? shareProductLink,
+            ),
           ),
         ],
       ),
@@ -248,5 +251,36 @@ void main() {
     expect(find.text('Sin stock'), findsNothing);
     expect(store.cartCount, 2);
     expect([for (final line in store.cartLines) line.variant.size], ['S', 'L']);
+  });
+
+  testWidgets('client catalog can share the product link', (tester) async {
+    _setPhoneView(tester);
+    final bindings = await _bindingsWithGallery();
+    addTearDown(bindings.dispose);
+    String? shared;
+
+    await tester.pumpWidget(
+      _app(
+        bindings,
+        shareProduct:
+            ({
+              required text,
+              required url,
+              required title,
+              sharePositionOrigin,
+            }) async {
+              shared = url;
+              expect(title, 'Remera test');
+              expect(text, 'Remera test\n$url');
+              return ProductShareOutcome.shared;
+            },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('share-product')));
+    await tester.pump();
+
+    expect(shared, 'https://app.modastore.org/catalogo/co1/producto/p-test');
   });
 }

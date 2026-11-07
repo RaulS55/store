@@ -17,11 +17,6 @@ bool isCatalogLocation(String location) {
   return location == '/catalogo' || location.startsWith('/catalogo/');
 }
 
-bool isProductShareLocation(String location) {
-  final path = Uri.parse(location).path;
-  return path == '/p' || path.startsWith('/p/');
-}
-
 String? catalogCompanyIdFromLocation(String location) {
   if (!isCatalogLocation(location)) return null;
   final path = Uri.parse(location).path;

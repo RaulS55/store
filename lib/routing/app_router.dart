@@ -1,7 +1,6 @@
 import 'package:go_router/go_router.dart';
 
 import '../data/session_store.dart';
-import 'app_entry.dart';
 import '../features/auth/accept_invite_page.dart';
 import '../features/auth/join_company_page.dart';
 import '../features/auth/loading_page.dart';
@@ -10,7 +9,6 @@ import '../features/auth/sign_up_page.dart';
 import '../features/catalog/catalog_cart_page.dart';
 import '../features/catalog/catalog_page.dart';
 import '../features/catalog/catalog_product_page.dart';
-import '../features/catalog/product_share_page.dart';
 import '../features/customers/customer_detail_page.dart';
 import '../features/customers/customers_page.dart';
 import '../features/lots/lot_detail_page.dart';
@@ -75,11 +73,6 @@ GoRouter createRouter(
       GoRoute(
         path: '/unirse',
         builder: (context, state) => const JoinCompanyPage(),
-      ),
-      GoRoute(
-        path: '/p/:code',
-        builder: (context, state) =>
-            ProductSharePage(code: state.pathParameters['code']!),
       ),
       GoRoute(
         path: '/catalogo/:companyId',
@@ -262,7 +255,7 @@ String? sessionRedirect(SessionStore session, String path, {String? resume}) {
 }
 
 bool _isGuestPath(String path) {
-  return path.startsWith('/catalogo') || isProductShareLocation(path);
+  return path.startsWith('/catalogo');
 }
 
 bool _isAuthPath(String path) {
