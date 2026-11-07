@@ -6,6 +6,7 @@ import 'package:store_app/data/app_store.dart';
 import 'package:store_app/data/session_store.dart';
 import 'package:store_app/features/order/order_card.dart';
 import 'package:store_app/features/order/orders_page.dart';
+import 'package:store_app/models/order.dart';
 import 'package:store_app/routing/app_router.dart';
 import 'package:store_app/theme/tokens.dart';
 
@@ -285,6 +286,16 @@ void main() {
         quantity: 2,
       );
 
+      final ana = store.orders.firstWhere(
+        (order) => order.customer.name == 'Ana López',
+      );
+      expect(
+        store.setOrderPayments(ana.id, [
+          OrderPayment(amount: 2000, createdAt: DateTime.utc(2026, 1, 2)),
+        ]),
+        isTrue,
+      );
+
       await tester.pumpWidget(_pageApp(store));
       await tester.pump();
 
@@ -292,14 +303,24 @@ void main() {
       expect(_customerNames(tester), ['Ana López', 'Bruno Díaz']);
       expect(find.text('Camisa'), findsOneWidget);
       expect(find.text('Pantalón'), findsOneWidget);
+      expect(find.text('Remeras ×1'), findsOneWidget);
+      expect(find.text('Remeras ×2'), findsOneWidget);
+      expect(find.text('Seña'), findsNothing);
+      expect(find.text('Pago'), findsNothing);
       expect(find.text('Restante'), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('orders-remaining-view')));
       await tester.pump();
 
       expect(find.text('Restante'), findsNWidgets(2));
+      expect(find.text('Seña'), findsOneWidget);
+      expect(find.text('\$10.000,00'), findsNWidgets(2));
+      expect(find.text('Pago'), findsOneWidget);
+      expect(find.text('\$2.000,00'), findsOneWidget);
       expect(find.text('Camisa'), findsNothing);
       expect(find.text('Pantalón'), findsNothing);
+      expect(find.text('Remeras ×1'), findsNothing);
+      expect(find.text('Remeras ×2'), findsNothing);
       expect(_customerNames(tester), ['Bruno Díaz', 'Ana López']);
 
       await tester.tap(find.byKey(const ValueKey('orders-remaining-view')));
@@ -307,6 +328,10 @@ void main() {
 
       expect(find.text('Camisa'), findsOneWidget);
       expect(find.text('Pantalón'), findsOneWidget);
+      expect(find.text('Remeras ×1'), findsOneWidget);
+      expect(find.text('Remeras ×2'), findsOneWidget);
+      expect(find.text('Seña'), findsNothing);
+      expect(find.text('Pago'), findsNothing);
       expect(find.text('Restante'), findsNothing);
       expect(_customerNames(tester), ['Ana López', 'Bruno Díaz']);
     },

@@ -113,68 +113,62 @@ class OrderSummaryCard extends StatelessWidget {
                   const SizedBox(height: 10),
                   _StatusChip(order: order),
                 ],
-                if (order.categorySummary.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final item in order.categorySummary)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.darkMuted
-                                : AppColors.terracottaChip,
-                            borderRadius: BorderRadius.circular(AppRadii.pill),
-                          ),
-                          child: Text(
-                            '${item.category.label} ×${item.quantity}',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: AppColors.terracotta,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
                 if (showRemaining) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Text(
-                        'Restante',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.slate,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        MoneyFormat.detailed(remaining),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: remaining > 0
-                              ? AppColors.terracotta
-                              : AppColors.slate,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
+                  if (order.paidLines.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    for (final line in order.paidLines)
+                      _AmountRow(label: line.label, amount: line.amount),
+                  ],
+                  const SizedBox(height: 6),
+                  _AmountRow(
+                    label: 'Restante',
+                    amount: remaining,
+                    emphasize: remaining > 0,
                   ),
-                ] else if (names.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    names.join(' · '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
-                  ),
+                ] else ...[
+                  if (order.categorySummary.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final item in order.categorySummary)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.darkMuted
+                                  : AppColors.terracottaChip,
+                              borderRadius: BorderRadius.circular(
+                                AppRadii.pill,
+                              ),
+                            ),
+                            child: Text(
+                              '${item.category.label} ×${item.quantity}',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: AppColors.terracotta,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                  if (names.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      names.join(' · '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+                    ),
+                  ],
                 ],
               ],
             ),
@@ -208,6 +202,43 @@ Border _summaryBorder(
       ? AppColors.stockGap
       : AppColors.stockLow;
   return Border.all(color: alert, width: 2);
+}
+
+class _AmountRow extends StatelessWidget {
+  const _AmountRow({
+    required this.label,
+    required this.amount,
+    this.emphasize = false,
+  });
+
+  final String label;
+  final double amount;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+          ),
+          const Spacer(),
+          Text(
+            MoneyFormat.detailed(amount),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: emphasize ? AppColors.terracotta : AppColors.slate,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _StatusChip extends StatelessWidget {
