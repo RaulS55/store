@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../../data/product_share.dart';
 import '../../data/session_store.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
@@ -16,12 +17,18 @@ import '../../widgets/variant_picker.dart';
 import '../order/order_actions.dart';
 import 'product_actions.dart';
 import 'product_holders.dart';
+import 'product_share_button.dart';
 import 'restock_sheet.dart';
 
 class ProductDetailPage extends StatefulWidget {
-  const ProductDetailPage({super.key, required this.id});
+  const ProductDetailPage({
+    super.key,
+    required this.id,
+    this.shareProduct = shareProductLink,
+  });
 
   final String id;
+  final ProductLinkSharer shareProduct;
 
   @override
   State<ProductDetailPage> createState() => _ProductDetailPageState();
@@ -142,6 +149,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     onPressed: () =>
                         showProductHoldersSheet(context, product.id),
                     icon: const Icon(Icons.history),
+                  ),
+                  ShareProductButton(
+                    product: product,
+                    share: widget.shareProduct,
                   ),
                   if (!wide) ...[
                     IconButton(

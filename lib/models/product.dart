@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'map_value.dart';
+import 'share_code.dart';
 import 'stock_layer.dart';
 import 'sync_record.dart';
 
@@ -673,6 +674,7 @@ class Product {
     this.deletedAt,
     this.status = ProductStatus.activo,
     this.lotId = '',
+    this.shareCode,
   });
 
   final String id;
@@ -691,6 +693,7 @@ class Product {
   final DateTime? deletedAt;
   final ProductStatus status;
   final String lotId;
+  final String? shareCode;
 
   bool get isDeleted => deletedAt != null;
 
@@ -1003,6 +1006,7 @@ class Product {
         data['status'] as String? ?? ProductStatus.activo.name,
       ),
       lotId: lotId,
+      shareCode: readShareCode(data['shareCode']),
     );
   }
 
@@ -1043,6 +1047,7 @@ class Product {
       'equivalentSizes': storedEquivalentSizes,
       'status': status.name,
       'lotId': persistedLotId,
+      if (shareCode != null) 'shareCode': shareCode,
     };
   }
 
@@ -1082,6 +1087,7 @@ class Product {
     DateTime? deletedAt,
     ProductStatus? status,
     String? lotId,
+    String? shareCode,
   }) {
     return Product(
       id: id ?? this.id,
@@ -1100,6 +1106,7 @@ class Product {
       deletedAt: deletedAt ?? this.deletedAt,
       status: status ?? this.status,
       lotId: lotId ?? this.lotId,
+      shareCode: shareCode ?? this.shareCode,
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/catalog_bindings.dart';
 import '../../data/catalog_guest_store.dart';
 import '../../models/product.dart';
 import '../../theme/tokens.dart';
@@ -15,13 +16,15 @@ import '../../widgets/variant_picker.dart';
 import 'catalog_routes.dart';
 
 class CatalogProductPage extends StatelessWidget {
-  const CatalogProductPage({super.key, required this.id});
+  const CatalogProductPage({super.key, required this.id, this.companyId});
 
   final String id;
+  final String? companyId;
 
   @override
   Widget build(BuildContext context) {
-    final store = catalogStoreOf(context);
+    final resolved = (companyId ?? catalogCompanyIdOf(context)).trim();
+    final store = context.read<CatalogBindings>().storeFor(resolved);
     return ChangeNotifierProvider.value(
       value: store,
       child: _CatalogProductView(id: id),

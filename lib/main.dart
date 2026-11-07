@@ -24,6 +24,8 @@ import 'data/firestore_expense_access.dart';
 import 'data/firestore_lot_access.dart';
 import 'data/firestore_order_access.dart';
 import 'data/firestore_product_access.dart';
+import 'data/firestore_share_link_access.dart';
+import 'data/share_link_access.dart';
 import 'data/local/cached_customer_access.dart';
 import 'data/local/cached_expense_access.dart';
 import 'data/local/cached_lot_access.dart';
@@ -75,6 +77,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
   AppStore? _store;
   SessionStore? _session;
   CatalogBindings? _catalog;
+  ShareLinkAccess? _shareLinks;
   GoRouter? _router;
   var _booting = false;
   final _bootStatus = ValueNotifier<_BootStatus>(const _BootStatus.loading());
@@ -118,6 +121,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
       final customerAccess = FirestoreCustomerAccess();
       final orderAccess = FirestoreOrderAccess();
       final requestAccess = FirestoreCatalogRequestAccess();
+      final shareLinks = FirestoreShareLinkAccess();
       store = AppStore(
         products: CachedProductAccess(remote: productAccess, cache: cache),
         customers: CachedCustomerAccess(remote: customerAccess, cache: cache),
@@ -178,6 +182,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
         _store = store;
         _session = session;
         _catalog = catalog;
+        _shareLinks = shareLinks;
         _router = router;
       });
       try {
@@ -288,8 +293,13 @@ class _ModaStockAppState extends State<ModaStockApp> {
     final store = _store;
     final session = _session;
     final catalog = _catalog;
+    final shareLinks = _shareLinks;
     final router = _router;
-    if (store == null || session == null || catalog == null || router == null) {
+    if (store == null ||
+        session == null ||
+        catalog == null ||
+        shareLinks == null ||
+        router == null) {
       return MaterialApp(
         title: 'Moda Stock',
         debugShowCheckedModeBanner: false,
@@ -306,6 +316,7 @@ class _ModaStockAppState extends State<ModaStockApp> {
         ChangeNotifierProvider.value(value: store),
         ChangeNotifierProvider.value(value: session),
         Provider.value(value: catalog),
+        Provider<ShareLinkAccess>.value(value: shareLinks),
         Provider.value(value: store.imageCache),
       ],
       child: Selector<AppStore, ThemeMode>(
