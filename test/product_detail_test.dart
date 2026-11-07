@@ -42,6 +42,16 @@ PageController _pagerController(WidgetTester tester) {
   return tester.widget<PageView>(find.byType(PageView)).controller!;
 }
 
+bool _sizeSelected(WidgetTester tester, String key) {
+  final chip = tester.widget<FilterChip>(
+    find.descendant(
+      of: find.byKey(ValueKey(key)),
+      matching: find.byType(FilterChip),
+    ),
+  );
+  return chip.selected;
+}
+
 void main() {
   testWidgets('detail shows garment size and equivalent size', (tester) async {
     _setPhoneView(tester);
@@ -380,6 +390,111 @@ void main() {
     expect(router.state.uri.path, '/producto/p-test');
     expect(find.text('Detalle de producto'), findsOneWidget);
     expect(find.text('Remera test'), findsOneWidget);
+  });
+
+  testWidgets('back from the order clears the size and color that still have stock', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    await store.upsertProduct(
+      testProduct().copyWith(
+        variants: const [
+          ProductVariant(
+            size: 'M',
+            color: 'Negro',
+            colorHex: '#1E1E1E',
+            stock: 4,
+          ),
+          ProductVariant(
+            size: 'L',
+            color: 'Rosa',
+            colorHex: '#E091A8',
+            stock: 3,
+          ),
+        ],
+      ),
+    );
+    final customer = await seedTestCustomer(store);
+    final order = store.createOrder(customer);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: store),
+          ChangeNotifierProvider.value(value: session),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/producto/p-test');
+    await tester.pumpAndSettle();
+
+    final size = find.byKey(const ValueKey('variant-size-Negro-M'));
+    await tester.ensureVisible(size);
+    await tester.tap(size);
+    await tester.pumpAndSettle();
+    expect(_sizeSelected(tester, 'variant-size-Negro-M'), isTrue);
+
+    await tester.tap(find.text('Agregar al pedido'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('order-target-${order.id}')));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/pedido/${order.id}');
+
+    await tester.tap(find.byKey(const ValueKey('leave-order')));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/producto/p-test');
+    expect(_sizeSelected(tester, 'variant-size-Negro-M'), isFalse);
+    expect(_sizeSelected(tester, 'variant-size-Rosa-L'), isFalse);
+    expect(store.productById('p-test')!.variantFor('M', 'Negro')!.stock, 4);
+  });
+
+  testWidgets('back from the order clears the only size that still has stock', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    final order = await seedTestOrder(store, product: testProduct(stock: 4));
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: store),
+          ChangeNotifierProvider.value(value: session),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/producto/p-test');
+    await tester.pumpAndSettle();
+
+    expect(_sizeSelected(tester, 'variant-size-Negro-M'), isTrue);
+
+    await tester.tap(find.text('Agregar al pedido'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('order-target-${order.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('leave-order')));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/producto/p-test');
+    expect(_sizeSelected(tester, 'variant-size-Negro-M'), isFalse);
+    expect(store.productById('p-test')!.stock, 4);
   });
 
   testWidgets('back from an order opened in the list still leaves the order', (

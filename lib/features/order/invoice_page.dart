@@ -19,10 +19,12 @@ class InvoicePage extends StatelessWidget {
     super.key,
     required this.orderId,
     this.downloadInvoice = downloadInvoicePdf,
+    this.shareInvoice = shareInvoicePdf,
   });
 
   final String orderId;
   final InvoiceDownloader downloadInvoice;
+  final InvoiceSharer shareInvoice;
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +72,7 @@ class InvoicePage extends StatelessWidget {
                     ),
                   ),
                 ),
+                ShareOrderButton(order: order, shareInvoice: shareInvoice),
                 _DownloadInvoiceButton(
                   order: order,
                   includeProductCode: includeProductCode,
@@ -196,8 +199,6 @@ class InvoicePage extends StatelessWidget {
                                         Text(
                                           InvoiceDocument.combinationDetail(
                                             line,
-                                            includeProductCode:
-                                                includeProductCode,
                                           ),
                                           style: Theme.of(context)
                                               .textTheme

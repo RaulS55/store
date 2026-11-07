@@ -96,7 +96,7 @@ void main() {
     expect(text, contains('Mónica'));
     expect(text, contains('Fernández'));
     expect(text, contains('TST-0001'));
-    expect(text, contains('TST-0001-M-NEGRO'));
+    expect(text, isNot(contains('TST-0001-M-NEGRO')));
     expect(text, contains('REMERA'));
     expect(text, contains('Remeras'));
     expect(text, contains('Talle'));
@@ -189,12 +189,9 @@ void main() {
     expect(
       [
         for (final line in remera.lines)
-          InvoiceDocument.combinationDetail(line, includeProductCode: true),
+          InvoiceDocument.combinationDetail(line),
       ],
-      [
-        'TST-0001-M-NEGRO · Remeras · Talle M · Negro ×2',
-        'TST-0001-L-ROJO · Remeras · Talle L · Rojo',
-      ],
+      ['Remeras · Talle M · Negro ×2', 'Remeras · Talle L · Rojo'],
     );
     expect(
       InvoiceDocument.lineTitle(pantalon.first, includeProductCode: true),

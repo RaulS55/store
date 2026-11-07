@@ -33,6 +33,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   int _qty = 1;
   String? _prefetchedId;
 
+  /// Tras agregar al pedido, no reponer la elección ni el talle único
+  /// que sigue con stock hasta que la persona elija de nuevo.
+  bool _selectionCleared = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -44,6 +48,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.id != widget.id) {
       _prefetchedId = null;
+      _selection = const VariantSelection();
+      _qty = 1;
+      _selectionCleared = false;
       _prefetchGallery();
     }
   }
@@ -56,7 +63,16 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   }
 
   VariantSelection _effective(Product product) {
+    if (_selectionCleared) return const VariantSelection();
     return VariantSelection.effective(product, _selection);
+  }
+
+  void _onSelection(VariantSelection selection) {
+    setState(() {
+      _selectionCleared = false;
+      _selection = selection;
+      _qty = 1;
+    });
   }
 
   @override
@@ -151,10 +167,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       index: _index,
                       onIndex: (i) => setState(() => _index = i),
                       selection: selection,
-                      onSelection: (s) => setState(() {
-                        _selection = s;
-                        _qty = 1;
-                      }),
+                      onSelection: _onSelection,
                       qty: _qty,
                       qtyMax: qtyMax,
                       onQty: (q) => setState(() => _qty = q),
@@ -292,10 +305,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     VariantPicker(
                       product: product,
                       selection: selection,
-                      onChanged: (s) => setState(() {
-                        _selection = s;
-                        _qty = 1;
-                      }),
+                      onChanged: _onSelection,
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -375,6 +385,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       }
     }
     if (added.isEmpty || !mounted) return;
+    setState(() {
+      _selection = const VariantSelection();
+      _qty = 1;
+      _selectionCleared = true;
+    });
     final detail = [
       for (final variant in added) '${variant.size} ${variant.color}',
     ].join(', ');

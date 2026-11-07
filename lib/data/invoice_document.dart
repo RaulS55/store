@@ -70,21 +70,16 @@ class InvoiceDocument {
     ].join(' - ').toUpperCase();
   }
 
-  static String lineDetail(OrderLine line, {bool includeProductCode = false}) {
-    final code = line.variantSku.trim();
+  static String lineDetail(OrderLine line) {
     return [
-      if (includeProductCode && code.isNotEmpty) code,
       if (line.product.categoryLabel.isNotEmpty) line.product.categoryLabel,
       'Talle ${line.variant.size}',
       line.variant.color,
     ].join(' · ');
   }
 
-  static String combinationDetail(
-    OrderLine line, {
-    bool includeProductCode = false,
-  }) {
-    final detail = lineDetail(line, includeProductCode: includeProductCode);
+  static String combinationDetail(OrderLine line) {
+    final detail = lineDetail(line);
     if (line.quantity <= 1) return detail;
     return '$detail ×${line.quantity}';
   }

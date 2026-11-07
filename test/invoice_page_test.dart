@@ -46,6 +46,7 @@ void main() {
     expect(find.text('Total a facturar'), findsOneWidget);
     expect(find.text(closed.orderNumber), findsOneWidget);
     expect(find.text(closed.customer.name), findsOneWidget);
+    expect(find.byKey(const ValueKey('share-order')), findsOneWidget);
     expect(find.byKey(const ValueKey('download-invoice')), findsOneWidget);
     expect(find.text('Descargar factura'), findsNothing);
     expect(find.text('Cerrar pedido'), findsNothing);
@@ -147,14 +148,10 @@ void main() {
     );
 
     expect(find.text('TST-0001 - REMERA TEST'), findsOneWidget);
-    expect(
-      find.text('TST-0001-M-NEGRO · Remeras · Talle M · Negro ×2'),
-      findsOneWidget,
-    );
-    expect(
-      find.text('TST-0001-L-ROJO · Remeras · Talle L · Rojo'),
-      findsOneWidget,
-    );
+    expect(find.text('Remeras · Talle M · Negro ×2'), findsOneWidget);
+    expect(find.text('Remeras · Talle L · Rojo'), findsOneWidget);
+    expect(find.textContaining('TST-0001-M-NEGRO'), findsNothing);
+    expect(find.textContaining('TST-0001-L-ROJO'), findsNothing);
     expect(find.text(r'$10.000,00'), findsOneWidget);
     expect(find.text(r'$30.000,00'), findsWidgets);
     expect(find.text('Remeras · Talle M · Negro'), findsNothing);
@@ -221,6 +218,42 @@ void main() {
     expect(downloaded?.id, closed.id);
     expect(includeCode, isTrue);
     expect(find.text('Factura descargada.'), findsOneWidget);
+  });
+
+  testWidgets('closed orders can share the invoice pdf', (tester) async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.closeOrder(order.id), isTrue);
+    final closed = store.closedOrders.first;
+    DraftOrder? shared;
+    bool? includeCode;
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: store,
+        child: MaterialApp(
+          home: InvoicePage(
+            orderId: closed.id,
+            shareInvoice:
+                (value, {includeProductCode, sharePositionOrigin}) async {
+                  shared = value;
+                  includeCode = includeProductCode;
+                  return true;
+                },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('share-order')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(shared?.id, closed.id);
+    expect(shared?.isClosed, isTrue);
+    expect(includeCode, isTrue);
+    expect(find.text('No se pudo compartir la factura.'), findsNothing);
   });
 
   testWidgets('invoice hides the product code when disabled', (tester) async {
