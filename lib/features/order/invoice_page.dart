@@ -6,13 +6,18 @@ import '../../data/app_store.dart';
 import '../../data/formatters.dart';
 import '../../data/invoice_document.dart';
 import '../../data/invoice_pdf.dart';
+import '../../data/session_store.dart';
 import '../../models/order.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_snack_bar.dart';
 import 'order_actions.dart';
 
 typedef InvoiceDownloader =
-    Future<bool> Function(DraftOrder order, {bool? includeProductCode});
+    Future<bool> Function(
+      DraftOrder order, {
+      bool? includeProductCode,
+      String? businessName,
+    });
 
 class InvoicePage extends StatelessWidget {
   const InvoicePage({
@@ -51,6 +56,7 @@ class InvoicePage extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final wide = AppBreakpoints.isWide(context);
     final includeProductCode = store.includeProductCodeInInvoice;
+    final businessName = context.watch<SessionStore?>()?.company?.name;
 
     return SafeArea(
       child: Column(
@@ -124,20 +130,27 @@ class InvoicePage extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            InvoiceDocument.brand,
+                            InvoiceDocument.businessTitle(businessName),
+                            textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(
                                   letterSpacing: 1.2,
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
-                          Text(
-                            InvoiceDocument.subtitle,
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: AppColors.mutedText,
-                                  letterSpacing: 0.8,
+                          Text.rich(
+                            TextSpan(
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: AppColors.mutedText),
+                              children: const [
+                                TextSpan(
+                                  text: InvoiceDocument.summaryLabel,
+                                  style: TextStyle(letterSpacing: 0.8),
                                 ),
+                                TextSpan(text: ' ${InvoiceDocument.credit}'),
+                              ],
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 16),
                           _kv(context, 'Pedido #', order.orderNumber),
@@ -405,6 +418,7 @@ class _DownloadInvoiceButtonState extends State<_DownloadInvoiceButton> {
       ok = await widget.downloadInvoice(
         widget.order,
         includeProductCode: widget.includeProductCode,
+        businessName: context.read<SessionStore?>()?.company?.name,
       );
     } catch (error, stack) {
       debugPrint('Invoice download failed: $error');

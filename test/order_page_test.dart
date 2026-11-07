@@ -208,11 +208,17 @@ void main() {
       _app(
         store,
         order.id,
-        shareInvoice: (value, {includeProductCode, sharePositionOrigin}) async {
-          shared = value;
-          includeCode = includeProductCode;
-          return true;
-        },
+        shareInvoice:
+            (
+              value, {
+              includeProductCode,
+              businessName,
+              sharePositionOrigin,
+            }) async {
+              shared = value;
+              includeCode = includeProductCode;
+              return true;
+            },
       ),
     );
     await tester.pump();
@@ -354,10 +360,16 @@ void main() {
       _app(
         store,
         order.id,
-        shareInvoice: (value, {includeProductCode, sharePositionOrigin}) async {
-          shared = true;
-          return true;
-        },
+        shareInvoice:
+            (
+              value, {
+              includeProductCode,
+              businessName,
+              sharePositionOrigin,
+            }) async {
+              shared = true;
+              return true;
+            },
       ),
     );
     await tester.pump();

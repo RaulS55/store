@@ -42,7 +42,8 @@ void main() {
     );
 
     expect(find.text('Factura'), findsOneWidget);
-    expect(find.text('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.textContaining('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.textContaining('by MODA STOCK'), findsOneWidget);
     expect(find.text('Total a facturar'), findsOneWidget);
     expect(find.text(closed.orderNumber), findsOneWidget);
     expect(find.text(closed.customer.name), findsOneWidget);
@@ -62,6 +63,49 @@ void main() {
     expect(find.text('CUIT'), findsOneWidget);
     expect(find.text('Condición'), findsOneWidget);
     expect(find.text('TST-0001 - REMERA TEST'), findsOneWidget);
+  });
+
+  testWidgets('invoice heading uses the business name', (tester) async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final session = await signedInOwnerSession(companyName: 'Casa Norte');
+    addTearDown(session.dispose);
+    final order = await seedTestOrder(store);
+    expect(store.closeOrder(order.id), isTrue);
+    String? sharedName;
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: store),
+          ChangeNotifierProvider.value(value: session),
+        ],
+        child: MaterialApp(
+          home: InvoicePage(
+            orderId: order.id,
+            shareInvoice:
+                (
+                  value, {
+                  includeProductCode,
+                  businessName,
+                  sharePositionOrigin,
+                }) async {
+                  sharedName = businessName;
+                  return true;
+                },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('CASA NORTE'), findsOneWidget);
+    expect(find.text('MODA STOCK'), findsNothing);
+    expect(find.textContaining('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.textContaining('by MODA STOCK'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('share-order')));
+    await tester.pump();
+    expect(sharedName, 'Casa Norte');
   });
 
   testWidgets('open invoice shows the loaded deposit', (tester) async {
@@ -200,11 +244,12 @@ void main() {
           home: Scaffold(
             body: InvoicePage(
               orderId: closed.id,
-              downloadInvoice: (value, {includeProductCode}) async {
-                downloaded = value;
-                includeCode = includeProductCode;
-                return true;
-              },
+              downloadInvoice:
+                  (value, {includeProductCode, businessName}) async {
+                    downloaded = value;
+                    includeCode = includeProductCode;
+                    return true;
+                  },
             ),
           ),
         ),
@@ -236,7 +281,12 @@ void main() {
           home: InvoicePage(
             orderId: closed.id,
             shareInvoice:
-                (value, {includeProductCode, sharePositionOrigin}) async {
+                (
+                  value, {
+                  includeProductCode,
+                  businessName,
+                  sharePositionOrigin,
+                }) async {
                   shared = value;
                   includeCode = includeProductCode;
                   return true;
@@ -293,7 +343,8 @@ void main() {
     await tester.tap(find.text('Aceptar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.textContaining('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.textContaining('by MODA STOCK'), findsOneWidget);
     expect(find.text('Total a facturar'), findsOneWidget);
     expect(order.isClosed, isTrue);
     expect(order.sena, 0);
@@ -399,7 +450,8 @@ void main() {
     await tester.tap(find.text(closed.orderNumber));
     await tester.pumpAndSettle();
 
-    expect(find.text('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.textContaining('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.textContaining('by MODA STOCK'), findsOneWidget);
     expect(find.text('Total a facturar'), findsOneWidget);
   });
 

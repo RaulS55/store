@@ -85,13 +85,19 @@ void main() {
   });
 
   test('invoice pdf contains the same summary drawn on screen', () async {
-    final bytes = await buildInvoicePdf(order(iva: true));
+    final bytes = await buildInvoicePdf(
+      order(iva: true),
+      businessName: 'Casa Norte',
+    );
     expect(bytes.take(5).toList(), '%PDF-'.codeUnits);
     final text = _pdfText(bytes);
-    expect(text, contains('MODA'));
-    expect(text, contains('STOCK'));
+    expect(text, contains('CASA'));
+    expect(text, contains('NORTE'));
     expect(text, contains('RESUMEN'));
     expect(text, contains('FACTURA'));
+    expect(text, contains('by'));
+    expect(text, contains('MODA'));
+    expect(text, contains('STOCK'));
     expect(text, contains('PED-1042'));
     expect(text, contains('Mónica'));
     expect(text, contains('Fernández'));

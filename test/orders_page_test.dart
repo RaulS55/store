@@ -118,7 +118,9 @@ void main() {
     await tester.tap(find.byKey(ValueKey('closed-order-${order.id}')));
     await tester.pumpAndSettle();
 
-    expect(find.text('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.text('MODA STOCK'), findsOneWidget);
+    expect(find.textContaining('RESUMEN DE FACTURA'), findsOneWidget);
+    expect(find.textContaining('by MODA STOCK'), findsOneWidget);
     expect(find.text('Total a facturar'), findsOneWidget);
   });
 

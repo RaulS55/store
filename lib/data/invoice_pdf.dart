@@ -18,6 +18,7 @@ const _border = PdfColor.fromInt(0xFFE6E8EA);
 Future<Uint8List> buildInvoicePdf(
   DraftOrder order, {
   bool? includeProductCode,
+  String? businessName,
 }) async {
   final showCode = includeProductCode ?? order.includeProductCodeInInvoice;
   final customer = order.customer;
@@ -33,7 +34,7 @@ Future<Uint8List> buildInvoicePdf(
           pw.SizedBox(height: 8),
           pw.Center(
             child: pw.Text(
-              InvoiceDocument.brand,
+              InvoiceDocument.businessTitle(businessName),
               style: pw.TextStyle(
                 fontSize: 13,
                 fontWeight: pw.FontWeight.bold,
@@ -42,16 +43,7 @@ Future<Uint8List> buildInvoicePdf(
               ),
             ),
           ),
-          pw.Center(
-            child: pw.Text(
-              InvoiceDocument.subtitle,
-              style: const pw.TextStyle(
-                fontSize: 9,
-                letterSpacing: 0.8,
-                color: _muted,
-              ),
-            ),
-          ),
+          pw.Center(child: _invoiceSubtitle()),
           pw.SizedBox(height: 20),
           _kv('Pedido #', order.orderNumber),
           _kv('Cliente', customer.name),
@@ -98,11 +90,13 @@ Future<Uint8List> buildInvoicePdf(
 Future<bool> downloadInvoicePdf(
   DraftOrder order, {
   bool? includeProductCode,
+  String? businessName,
 }) async {
   if (order.lines.isEmpty) return false;
   final bytes = await buildInvoicePdf(
     order,
     includeProductCode: includeProductCode,
+    businessName: businessName,
   );
   if (bytes.isEmpty) return false;
   return downloadBytes(
@@ -115,6 +109,7 @@ Future<bool> downloadInvoicePdf(
 Future<bool> shareInvoicePdf(
   DraftOrder order, {
   bool? includeProductCode,
+  String? businessName,
   Rect? sharePositionOrigin,
   Future<bool> Function({
     required Uint8List bytes,
@@ -128,6 +123,7 @@ Future<bool> shareInvoicePdf(
   final bytes = await buildInvoicePdf(
     order,
     includeProductCode: includeProductCode,
+    businessName: businessName,
   );
   if (bytes.isEmpty) return false;
   return (shareBytes ?? sharePdfBytes)(
@@ -158,6 +154,21 @@ Future<bool> sharePdfBytes({
   } catch (_) {
     return downloadBytes(bytes: bytes, filename: filename, mimeType: mimeType);
   }
+}
+
+pw.Widget _invoiceSubtitle() {
+  const style = pw.TextStyle(fontSize: 9, color: _muted);
+  return pw.RichText(
+    text: pw.TextSpan(
+      children: [
+        pw.TextSpan(
+          text: InvoiceDocument.summaryLabel,
+          style: style.copyWith(letterSpacing: 0.8),
+        ),
+        const pw.TextSpan(text: ' ${InvoiceDocument.credit}', style: style),
+      ],
+    ),
+  );
 }
 
 pw.Widget _receiptIcon() {

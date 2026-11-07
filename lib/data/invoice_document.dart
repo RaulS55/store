@@ -18,8 +18,15 @@ class InvoiceLineGroup {
 }
 
 class InvoiceDocument {
-  static const brand = 'MODA STOCK';
-  static const subtitle = 'RESUMEN DE FACTURA';
+  static const summaryLabel = 'RESUMEN DE FACTURA';
+  static const credit = 'by MODA STOCK';
+
+  static String businessTitle(String? name) {
+    final trimmed = name?.trim() ?? '';
+    return (trimmed.isEmpty ? 'Moda Stock' : trimmed).toUpperCase();
+  }
+
+  static String get subtitle => '$summaryLabel $credit';
 
   static DateTime issuedAt(DraftOrder order) =>
       order.closedAt ?? order.createdAt;

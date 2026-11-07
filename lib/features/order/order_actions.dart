@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../data/app_store.dart';
 import '../../data/formatters.dart';
 import '../../data/invoice_pdf.dart';
+import '../../data/session_store.dart';
 import '../../data/order_share.dart';
 import '../../models/order.dart';
 import '../../theme/tokens.dart';
@@ -197,6 +198,7 @@ typedef InvoiceSharer =
     Future<bool> Function(
       DraftOrder order, {
       bool? includeProductCode,
+      String? businessName,
       Rect? sharePositionOrigin,
     });
 
@@ -234,6 +236,7 @@ class _ShareOrderButtonState extends State<ShareOrderButton> {
       ok = await widget.shareInvoice(
         widget.order,
         includeProductCode: includeProductCode,
+        businessName: context.read<SessionStore?>()?.company?.name,
         sharePositionOrigin: _origin(),
       );
     } catch (error, stack) {
