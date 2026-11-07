@@ -29,6 +29,8 @@ class OrdersPage extends StatefulWidget {
 class _OrdersPageState extends State<OrdersPage> {
   final _search = TextEditingController();
   OrderListSort _sort = OrderListSort.date;
+  OrderListSort? _sortBeforeRemaining;
+  bool _showRemaining = false;
 
   @override
   void dispose() {
@@ -67,6 +69,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   ? Row(
                       children: [
                         Expanded(child: _title(context)),
+                        _remainingToggle(),
                         _searchRow(width: 360),
                         const SizedBox(width: 8),
                         _newOrderButton(context),
@@ -77,6 +80,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         Row(
                           children: [
                             Expanded(child: _title(context)),
+                            _remainingToggle(),
                             _newOrderButton(context),
                           ],
                         ),
@@ -112,6 +116,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     empty: searching
                         ? const _EmptyOrderSearch()
                         : const _EmptyOrders(),
+                    showRemaining: _showRemaining,
                     onTap: (order) {
                       store.setActiveOrder(order.id);
                       context.go('/pedido/${order.id}');
@@ -123,6 +128,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         ? const _EmptyOrderSearch()
                         : const _EmptyClosedOrders(),
                     showStatus: true,
+                    showRemaining: _showRemaining,
                     itemKey: (order) => ValueKey('closed-order-${order.id}'),
                     onTap: (order) => context.push(invoiceRoute(order.id)),
                   ),
@@ -181,6 +187,39 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
+  Widget _remainingToggle() {
+    return IconButton(
+      key: const ValueKey('orders-remaining-view'),
+      tooltip: _showRemaining ? 'Ver prendas' : 'Ver restante',
+      onPressed: _toggleRemainingView,
+      style: IconButton.styleFrom(
+        backgroundColor: _showRemaining ? AppColors.terracottaChip : null,
+        foregroundColor: _showRemaining
+            ? AppColors.terracotta
+            : AppColors.slate,
+      ),
+      icon: Icon(
+        _showRemaining
+            ? Icons.account_balance_wallet
+            : Icons.account_balance_wallet_outlined,
+      ),
+    );
+  }
+
+  void _toggleRemainingView() {
+    setState(() {
+      if (_showRemaining) {
+        _showRemaining = false;
+        _sort = _sortBeforeRemaining ?? _sort;
+        _sortBeforeRemaining = null;
+        return;
+      }
+      _sortBeforeRemaining = _sort;
+      _showRemaining = true;
+      _sort = OrderListSort.balance;
+    });
+  }
+
   Widget _sortButton() {
     return PopupMenuButton<OrderListSort>(
       key: const ValueKey('orders-sort'),
@@ -211,9 +250,7 @@ class _OrdersPageState extends State<OrdersPage> {
         if (byName != 0) return byName;
         return _orderDate(b, open: open).compareTo(_orderDate(a, open: open));
       case OrderListSort.balance:
-        final dueA = open ? a.reservedDue : a.remaining;
-        final dueB = open ? b.reservedDue : b.remaining;
-        final byDue = dueB.compareTo(dueA);
+        final byDue = b.remaining.compareTo(a.remaining);
         if (byDue != 0) return byDue;
         return _orderDate(b, open: open).compareTo(_orderDate(a, open: open));
     }
@@ -265,6 +302,7 @@ class _OrdersList extends StatelessWidget {
     required this.empty,
     required this.onTap,
     this.showStatus = false,
+    this.showRemaining = false,
     this.itemKey,
   });
 
@@ -272,6 +310,7 @@ class _OrdersList extends StatelessWidget {
   final Widget empty;
   final ValueChanged<DraftOrder> onTap;
   final bool showStatus;
+  final bool showRemaining;
   final Key Function(DraftOrder order)? itemKey;
 
   @override
@@ -287,6 +326,7 @@ class _OrdersList extends StatelessWidget {
           key: itemKey?.call(order),
           order: order,
           showStatus: showStatus,
+          showRemaining: showRemaining,
           onTap: () => onTap(order),
         );
       },

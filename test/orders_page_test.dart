@@ -238,6 +238,13 @@ void main() {
       await tester.pump();
 
       expect(_borderFor(tester, 'Ana López').top.color, AppColors.lightBorder);
+      expect(_borderFor(tester, 'Bruno Díaz').top.color, AppColors.lightBorder);
+      expect(_borderFor(tester, 'Carla Ruiz').top.color, AppColors.lightBorder);
+
+      await tester.tap(find.byKey(const ValueKey('orders-remaining-view')));
+      await tester.pump();
+
+      expect(_borderFor(tester, 'Ana López').top.color, AppColors.lightBorder);
       expect(_borderFor(tester, 'Ana López').top.width, 1);
       expect(_borderFor(tester, 'Bruno Díaz').top.color, AppColors.stockGap);
       expect(_borderFor(tester, 'Bruno Díaz').top.width, 2);
@@ -252,6 +259,138 @@ void main() {
       expect(_customerNames(tester), ['Carla Ruiz', 'Bruno Díaz', 'Ana López']);
     },
   );
+
+  testWidgets(
+    'remaining view replaces garment names and restores the previous sort',
+    (tester) async {
+      _setPhoneView(tester);
+      final store = AppStore();
+      addTearDown(store.dispose);
+      await _reservedOrder(
+        store,
+        customerId: 'c-ana',
+        customerName: 'Ana López',
+        productId: 'p-ana',
+        productName: 'Camisa',
+        quantity: 1,
+        paid: 10000,
+      );
+      _tickClock();
+      await _reservedOrder(
+        store,
+        customerId: 'c-bruno',
+        customerName: 'Bruno Díaz',
+        productId: 'p-bruno',
+        productName: 'Pantalón',
+        quantity: 2,
+      );
+
+      await tester.pumpWidget(_pageApp(store));
+      await tester.pump();
+
+      await _chooseSort(tester, 'Cliente');
+      expect(_customerNames(tester), ['Ana López', 'Bruno Díaz']);
+      expect(find.text('Camisa'), findsOneWidget);
+      expect(find.text('Pantalón'), findsOneWidget);
+      expect(find.text('Restante'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('orders-remaining-view')));
+      await tester.pump();
+
+      expect(find.text('Restante'), findsNWidgets(2));
+      expect(find.text('Camisa'), findsNothing);
+      expect(find.text('Pantalón'), findsNothing);
+      expect(_customerNames(tester), ['Bruno Díaz', 'Ana López']);
+
+      await tester.tap(find.byKey(const ValueKey('orders-remaining-view')));
+      await tester.pump();
+
+      expect(find.text('Camisa'), findsOneWidget);
+      expect(find.text('Pantalón'), findsOneWidget);
+      expect(find.text('Restante'), findsNothing);
+      expect(_customerNames(tester), ['Ana López', 'Bruno Díaz']);
+    },
+  );
+
+  testWidgets(
+    'unpaid orders without a deposit color the border by remaining',
+    (tester) async {
+      _setPhoneView(tester);
+      final store = AppStore();
+      addTearDown(store.dispose);
+      await _reservedOrder(
+        store,
+        customerId: 'c-dora',
+        customerName: 'Dora Paz',
+        productId: 'p-dora',
+        quantity: 1,
+        saveStock: false,
+      );
+      await _reservedOrder(
+        store,
+        customerId: 'c-elena',
+        customerName: 'Elena Díaz',
+        productId: 'p-elena',
+        quantity: 3,
+        saveStock: false,
+      );
+      await _reservedOrder(
+        store,
+        customerId: 'c-fabio',
+        customerName: 'Fabio Ruiz',
+        productId: 'p-fabio',
+        quantity: 3,
+        paid: 5000,
+        saveStock: false,
+      );
+
+      await tester.pumpWidget(_pageApp(store));
+      await tester.pump();
+
+      expect(_borderFor(tester, 'Dora Paz').top.color, AppColors.lightBorder);
+      expect(_borderFor(tester, 'Elena Díaz').top.color, AppColors.lightBorder);
+      expect(_borderFor(tester, 'Fabio Ruiz').top.color, AppColors.lightBorder);
+
+      await tester.tap(find.byKey(const ValueKey('orders-remaining-view')));
+      await tester.pump();
+
+      expect(_borderFor(tester, 'Dora Paz').top.color, AppColors.stockGap);
+      expect(_borderFor(tester, 'Elena Díaz').top.color, AppColors.stockLow);
+      expect(_borderFor(tester, 'Fabio Ruiz').top.color, AppColors.lightBorder);
+    },
+  );
+
+  testWidgets(
+    'falta pagar sorts an unpaid order above one with a smaller remaining',
+    (tester) async {
+      _setPhoneView(tester);
+      final store = AppStore();
+      addTearDown(store.dispose);
+      await _reservedOrder(
+        store,
+        customerId: 'c-hugo',
+        customerName: 'Hugo Paz',
+        productId: 'p-hugo',
+        quantity: 3,
+        saveStock: false,
+      );
+      _tickClock();
+      await _reservedOrder(
+        store,
+        customerId: 'c-ines',
+        customerName: 'Inés Díaz',
+        productId: 'p-ines',
+        quantity: 2,
+        paid: 10000,
+      );
+
+      await tester.pumpWidget(_pageApp(store));
+      await tester.pump();
+
+      await _chooseSort(tester, 'Falta pagar');
+      expect(_customerNames(tester), ['Hugo Paz', 'Inés Díaz']);
+    },
+  );
 }
 
 Future<void> _reservedOrder(
@@ -260,9 +399,16 @@ Future<void> _reservedOrder(
   required String customerName,
   required String productId,
   required int quantity,
+  String productName = 'Remera test',
   double paid = 0,
+  bool saveStock = true,
 }) async {
-  final product = testProduct(id: productId, stock: 10, price: 10000);
+  final product = testProduct(
+    id: productId,
+    name: productName,
+    stock: 10,
+    price: 10000,
+  );
   await store.upsertProduct(product);
   final customer = await seedTestCustomer(
     store,
@@ -277,7 +423,9 @@ Future<void> _reservedOrder(
   if (quantity != 1) {
     store.setLineQty(order.id, order.lines.first.lineKey, quantity);
   }
-  expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+  if (saveStock) {
+    expect(store.saveOrderStock(order.id), SaveStockResult.saved);
+  }
   if (paid > 0) {
     expect(store.setOrderSena(order.id, paid), isTrue);
   }

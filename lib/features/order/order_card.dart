@@ -11,18 +11,21 @@ class OrderSummaryCard extends StatelessWidget {
     required this.onTap,
     this.showCustomer = true,
     this.showStatus = false,
+    this.showRemaining = false,
   });
 
   final DraftOrder order;
   final VoidCallback onTap;
   final bool showCustomer;
   final bool showStatus;
+  final bool showRemaining;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final names = order.lines.map((line) => line.product.name).toList();
     final date = order.closedAt ?? order.createdAt;
+    final remaining = order.remaining;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -35,7 +38,11 @@ class OrderSummaryCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppRadii.lg),
-              border: _summaryBorder(order, isDark: isDark),
+              border: _summaryBorder(
+                order,
+                isDark: isDark,
+                showRemaining: showRemaining,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,7 +143,29 @@ class OrderSummaryCard extends StatelessWidget {
                     ],
                   ),
                 ],
-                if (names.isNotEmpty) ...[
+                if (showRemaining) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Text(
+                        'Restante',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.slate,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        MoneyFormat.detailed(remaining),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: remaining > 0
+                              ? AppColors.terracotta
+                              : AppColors.slate,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else if (names.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
                     names.join(' · '),
@@ -158,12 +187,24 @@ class OrderSummaryCard extends StatelessWidget {
 
 const _reservedDueAlert = 20000.0;
 
-Border _summaryBorder(DraftOrder order, {required bool isDark}) {
+/// Amount that paints the card border. A deposit or payment only covers
+/// reserved stock. With neither, the full remaining balance counts.
+double _borderBalance(DraftOrder order) {
+  if (!order.hasSena && !order.hasPayments) return order.remaining;
+  return order.reservedDue;
+}
+
+Border _summaryBorder(
+  DraftOrder order, {
+  required bool isDark,
+  required bool showRemaining,
+}) {
   final neutral = isDark ? AppColors.darkBorder : AppColors.lightBorder;
-  if (!order.isActive || order.reservedDue <= 0) {
+  final due = _borderBalance(order);
+  if (!showRemaining || !order.isActive || due <= 0) {
     return Border.all(color: neutral);
   }
-  final alert = order.reservedDue <= _reservedDueAlert
+  final alert = due <= _reservedDueAlert
       ? AppColors.stockGap
       : AppColors.stockLow;
   return Border.all(color: alert, width: 2);
