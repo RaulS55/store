@@ -35,9 +35,7 @@ class OrderSummaryCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppRadii.lg),
-              border: Border.all(
-                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-              ),
+              border: _summaryBorder(order, isDark: isDark),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,6 +154,19 @@ class OrderSummaryCard extends StatelessWidget {
       ),
     );
   }
+}
+
+const _reservedDueAlert = 20000.0;
+
+Border _summaryBorder(DraftOrder order, {required bool isDark}) {
+  final neutral = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+  if (!order.isActive || order.reservedDue <= 0) {
+    return Border.all(color: neutral);
+  }
+  final alert = order.reservedDue <= _reservedDueAlert
+      ? AppColors.stockGap
+      : AppColors.stockLow;
+  return Border.all(color: alert, width: 2);
 }
 
 class _StatusChip extends StatelessWidget {

@@ -403,4 +403,77 @@ void main() {
       3,
     );
   });
+
+  test('reserved value ignores unsaved quantities and subtracts payments', () {
+    DraftOrder reservedOrder({
+      required int lineQty,
+      required int reservedQty,
+      double? unitPriceOverride,
+      double? sena,
+      List<OrderPayment> payments = const [],
+      bool ivaEnabled = false,
+    }) {
+      return DraftOrder(
+        id: 'o-reserved',
+        orderNumber: 'PED-R',
+        customer: customer,
+        ivaEnabled: ivaEnabled,
+        ivaPercent: 21,
+        sena: sena,
+        payments: payments,
+        lines: [
+          OrderLine(
+            product: product,
+            variant: product.variants.first,
+            quantity: lineQty,
+            unitPriceOverride: unitPriceOverride,
+          ),
+        ],
+        stockReservations: [
+          StockReservation(
+            productId: product.id,
+            size: 'M',
+            color: 'Negro',
+            quantity: reservedQty,
+          ),
+        ],
+      );
+    }
+
+    final partial = reservedOrder(
+      lineQty: 3,
+      reservedQty: 1,
+      unitPriceOverride: 8000,
+      sena: 2000,
+      payments: [OrderPayment(amount: 1000, createdAt: stamp)],
+      ivaEnabled: true,
+    );
+    expect(partial.subtotal, 24000);
+    expect(partial.iva, greaterThan(0));
+    expect(partial.reservedValue, 8000);
+    expect(partial.paid, 3000);
+    expect(partial.reservedDue, 5000);
+
+    expect(
+      reservedOrder(lineQty: 2, reservedQty: 2, sena: 20000).reservedDue,
+      0,
+    );
+    expect(reservedOrder(lineQty: 2, reservedQty: 2).reservedDue, 20000);
+    expect(reservedOrder(lineQty: 3, reservedQty: 3).reservedDue, 30000);
+
+    final unsaved = DraftOrder(
+      id: 'o-empty',
+      orderNumber: 'PED-E',
+      customer: customer,
+      lines: [
+        OrderLine(
+          product: product,
+          variant: product.variants.first,
+          quantity: 2,
+        ),
+      ],
+    );
+    expect(unsaved.reservedValue, 0);
+    expect(unsaved.reservedDue, 0);
+  });
 }

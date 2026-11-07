@@ -10,6 +10,15 @@ import '../../widgets/search_field.dart';
 import 'order_actions.dart';
 import 'order_card.dart';
 
+enum OrderListSort {
+  date('Fecha'),
+  customer('Cliente'),
+  balance('Falta pagar');
+
+  const OrderListSort(this.label);
+  final String label;
+}
+
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
 
@@ -19,6 +28,7 @@ class OrdersPage extends StatefulWidget {
 
 class _OrdersPageState extends State<OrdersPage> {
   final _search = TextEditingController();
+  OrderListSort _sort = OrderListSort.date;
 
   @override
   void dispose() {
@@ -34,11 +44,11 @@ class _OrdersPageState extends State<OrdersPage> {
     final openOrders = [
       for (final order in store.orders)
         if (_matchesOrderQuery(order, query)) order,
-    ];
+    ]..sort((a, b) => _compareOrders(a, b, open: true));
     final closedOrders = [
       for (final order in store.closedOrders)
         if (_matchesOrderQuery(order, query)) order,
-    ];
+    ]..sort((a, b) => _compareOrders(a, b, open: false));
     final searching = query.isNotEmpty;
     return DefaultTabController(
       length: 2,
@@ -57,7 +67,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   ? Row(
                       children: [
                         Expanded(child: _title(context)),
-                        SizedBox(width: 360, child: _searchField()),
+                        _searchRow(width: 360),
                         const SizedBox(width: 8),
                         _newOrderButton(context),
                       ],
@@ -71,7 +81,7 @@ class _OrdersPageState extends State<OrdersPage> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _searchField(),
+                        _searchRow(),
                       ],
                     ),
             ),
@@ -149,6 +159,19 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
+  Widget _searchRow({double? width}) {
+    final field = _searchField();
+    return Row(
+      children: [
+        if (width == null)
+          Expanded(child: field)
+        else
+          SizedBox(width: width, child: field),
+        _sortButton(),
+      ],
+    );
+  }
+
   Widget _searchField() {
     return SearchField(
       key: const ValueKey('orders-search'),
@@ -156,6 +179,49 @@ class _OrdersPageState extends State<OrdersPage> {
       hint: 'Buscar cliente o número de pedido...',
       onChanged: (_) => setState(() {}),
     );
+  }
+
+  Widget _sortButton() {
+    return PopupMenuButton<OrderListSort>(
+      key: const ValueKey('orders-sort'),
+      tooltip: 'Ordenar',
+      initialValue: _sort,
+      padding: EdgeInsets.zero,
+      icon: const Icon(Icons.sort, color: AppColors.slate),
+      onSelected: (value) => setState(() => _sort = value),
+      itemBuilder: (context) => [
+        for (final sort in OrderListSort.values)
+          CheckedPopupMenuItem(
+            value: sort,
+            checked: sort == _sort,
+            child: Text(sort.label),
+          ),
+      ],
+    );
+  }
+
+  int _compareOrders(DraftOrder a, DraftOrder b, {required bool open}) {
+    switch (_sort) {
+      case OrderListSort.date:
+        return _orderDate(b, open: open).compareTo(_orderDate(a, open: open));
+      case OrderListSort.customer:
+        final byName = a.customer.name.toLowerCase().compareTo(
+          b.customer.name.toLowerCase(),
+        );
+        if (byName != 0) return byName;
+        return _orderDate(b, open: open).compareTo(_orderDate(a, open: open));
+      case OrderListSort.balance:
+        final dueA = open ? a.reservedDue : a.remaining;
+        final dueB = open ? b.reservedDue : b.remaining;
+        final byDue = dueB.compareTo(dueA);
+        if (byDue != 0) return byDue;
+        return _orderDate(b, open: open).compareTo(_orderDate(a, open: open));
+    }
+  }
+
+  DateTime _orderDate(DraftOrder order, {required bool open}) {
+    if (open) return order.createdAt;
+    return order.closedAt ?? order.createdAt;
   }
 
   Widget _newOrderButton(BuildContext context) {

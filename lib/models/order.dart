@@ -307,6 +307,22 @@ class DraftOrder {
 
   double get paid => paidLines.fold(0, (sum, line) => sum + line.amount);
 
+  /// Sale value of stock already reserved. Unsaved line quantities are excluded.
+  double get reservedValue {
+    final linesByKey = {for (final line in lines) line.lineKey: line};
+    var value = 0.0;
+    for (final hold in stockReservations) {
+      if (hold.quantity <= 0) continue;
+      final line = linesByKey[hold.key];
+      if (line == null) continue;
+      value += line.unitPrice * hold.quantity;
+    }
+    return value;
+  }
+
+  /// Reserved sale value still uncovered by the deposit and payments.
+  double get reservedDue => reservedValue - paid;
+
   double get remaining => total - paid;
 
   String get ivaLabel => 'IVA ($_ivaPercentText%)';
