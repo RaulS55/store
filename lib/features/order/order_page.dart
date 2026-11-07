@@ -136,6 +136,7 @@ class _OrderHeader extends StatelessWidget {
         : Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600);
+    final showTitle = wide || order.isClosed;
     return Row(
       children: [
         IconButton(
@@ -145,15 +146,26 @@ class _OrderHeader extends StatelessWidget {
         ),
         if (wide) const SizedBox(width: 4),
         Expanded(
-          child: wide || order.isClosed
-              ? Text(
-                  order.isClosed ? 'Pedido cerrado' : 'Armar pedido',
-                  textAlign: TextAlign.start,
-                  style: titleStyle,
+          child: Row(
+            children: [
+              if (showTitle)
+                Flexible(
+                  child: Text(
+                    order.isClosed ? 'Pedido cerrado' : 'Armar pedido',
+                    textAlign: TextAlign.start,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
+                  ),
                 )
-              : const SizedBox.shrink(),
+              else
+                const Spacer(),
+              const SizedBox(width: 8),
+              Flexible(child: _StatusBadge(order: order)),
+            ],
+          ),
         ),
-        _StatusBadge(order: order),
+        CustomerWhatsAppButton(phone: order.customer.phone),
         if (!order.isClosed) OrderSenaButton(order: order),
         ShareOrderButton(order: order, shareInvoice: shareInvoice),
         if (!order.isClosed) CancelOrderButton(order: order),
@@ -1035,6 +1047,8 @@ class _StatusBadge extends StatelessWidget {
       ),
       child: Text(
         '#${order.orderNumber} / ${order.status.label.toLowerCase()}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
       ),
     );

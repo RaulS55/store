@@ -67,6 +67,17 @@ class OrderShare {
     return openUri(whatsappUri(order, includeProductCode: includeProductCode));
   }
 
+  /// Opens the customer's WhatsApp chat, without a prefilled order message.
+  static Uri? customerChatUri(String? phone) {
+    final digits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return null;
+    return Uri.parse('https://wa.me/$digits');
+  }
+
+  static Future<bool> openCustomerChat(String? phone) {
+    return openUri(customerChatUri(phone));
+  }
+
   static String catalogMessage(
     DraftOrder order, {
     bool updated = false,

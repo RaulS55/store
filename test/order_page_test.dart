@@ -143,6 +143,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('WhatsApp'), findsNothing);
+    expect(find.byKey(const ValueKey('order-customer-whatsapp')), findsOneWidget);
     expect(find.text('Guardar stock'), findsOneWidget);
     expect(find.text('Cerrar pedido'), findsOneWidget);
     expect(find.byKey(const ValueKey('cancel-order')), findsOneWidget);
@@ -175,6 +176,24 @@ void main() {
     expect(store.orders, hasLength(1));
     expect(store.orderById(order.id), isNotNull);
     expect(store.orderById(order.id)!.isDeleted, isFalse);
+  });
+
+  testWidgets('order header hides WhatsApp when the customer has no phone', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    final customer = await seedTestCustomer(
+      store,
+      customer: testCustomer(id: 'c-nophone', name: 'Sin teléfono', phone: ''),
+    );
+    final order = store.createOrder(customer);
+
+    await tester.pumpWidget(_app(store, order.id));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('order-customer-whatsapp')), findsNothing);
   });
 
   testWidgets('closed orders do not offer cancel', (tester) async {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -280,6 +281,34 @@ Future<void> editOrderSenaFlow(BuildContext context, DraftOrder order) async {
   final store = context.read<AppStore>();
   store.setOrderSena(order.id, result.sena);
   store.setOrderPayments(order.id, result.payments);
+}
+
+class CustomerWhatsAppButton extends StatelessWidget {
+  const CustomerWhatsAppButton({super.key, required this.phone});
+
+  final String? phone;
+
+  @override
+  Widget build(BuildContext context) {
+    final uri = OrderShare.customerChatUri(phone);
+    if (uri == null) return const SizedBox.shrink();
+    return IconButton(
+      key: const ValueKey('order-customer-whatsapp'),
+      tooltip: 'WhatsApp',
+      onPressed: () => _openCustomerWhatsApp(context, uri),
+      icon: const FaIcon(
+        FontAwesomeIcons.whatsapp,
+        size: 20,
+        color: AppColors.whatsapp,
+      ),
+    );
+  }
+}
+
+Future<void> _openCustomerWhatsApp(BuildContext context, Uri uri) async {
+  final ok = await OrderShare.openUri(uri);
+  if (!context.mounted || ok) return;
+  AppSnackBar.show(context, content: const Text('No se pudo abrir WhatsApp.'));
 }
 
 class OrderSenaButton extends StatelessWidget {
