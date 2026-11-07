@@ -333,13 +333,13 @@ class InvoicePage extends StatelessWidget {
                       ],
                     ),
             ),
-          TextButton(
-            onPressed: () => _leave(context, order),
-            child: Text(
-              order.isClosed ? 'Volver al cliente' : 'Volver al pedido',
+          if (!order.isClosed) ...[
+            TextButton(
+              onPressed: () => _leave(context, order),
+              child: const Text('Volver al pedido'),
             ),
-          ),
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
+          ],
         ],
       ),
     );

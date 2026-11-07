@@ -57,7 +57,7 @@ void main() {
       tester.getCenter(find.widgetWithText(FilledButton, 'WhatsApp')).dx,
       greaterThan(tester.getCenter(find.text('Reabrir pedido')).dx),
     );
-    expect(find.text('Volver al cliente'), findsOneWidget);
+    expect(find.text('Volver al cliente'), findsNothing);
     expect(find.textContaining('IVA ('), findsNothing);
     expect(find.text('Subtotal'), findsNothing);
     expect(find.text('CUIT'), findsOneWidget);
