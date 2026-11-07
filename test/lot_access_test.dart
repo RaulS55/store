@@ -289,4 +289,49 @@ void main() {
     expect(find.text('Ganancia esperada'), findsNothing);
     expect(find.text('Recuperado'), findsNothing);
   });
+
+  testWidgets('lots search filters by name and date', (tester) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertLot(testLot(id: 'l1', name: 'Lote feria'));
+    await store.upsertLot(
+      testLot(
+        id: 'l2',
+        name: 'Lote depósito',
+        createdAt: DateTime.utc(2026, 3, 2),
+      ),
+    );
+    final session = await signedInOwnerSession();
+    addTearDown(session.dispose);
+    final router = createRouter(session);
+
+    await tester.pumpWidget(
+      _app(store: store, session: session, router: router),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/lotes');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lote feria'), findsOneWidget);
+    expect(find.text('Lote depósito'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const ValueKey('lots-search')), 'feria');
+    await tester.pump();
+
+    expect(find.text('Lote feria'), findsOneWidget);
+    expect(find.text('Lote depósito'), findsNothing);
+
+    await tester.enterText(find.byKey(const ValueKey('lots-search')), '02/03');
+    await tester.pump();
+
+    expect(find.text('Lote feria'), findsNothing);
+    expect(find.text('Lote depósito'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const ValueKey('lots-search')), 'xyz');
+    await tester.pump();
+
+    expect(find.text('No encontramos lotes'), findsOneWidget);
+  });
 }
