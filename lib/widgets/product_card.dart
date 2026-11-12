@@ -4,6 +4,7 @@ import '../models/product.dart';
 import '../theme/tokens.dart';
 import 'offer_price.dart';
 import 'product_image.dart';
+import 'size_chip_line.dart';
 import 'stock_dot.dart';
 
 class ProductCard extends StatelessWidget {
@@ -13,12 +14,16 @@ class ProductCard extends StatelessWidget {
     required this.onTap,
     this.dense = false,
     this.filteredSizes = const {},
+    this.showSizeChips = false,
   });
 
   final Product product;
   final VoidCallback onTap;
   final bool dense;
   final Set<String> filteredSizes;
+
+  /// En inventario y catálogo, la fila bajo el código muestra talles.
+  final bool showSizeChips;
 
   @override
   Widget build(BuildContext context) {
@@ -168,7 +173,9 @@ class ProductCard extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 8),
-                    if (onlySize != null)
+                    if (showSizeChips)
+                      SizeChipLine(sizes: product.sizes)
+                    else if (onlySize != null)
                       StockLabel(stock: product.stock, size: onlySize)
                     else if (sizeGap)
                       Text(

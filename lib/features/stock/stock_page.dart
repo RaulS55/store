@@ -124,6 +124,7 @@ class _StockPageState extends State<StockPage> {
                     return ProductCard(
                       product: product,
                       dense: true,
+                      showSizeChips: true,
                       filteredSizes: store.focusedSizes,
                       onTap: () => context.push('/producto/${product.id}'),
                     );
@@ -290,6 +291,7 @@ class _StockPageState extends State<StockPage> {
                   final product = products[index];
                   return ProductCard(
                     product: product,
+                    showSizeChips: true,
                     filteredSizes: store.focusedSizes,
                     onTap: () => context.push('/producto/${product.id}'),
                   );

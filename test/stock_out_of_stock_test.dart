@@ -8,6 +8,7 @@ import 'package:store_app/models/product.dart';
 import 'package:store_app/theme/app_theme.dart';
 import 'package:store_app/theme/tokens.dart';
 import 'package:store_app/widgets/product_card.dart';
+import 'package:store_app/widgets/size_chip_line.dart';
 
 import 'fakes/catalog_harness.dart';
 
@@ -460,6 +461,71 @@ void main() {
 
     expect(find.text('5 u.'), findsOneWidget);
     expect(find.textContaining('·'), findsNothing);
+  });
+
+  testWidgets('inventory card shows sizes instead of the unit count', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 280,
+            height: 360,
+            child: ProductCard(
+              product: _sizedProduct('p-sizes', {'S': 2, 'M': 3, 'L': 1}),
+              showSizeChips: true,
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('S'), findsOneWidget);
+    expect(find.text('M'), findsOneWidget);
+    expect(find.text('L'), findsOneWidget);
+    expect(find.text('+'), findsNothing);
+    expect(find.text('Negro'), findsNothing);
+    expect(find.textContaining('u.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('inventory card keeps sizes on one line and ends with plus', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 150,
+            height: 360,
+            child: ProductCard(
+              product: _sizedProduct('p-many', {
+                'S': 1,
+                'M': 1,
+                'L': 1,
+                'XL': 1,
+                'XXL': 1,
+                'XXXL': 1,
+              }),
+              showSizeChips: true,
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('+'), findsOneWidget);
+    expect(find.text('XXXL'), findsNothing);
+    expect(find.text('Negro'), findsNothing);
+    expect(find.textContaining('u.'), findsNothing);
+    final line = tester.getSize(find.byType(SizeChipLine));
+    expect(line.height, lessThan(28));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('stock table names the only size that still has stock', (

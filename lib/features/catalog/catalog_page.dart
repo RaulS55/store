@@ -211,6 +211,7 @@ class _CatalogViewState extends State<_CatalogView> {
                   return ProductCard(
                     product: product,
                     dense: true,
+                    showSizeChips: true,
                     filteredSizes: store.focusedSizes,
                     onTap: () =>
                         context.push(catalogProductPath(companyId, product.id)),
