@@ -63,7 +63,7 @@ class _StockPageState extends State<StockPage> {
                 child: Row(
                   children: [
                     Text(
-                      'Stock',
+                      'Inventario',
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(
                             fontWeight: FontWeight.w700,
@@ -168,7 +168,7 @@ class _StockPageState extends State<StockPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Stock',
+                          'Inventario',
                           style: Theme.of(context).textTheme.headlineMedium
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
