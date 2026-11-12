@@ -60,13 +60,16 @@ class _RestockSheetState extends State<_RestockSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Las unidades que sumes entran en el lote elegido. El stock anterior sigue en su lote.',
+              'El lote es opcional. Si no elegís uno, las unidades entran en el lote más reciente. El stock anterior sigue en su lote.',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),
             ),
             const SizedBox(height: 16),
-            Text('Lote', style: Theme.of(context).textTheme.labelLarge),
+            Text(
+              'Lote (opcional)',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
             const SizedBox(height: 6),
             Autocomplete<Lot>(
               displayStringForOption: (lot) => lot.displayName,
@@ -79,7 +82,7 @@ class _RestockSheetState extends State<_RestockSheet> {
                       controller: controller,
                       focusNode: focusNode,
                       decoration: const InputDecoration(
-                        hintText: 'Ej. Lote feria',
+                        hintText: 'Opcional. Ej. Lote feria',
                       ),
                       onChanged: (value) => _lotQuery = value,
                       onFieldSubmitted: (_) => onFieldSubmitted(),
@@ -135,10 +138,15 @@ class _RestockSheetState extends State<_RestockSheet> {
   }
 
   Future<void> _save(AppStore store, Product product) async {
-    final lot = store.resolveLot(_lotQuery);
-    if (lot == null) {
-      setState(() => _error = 'Elegí un lote de la lista');
-      return;
+    final query = _lotQuery.trim();
+    String? lotId;
+    if (query.isNotEmpty) {
+      final lot = store.resolveLot(query);
+      if (lot == null) {
+        setState(() => _error = 'Elegí un lote de la lista');
+        return;
+      }
+      lotId = lot.id;
     }
     final quantities = {
       for (final entry in _adds.entries)
@@ -154,7 +162,7 @@ class _RestockSheetState extends State<_RestockSheet> {
     });
     final saved = await store.restockProduct(
       productId: product.id,
-      lotId: lot.id,
+      lotId: lotId,
       quantities: quantities,
     );
     if (!mounted) return;

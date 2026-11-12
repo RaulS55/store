@@ -779,7 +779,7 @@ class Product {
         isNew: prior == null,
         nextStock: next.stock,
         addedLotId: canAssignLot ? addedLotId : null,
-        requireLot: isEditing && canAssignLot,
+        requireLot: false,
         claimUnassignedLots: isEditing && canAssignLot,
         fallbackLotId: previous?.lotId ?? '',
         receivedAt: receivedAt,

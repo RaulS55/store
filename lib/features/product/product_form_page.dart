@@ -554,8 +554,8 @@ class _ProductFormPageState extends State<ProductFormPage> {
                     textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       hintText: isEditing
-                          ? 'Lote al que entran las unidades que sumes'
-                          : 'Ej. Lote feria',
+                          ? 'Opcional. Si no elegís, usan el lote más reciente'
+                          : 'Opcional. Ej. Lote feria',
                     ),
                     onChanged: (value) => _lotQuery = value,
                     onFieldSubmitted: (_) => onFieldSubmitted(),
@@ -568,7 +568,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
-              'Las unidades que sumes entran en este lote. Bajar el stock descuenta el lote más viejo.',
+              'El lote es opcional. Si no elegís uno, las unidades nuevas entran en el lote más reciente. Bajar el stock descuenta el lote más viejo.',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: AppColors.mutedText),

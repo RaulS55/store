@@ -1030,12 +1030,12 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
 
   Future<bool> restockProduct({
     required String productId,
-    required String lotId,
+    String? lotId,
     required Map<String, int> quantities,
   }) async {
-    final id = lotId.trim();
+    final chosen = lotId?.trim() ?? '';
     final product = productById(productId);
-    if (product == null || id.isEmpty) return false;
+    if (product == null) return false;
     final when = DateTime.now().toUtc();
     final layersByKey = <String, List<StockLayer>>{};
     var changed = false;
@@ -1043,8 +1043,12 @@ class AppStore extends ChangeNotifier implements ProductFilterHost {
       final add = quantities[variant.key] ?? 0;
       if (add <= 0) continue;
       changed = true;
+      final layers = product.layersOf(variant);
+      final id = chosen.isNotEmpty
+          ? chosen
+          : (StockLayers.lastLotId(layers) ?? product.lotId.trim());
       layersByKey[variant.key] = StockLayers.receive(
-        layers: product.layersOf(variant),
+        layers: layers,
         lotId: id,
         quantity: add,
         receivedAt: when,

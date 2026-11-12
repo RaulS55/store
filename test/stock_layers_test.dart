@@ -170,7 +170,7 @@ void main() {
     ]);
   });
 
-  test('an edit without a lot for the new units is rejected', () {
+  test('an edit without a lot adds the new units to the latest lot', () {
     final current = testProduct(lotId: 'l1', stock: 4);
     final assignment = Product.assignLots(
       previous: current,
@@ -180,7 +180,49 @@ void main() {
       isEditing: true,
       receivedAt: DateTime.utc(2026, 4, 1),
     );
-    expect(assignment.needsLot, isTrue);
+    expect(assignment.needsLot, isFalse);
+    expect(assignment.variants.single.stock, 6);
+    expect(
+      assignment.variants.single.layers.map(
+        (layer) => (layer.lotId, layer.quantity),
+      ),
+      [('l1', 6)],
+    );
+  });
+
+  test('restock without a lot adds units to the latest lot', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct(id: 'p1', lotId: 'l1', stock: 2));
+
+    expect(
+      await store.restockProduct(
+        productId: 'p1',
+        quantities: const {'M|Negro': 3},
+      ),
+      isTrue,
+    );
+
+    final product = store.productById('p1')!;
+    expect(product.stock, 5);
+    expect(product.unitsInLot('l1'), 5);
+    expect(product.lotId, 'l1');
+  });
+
+  test('restock without any lot still increases stock', () async {
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await store.upsertProduct(testProduct(id: 'p1', stock: 2));
+
+    expect(
+      await store.restockProduct(
+        productId: 'p1',
+        quantities: const {'M|Negro': 1},
+      ),
+      isTrue,
+    );
+
+    expect(store.productById('p1')!.stock, 3);
   });
 
   test('lowering stock consumes the oldest lot', () {

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'clipboard_copy.dart';
+import 'product_share_web_stub.dart'
+    if (dart.library.html) 'product_share_web.dart';
 
 String productShareText({required String name, required String url}) {
   final trimmed = name.trim();
@@ -23,6 +25,7 @@ typedef ProductLinkSharer =
 
 /// Phones and tablets get the system share sheet. Desktop, including the
 /// Mac browser, copies the link. Text sharing on desktop web opens Mail.
+/// Mobile web calls the browser share API directly. See [startWebShare].
 bool productLinkUsesShareSheet({TargetPlatform? platform}) {
   switch (platform ?? defaultTargetPlatform) {
     case TargetPlatform.iOS:
@@ -44,10 +47,17 @@ Future<ProductShareOutcome> shareProductLink({
   bool? useShareSheet,
   Future<bool> Function(String url)? copy,
   Future<void> Function(ShareParams params)? share,
+  Future<bool>? Function(String text, String url)? webShare,
 }) async {
   final write = copy ?? copyToClipboard;
   final sheet = useShareSheet ?? productLinkUsesShareSheet();
   if (!sheet) {
+    final copied = await write(url);
+    return copied ? ProductShareOutcome.copied : ProductShareOutcome.failed;
+  }
+  if (kIsWeb || webShare != null) {
+    final pending = (webShare ?? startWebShare)(text, url);
+    if (pending != null && await pending) return ProductShareOutcome.shared;
     final copied = await write(url);
     return copied ? ProductShareOutcome.copied : ProductShareOutcome.failed;
   }

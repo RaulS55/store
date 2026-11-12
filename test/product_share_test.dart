@@ -70,6 +70,51 @@ void main() {
     expect(params?.mailToFallbackEnabled, isFalse);
   });
 
+  test('mobile web keeps the share sheet and skips mail', () async {
+    String? seenText;
+    String? seenUrl;
+    var copied = false;
+    final outcome = await shareProductLink(
+      text:
+          'Remera test\nhttps://app.modastore.org/catalogo/co1/producto/p-test',
+      url: 'https://app.modastore.org/catalogo/co1/producto/p-test',
+      title: 'Remera test',
+      useShareSheet: true,
+      copy: (_) async {
+        copied = true;
+        return true;
+      },
+      share: (_) async => throw StateError('share_plus'),
+      webShare: (text, url) {
+        seenText = text;
+        seenUrl = url;
+        return Future.value(true);
+      },
+    );
+    expect(outcome, ProductShareOutcome.shared);
+    expect(seenText, contains('Remera test'));
+    expect(seenUrl, 'https://app.modastore.org/catalogo/co1/producto/p-test');
+    expect(copied, isFalse);
+  });
+
+  test('mobile web copies the link when the browser cannot share', () async {
+    String? copied;
+    final outcome = await shareProductLink(
+      text:
+          'Remera test\nhttps://app.modastore.org/catalogo/co1/producto/p-test',
+      url: 'https://app.modastore.org/catalogo/co1/producto/p-test',
+      title: 'Remera test',
+      useShareSheet: true,
+      copy: (url) async {
+        copied = url;
+        return true;
+      },
+      webShare: (_, _) => null,
+    );
+    expect(outcome, ProductShareOutcome.copied);
+    expect(copied, 'https://app.modastore.org/catalogo/co1/producto/p-test');
+  });
+
   test('mobile copies the link when the share sheet is unavailable', () async {
     String? copied;
     final outcome = await shareProductLink(
