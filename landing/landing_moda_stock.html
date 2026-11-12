@@ -826,64 +826,123 @@
             <div class="text-center max-w-2xl mx-auto mb-16">
                 <h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">Tus números claros.</h2>
                 <p class="text-lg text-gray-400">
-                    Solo para dueños y administradores. Entendé rápido cuánto tenés inmovilizado, cuánto está reservado y, lo más importante, si esa última compra que hiciste ya se pagó sola.
+                    Solo para dueños y administradores. Cuánto vale lo que tenés, cuánto te falta cobrar y cuánto ganás después de pagar los lotes.
                 </p>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-8 mb-12">
+            <div class="grid md:grid-cols-2 gap-8 mb-12 items-start">
                 <!-- Tarjeta Lotes -->
-                <div class="bg-gray-900 p-8 rounded-3xl border border-gray-800 flex flex-col items-center text-center hover:border-gray-700 transition-colors group">
-                    <div class="bg-brand/20 text-brand-light p-2 rounded-xl mb-4 group-hover:scale-110 transition-transform"><i class="ph ph-package text-2xl"></i></div>
-                    <h3 class="font-bold text-2xl mb-3">Lotes y recupero</h3>
-                    <p class="text-sm text-gray-400 mb-8 max-w-sm">Sabé exactamente qué porcentaje del costo ya cubriste con ventas de la app o por otro medio.</p>
-                    
-                    <!-- Mock Anillo SVG animado -->
-                    <div class="relative w-40 h-40 mb-6">
-                        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                            <path class="text-gray-800" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            <path class="text-brand transition-all duration-1000 ease-out" stroke-dasharray="75, 100" stroke-width="3" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        </svg>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-4xl font-bold text-white">75%</span>
-                            <span class="text-[10px] text-gray-400 font-semibold uppercase tracking-widest mt-1">Recuperado</span>
+                <div class="bg-gray-900 p-8 rounded-3xl border border-gray-800 hover:border-gray-700 transition-colors">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="bg-brand/20 text-brand-light p-2 rounded-xl"><i class="ph ph-package text-2xl"></i></div>
+                        <h3 class="font-bold text-2xl">Lotes y recupero</h3>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-6">Cada compra tiene su costo. Ves qué parte ya se pagó sola y cuánto ganás si se vende el resto.</p>
+
+                    <div class="flex items-center gap-5 mb-4">
+                        <div class="relative w-24 h-24 shrink-0">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                <path class="text-gray-800" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path class="text-brand" stroke-dasharray="75, 100" stroke-width="3" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="text-2xl font-bold text-white">75%</span>
+                                <span class="text-[9px] text-gray-400 font-semibold uppercase tracking-widest">Recuperado</span>
+                            </div>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[11px] uppercase tracking-widest text-gray-500 font-semibold">Lote</div>
+                            <div class="font-semibold text-white text-lg leading-tight">Temporada Verano</div>
+                            <div class="text-sm text-gray-400 mt-1">El 75% del costo ya volvió en ventas.</div>
                         </div>
                     </div>
-                    <div class="text-sm text-gray-300 bg-black/50 px-4 py-2 rounded-full border border-gray-800">Lote: <span class="font-semibold text-white">Temporada Verano</span></div>
+                    <div class="h-2 rounded-full bg-gray-800 overflow-hidden flex mb-2">
+                        <div class="bg-stock-ok" style="width: 62%"></div>
+                        <div class="bg-stock-low" style="width: 13%"></div>
+                        <div class="bg-brand" style="width: 25%"></div>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-5">40 vendidas · 8 reservadas · 16 sin vender</div>
+
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between items-center gap-4">
+                            <span class="text-gray-400">Precio del lote</span>
+                            <span class="font-bold text-white">$ 850.000</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-4">
+                            <span class="text-gray-400">Total vendido</span>
+                            <span class="font-bold text-white">$ 637.500</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-4 pt-3 border-t border-gray-800">
+                            <span class="text-gray-200 font-semibold">Ganancia esperada</span>
+                            <span class="font-bold text-stock-ok text-lg">$ 350.000</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Tarjeta Estadísticas -->
                 <div class="bg-gray-900 p-8 rounded-3xl border border-gray-800 hover:border-gray-700 transition-colors">
-                    <div class="flex items-center gap-3 mb-8">
+                    <div class="flex items-center gap-3 mb-3">
                         <div class="bg-brand/20 text-brand-light p-2 rounded-xl"><i class="ph ph-chart-pie-slice text-2xl"></i></div>
                         <h3 class="font-bold text-2xl">El valor de tu stock</h3>
                     </div>
-                    
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center p-4 bg-gray-950/50 rounded-xl border border-gray-800 hover:bg-gray-800 transition-colors">
-                            <div class="flex items-center gap-3">
-                                <div class="w-3 h-3 rounded-full bg-stock-ok shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
-                                <span class="text-sm font-semibold text-gray-200">Sin vender (Disponible)</span>
+                    <p class="text-sm text-gray-400 mb-6">Lo que hay en el local, lo que está apartado y lo que ya cobraste. Abajo, la ganancia si se vende todo.</p>
+
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center gap-4 p-4 bg-gray-950/50 rounded-xl border border-gray-800">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2.5 h-2.5 rounded-full bg-brand shadow-[0_0_10px_rgba(196,92,62,0.5)]"></div>
+                                    <span class="text-sm font-semibold text-gray-200">Sin vender</span>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1 pl-[18px]">180 unidades</div>
                             </div>
-                            <span class="font-bold text-lg text-white">$ 2.450.000</span>
+                            <span class="font-bold text-lg text-white shrink-0">$ 2.450.000</span>
                         </div>
-                        <div class="flex justify-between items-center p-4 bg-gray-950/50 rounded-xl border border-gray-800 hover:bg-gray-800 transition-colors relative overflow-hidden">
+                        <div class="p-4 bg-gray-950/50 rounded-xl border border-gray-800 relative overflow-hidden">
                             <div class="absolute left-0 top-0 bottom-0 w-1 bg-stock-low"></div>
-                            <div class="flex items-center gap-3">
-                                <div class="w-3 h-3 rounded-full bg-stock-low shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
-                                <span class="text-sm font-semibold text-gray-200">Reservado (Activo)</span>
+                            <div class="flex justify-between items-start gap-4">
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-stock-low shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
+                                        <span class="text-sm font-semibold text-gray-200">Reservadas</span>
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-1 pl-[18px]">12 unidades</div>
+                                </div>
+                                <span class="font-bold text-lg text-white shrink-0">$ 180.000</span>
                             </div>
-                            <div class="text-right">
-                                <span class="font-bold text-lg text-white block">$ 180.000</span>
-                                <span class="text-xs text-brand-light font-medium">Falta cobrar: $ 95.000</span>
+                            <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                <div class="rounded-lg bg-black/40 px-3 py-2">
+                                    <div class="text-gray-500">Ya pagado</div>
+                                    <div class="font-semibold text-white mt-0.5">$ 85.000</div>
+                                </div>
+                                <div class="rounded-lg bg-black/40 px-3 py-2">
+                                    <div class="text-gray-500">Falta cobrar</div>
+                                    <div class="font-semibold text-brand-light mt-0.5">$ 95.000</div>
+                                </div>
                             </div>
                         </div>
-                        <div class="flex justify-between items-center p-4 bg-gray-950/50 rounded-xl border border-gray-800 hover:bg-gray-800 transition-colors">
-                            <div class="flex items-center gap-3">
-                                <div class="w-3 h-3 rounded-full bg-slate"></div>
-                                <span class="text-sm font-semibold text-gray-200">Vendido (Cerrado)</span>
+                        <div class="flex justify-between items-center gap-4 p-4 bg-gray-950/50 rounded-xl border border-gray-800">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2.5 h-2.5 rounded-full bg-stock-ok shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
+                                    <span class="text-sm font-semibold text-gray-200">Vendidas</span>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1 pl-[18px]">86 unidades</div>
                             </div>
-                            <span class="font-bold text-lg text-white">$ 1.230.000</span>
+                            <span class="font-bold text-lg text-white shrink-0">$ 1.230.000</span>
                         </div>
+                    </div>
+
+                    <div class="mt-4 rounded-2xl border border-stock-ok/30 bg-stock-ok/10 p-4">
+                        <div class="flex justify-between items-center gap-4 text-sm mb-2">
+                            <span class="text-gray-300">Gasto en lotes</span>
+                            <span class="font-semibold text-white">$ 2.800.000</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-4">
+                            <span class="font-semibold text-white">Ganancia esperada</span>
+                            <span class="font-bold text-2xl text-stock-ok shrink-0">$ 1.060.000</span>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-1">Stock, reservas y ventas, menos lo pagado en lotes.</div>
                     </div>
                 </div>
             </div>
