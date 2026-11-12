@@ -171,117 +171,493 @@
         <!-- Decoración de fondo -->
         <div class="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-brand-light/30 rounded-full blur-3xl -z-10"></div>
 
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid lg:grid-cols-2 gap-16 items-center">
-                <!-- Mockup de Pedido (Celular) -->
-                <div class="order-2 lg:order-1 flex justify-center reveal">
-                    <div class="w-[320px] bg-surface rounded-[2.5rem] border-[10px] border-gray-900 mockup-shadow overflow-hidden relative h-[620px] flex flex-col transform hover:-translate-y-2 transition-transform duration-500">
-<!-- ... existing code ... -->
-                        <div class="bg-gradient-to-br from-brand to-brand-dark text-white p-5 pb-8 rounded-b-3xl shadow-md relative overflow-hidden">
-                            <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-xl transform translate-x-1/2 -translate-y-1/2"></div>
-                            <div class="flex justify-between items-center mb-5 relative z-10">
-                                <i class="ph ph-arrow-left text-xl cursor-pointer hover:bg-white/20 p-1 rounded transition-colors"></i>
-                                <span class="font-semibold text-sm tracking-wide">Pedido Activo</span>
-                                <i class="ph ph-dots-three-vertical text-xl cursor-pointer hover:bg-white/20 p-1 rounded transition-colors"></i>
-                            </div>
-                            <div class="relative z-10">
-                                <div class="text-xs text-white/80 uppercase tracking-wider mb-1">Cliente</div>
-                                <div class="font-bold text-2xl">María González</div>
-                            </div>
-                        </div>
-                        <div class="flex-1 p-4 overflow-y-auto hide-scrollbar -mt-5 relative z-20">
-                            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4 hover:shadow-md transition-shadow group">
-                                <div class="flex gap-3 mb-3 border-b border-gray-50 pb-3">
-                                    <!-- [IMAGEN AQUI] Miniatura -->
-                                    <div class="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden shrink-0">
-                                        <img src="https://placehold.co/100x100/EAD3CC/1E1E1E?text=R" alt="Remera" class="w-full h-full object-cover">
-                                    </div>
-                                    <div class="flex-1 flex justify-between items-start">
-                                        <div>
-                                            <div class="font-bold text-sm group-hover:text-brand transition-colors">Remera Básica Algodón</div>
-                                            <div class="text-xs text-slate mt-1 flex items-center gap-1"><i class="ph ph-tag"></i> Talle M | Blanco</div>
-                                        </div>
-                                        <div class="font-semibold text-sm">$ 12.500</div>
-                                    </div>
-                                </div>
-                                <div class="flex gap-3">
-                                    <!-- [IMAGEN AQUI] Miniatura -->
-                                    <div class="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden shrink-0">
-                                        <img src="https://placehold.co/100x100/F1F5F9/1E1E1E?text=J" alt="Jean" class="w-full h-full object-cover">
-                                    </div>
-                                    <div class="flex-1 flex justify-between items-start">
-                                        <div>
-                                            <div class="font-bold text-sm group-hover:text-brand transition-colors">Jean Mom Rígido</div>
-                                            <div class="text-xs text-slate mt-1 flex items-center gap-1"><i class="ph ph-tag"></i> Talle 40 | Azul Marino</div>
-                                        </div>
-                                        <div class="font-semibold text-sm">$ 39.000</div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:border-brand/30 transition-colors">
-                                <div class="flex justify-between text-sm mb-3 text-slate">
-                                    <span>Subtotal</span>
-                                    <span class="font-medium">$ 51.500</span>
-                                </div>
-                                <div class="flex justify-between text-sm mb-3 text-slate items-center">
-                                    <span class="flex items-center gap-1"><i class="ph ph-money text-stock-ok"></i> Seña (Pagado)</span>
-                                    <span class="text-stock-ok font-medium bg-green-50 px-2 py-0.5 rounded">-$ 20.000</span>
-                                </div>
-                                <div class="border-t border-gray-100 mt-3 pt-3 flex justify-between items-end">
-                                    <span class="font-bold text-slate text-sm uppercase tracking-wide">Falta cobrar</span>
-                                    <span class="font-bold text-brand text-2xl leading-none">$ 31.500</span>
-                                </div>
-                            </div>
-                            
-                            <div class="mt-5 flex gap-2">
-                                <button class="flex-1 bg-carbon hover:bg-black text-white rounded-xl py-3.5 text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-black/20 hover:-translate-y-0.5 transition-all">
-                                    <i class="ph ph-lock-key-open text-lg"></i> Cerrar y descontar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="order-1 lg:order-2 reveal">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid xl:grid-cols-12 gap-8 lg:gap-12 items-center">
+                
+                <!-- Text Content -->
+                <div class="xl:col-span-4 reveal order-2 xl:order-1">
                     <div class="inline-flex items-center gap-2 px-3 py-1 bg-brand-light/50 text-brand-dark rounded-full text-xs font-bold uppercase tracking-wider mb-4">
-                        <i class="ph ph-shield-check"></i> Stock seguro
+                        <i class="ph ph-wallet"></i> Control de saldos
                     </div>
-                    <h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">El pedido reserva la prenda.</h2>
+                    <h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">Sabé al instante qué falta cobrar.</h2>
                     <p class="text-lg text-slate mb-8">
-                        Armá el pedido en el mostrador o recibilo por WhatsApp. Un cliente, un pedido abierto.
+                        Con un clic en la billetera, la lista de pedidos se transforma: deja de mostrar prendas y prioriza quién te debe más, marcando con colores la urgencia de cobro.
                     </p>
                     <ul class="space-y-6">
-                        <li class="flex items-start gap-4 group">
-                            <div class="mt-1 bg-surface text-brand rounded-xl p-2.5 shadow-sm border border-gray-100 group-hover:bg-brand group-hover:text-white transition-colors duration-300">
-                                <i class="ph ph-lock-key text-xl font-bold"></i>
-                            </div>
-                            <div>
-                                <strong class="block text-carbon text-lg mb-1">Reserva de stock real</strong>
-                                <span class="text-slate text-sm leading-relaxed">Al guardar, las unidades se descuentan del disponible para que nadie las venda dos veces.</span>
-                            </div>
-                        </li>
-<!-- ... existing code ... -->
                         <li class="flex items-start gap-4 group">
                             <div class="mt-1 bg-surface text-brand rounded-xl p-2.5 shadow-sm border border-gray-100 group-hover:bg-brand group-hover:text-white transition-colors duration-300">
                                 <i class="ph ph-wallet text-xl font-bold"></i>
                             </div>
                             <div>
-                                <strong class="block text-carbon text-lg mb-1">Señas y pagos parciales</strong>
-                                <span class="text-slate text-sm leading-relaxed">Anotá lo que el cliente te va dejando. La app te muestra en grande cuánto falta cobrar.</span>
+                                <strong class="block text-carbon text-lg mb-1">Desglose rápido</strong>
+                                <span class="text-slate text-sm leading-relaxed">Apagado ves las prendas. Encendido ves subtotal, señas descontadas en verde y el saldo restante.</span>
                             </div>
                         </li>
                         <li class="flex items-start gap-4 group">
                             <div class="mt-1 bg-surface text-brand rounded-xl p-2.5 shadow-sm border border-gray-100 group-hover:bg-brand group-hover:text-white transition-colors duration-300">
-                                <i class="ph ph-check-circle text-xl font-bold"></i>
+                                <i class="ph ph-sort-descending text-xl font-bold"></i>
                             </div>
                             <div>
-                                <strong class="block text-carbon text-lg mb-1">Cierre de venta</strong>
-                                <span class="text-slate text-sm leading-relaxed">Cuando cancela el saldo, cerrás el pedido y el stock sale definitivamente de tu inventario.</span>
+                                <strong class="block text-carbon text-lg mb-1">Orden automático</strong>
+                                <span class="text-slate text-sm leading-relaxed">La lista se acomoda sola poniendo arriba los pedidos con mayor deuda pendiente.</span>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-4 group">
+                            <div class="mt-1 bg-surface text-brand rounded-xl p-2.5 shadow-sm border border-gray-100 group-hover:bg-brand group-hover:text-white transition-colors duration-300">
+                                <i class="ph ph-palette text-xl font-bold"></i>
+                            </div>
+                            <div>
+                                <strong class="block text-carbon text-lg mb-1">Bordes de alerta</strong>
+                                <span class="text-slate text-sm leading-relaxed">Bordes rojos (más de $20k) o ámbar indican urgencia para liberar la mercadería reservada.</span>
                             </div>
                         </li>
                     </ul>
                 </div>
+
+                <!-- Side-by-side Mockups -->
+                <div class="xl:col-span-8 reveal flex flex-col md:flex-row gap-4 lg:gap-6 order-1 xl:order-2">
+                    
+                    <!-- Estado 1: Apagado (Prendas) -->
+                    <div class="flex-1 bg-surface rounded-2xl border border-gray-200 mockup-shadow overflow-hidden flex flex-col h-[600px] opacity-90 transform md:scale-95 hover:opacity-100 hover:scale-100 transition-all duration-300 origin-right">
+                        <!-- Header -->
+                        <div class="bg-white border-b border-gray-200 p-3 lg:p-4 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <span class="font-bold text-lg">Pedidos</span>
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 text-slate">
+                                    <i class="ph ph-wallet text-lg"></i>
+                                </div>
+                                <div class="bg-brand text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer shadow-sm">
+                                    Nuevo
+                                </div>
+                            </div>
+                            <div class="hidden sm:flex bg-gray-100 rounded-lg px-3 py-1.5 items-center gap-2 text-xs text-slate">
+                                <i class="ph ph-magnifying-glass"></i> Buscar
+                            </div>
+                        </div>
+                        <!-- Tabs -->
+                        <div class="flex border-b border-gray-200 px-2 bg-white">
+                            <div class="px-4 py-3 border-b-2 border-brand text-brand font-semibold text-sm">Abiertos (2)</div>
+                            <div class="px-4 py-3 text-slate font-medium text-sm">Cerrados</div>
+                        </div>
+                        <!-- Lista -->
+                        <div class="flex-1 p-3 lg:p-4 overflow-y-auto space-y-3 bg-gray-50/50">
+                            <!-- Tarjeta 1 (Cronológico) -->
+                            <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+                                <div class="flex justify-between items-start mb-3">
+                                    <div>
+                                        <div class="font-bold text-base">Ana Gómez</div>
+                                        <div class="text-xs text-slate mt-0.5">#1044 • Hoy</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="font-bold text-base text-carbon">$ 18.000</div>
+                                        <div class="text-xs text-slate font-medium">Total</div>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-slate border-t border-gray-100 pt-3">
+                                    <span class="font-semibold text-carbon">1 Prenda</span> (Buzos)
+                                    <div class="truncate mt-1 text-xs">Buzo Canguro Oversize</div>
+                                </div>
+                            </div>
+                            <!-- Tarjeta 2 -->
+                            <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+                                <div class="flex justify-between items-start mb-3">
+                                    <div>
+                                        <div class="font-bold text-base">Juan Pérez</div>
+                                        <div class="text-xs text-slate mt-0.5">#1042 • Ayer</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="font-bold text-base text-carbon">$ 51.500</div>
+                                        <div class="text-xs text-slate font-medium">Total</div>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-slate border-t border-gray-100 pt-3">
+                                    <span class="font-semibold text-carbon">2 Prendas</span> (Remeras, Jeans)
+                                    <div class="truncate mt-1 text-xs">Remera Básica, Jean Mom Rígido</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-100 p-3 text-center text-xs text-slate font-bold border-t border-gray-200 uppercase tracking-widest">
+                            Estado: Apagado (Ver prendas)
+                        </div>
+                    </div>
+
+                    <!-- Estado 2: Encendido (Saldos) -->
+                    <div class="flex-1 bg-surface rounded-2xl border border-gray-200 mockup-shadow overflow-hidden flex flex-col h-[600px] relative z-10 transform md:-ml-8 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)]">
+                        
+                        <!-- Header -->
+                        <div class="bg-white border-b border-gray-200 p-3 lg:p-4 flex items-center justify-between relative z-10">
+                            <div class="flex items-center gap-3">
+                                <span class="font-bold text-lg">Pedidos</span>
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-brand text-white ring-4 ring-brand/20 shadow-inner relative">
+                                    <i class="ph-fill ph-wallet text-lg"></i>
+                                </div>
+                                <div class="bg-brand text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer shadow-sm">
+                                    Nuevo
+                                </div>
+                            </div>
+                            <div class="hidden sm:flex bg-gray-100 rounded-lg px-3 py-1.5 items-center gap-2 text-xs text-slate">
+                                <i class="ph ph-magnifying-glass"></i> Buscar
+                            </div>
+                        </div>
+                        <!-- Tabs -->
+                        <div class="flex border-b border-gray-200 px-2 bg-white relative z-10">
+                            <div class="px-4 py-3 border-b-2 border-brand text-brand font-semibold text-sm">Abiertos (2)</div>
+                            <div class="px-4 py-3 text-slate font-medium text-sm">Cerrados</div>
+                        </div>
+                        <!-- Lista -->
+                        <div class="flex-1 p-3 lg:p-4 overflow-y-auto space-y-4 bg-gray-50/50">
+                            
+                            <!-- Tarjeta 1 (Ordenado por saldo mayor) -->
+                            <div class="relative">
+                                <div class="bg-white rounded-xl border-2 border-red-500 p-4 shadow-md relative">
+                                    <!-- Alerta borde -->
+                                    <div class="absolute -top-3 -right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-md z-20 flex items-center gap-1">
+                                        <i class="ph-fill ph-warning-circle"></i> > $20.000
+                                    </div>
+
+                                    <div class="flex justify-between items-start mb-4">
+                                        <div>
+                                            <div class="font-bold text-base">Juan Pérez</div>
+                                            <div class="text-xs text-slate mt-0.5">#1042 • Ayer</div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-red-50/50 rounded-lg p-3 text-sm space-y-2 relative border border-red-100">
+                                        <div class="flex justify-between text-slate font-medium pl-0 sm:pl-4">
+                                            <span>Subtotal</span>
+                                            <span>$ 51.500</span>
+                                        </div>
+                                        <div class="flex justify-between text-stock-ok font-medium pl-0 sm:pl-4">
+                                            <span>Seña</span>
+                                            <span>-$ 20.000</span>
+                                        </div>
+                                        <div class="border-t border-red-200 pt-2 mt-2 flex justify-between font-bold items-center pl-0 sm:pl-4">
+                                            <span class="text-carbon uppercase tracking-wider text-[11px]">Falta cobrar</span>
+                                            <span class="text-brand text-lg">$ 31.500</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tarjeta 2 -->
+                            <div class="relative">
+                                <div class="bg-white rounded-xl border-2 border-amber-500 p-4 shadow-md relative">
+                                    <!-- Alerta borde -->
+                                    <div class="absolute -top-3 -right-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-md z-20 flex items-center gap-1">
+                                        <i class="ph-fill ph-warning-circle"></i> < $20.000
+                                    </div>
+
+                                    <div class="flex justify-between items-start mb-4">
+                                        <div>
+                                            <div class="font-bold text-base">Ana Gómez</div>
+                                            <div class="text-xs text-slate mt-0.5">#1044 • Hoy</div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-amber-50/30 rounded-lg p-3 text-sm space-y-2 relative border border-amber-100">
+                                        <div class="flex justify-between text-slate font-medium pl-0 sm:pl-4">
+                                            <span>Subtotal</span>
+                                            <span>$ 18.000</span>
+                                        </div>
+                                        <div class="flex justify-between text-stock-ok font-medium pl-0 sm:pl-4">
+                                            <span>Seña</span>
+                                            <span>-$ 5.000</span>
+                                        </div>
+                                        <div class="border-t border-amber-200 pt-2 mt-2 flex justify-between font-bold items-center pl-0 sm:pl-4">
+                                            <span class="text-carbon uppercase tracking-wider text-[11px]">Falta cobrar</span>
+                                            <span class="text-brand text-lg">$ 13.000</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="bg-brand-light p-3 text-center text-xs text-brand-dark font-bold border-t border-brand/20 uppercase tracking-widest">
+                            Estado: Encendido (Ver saldos)
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- NUEVA SECCIÓN: Vidriera Pública (Catálogo Cliente) -->
+    <section class="py-24 bg-gray-50 relative overflow-hidden reveal">
+        <!-- Decoración de fondo -->
+        <div class="absolute bottom-0 left-0 -mb-20 -ml-20 w-96 h-96 bg-brand-light/30 rounded-full blur-3xl -z-10"></div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <div class="inline-flex items-center gap-2 px-3 py-1 bg-white border border-gray-200 text-carbon rounded-full text-xs font-bold uppercase tracking-wider mb-4 shadow-sm">
+                    <i class="ph ph-storefront"></i> Tienda sin cuenta
+                </div>
+                <h2 class="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight mb-5">Generamos tu propio <span class="text-brand">catálogo de ventas.</span></h2>
+                <p class="text-lg text-slate">
+                    Una experiencia pensada para vender por celular. Tu cliente recibe el link, mira la ropa, elige talles y te manda el pedido armadito por WhatsApp. <strong>El control de stock lo hacés vos al aprobar.</strong>
+                </p>
+            </div>
+
+            <!-- Contenedor de Celulares -->
+            <div class="flex flex-col lg:flex-row justify-center items-center gap-10 lg:gap-6 xl:gap-12 relative z-10">
+                
+                <!-- Teléfono 1: Grilla Principal -->
+                <div class="relative w-[280px] h-[580px] shrink-0 animate-float hover:scale-[1.02] transition-transform duration-500 cursor-default">
+                    <!-- Celular Mockup Base -->
+                    <div class="w-full h-full bg-white border-[6px] border-gray-900 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative">
+                        
+                        <!-- Header Cliente -->
+                        <div class="flex justify-between items-center p-3 border-b border-gray-100 bg-white">
+                            <div class="relative text-carbon">
+                                <i class="ph ph-faders text-xl"></i>
+                                <div class="w-2.5 h-2.5 bg-brand border-2 border-white rounded-full absolute -top-0.5 -right-0.5"></div>
+                            </div>
+                            <div class="font-black text-sm tracking-widest uppercase">Tu Local</div>
+                            <div class="relative text-carbon">
+                                <i class="ph ph-shopping-bag text-xl"></i>
+                                <div class="w-4 h-4 bg-brand text-white text-[9px] flex items-center justify-center rounded-full absolute -top-1.5 -right-1.5 font-bold shadow-sm">2</div>
+                            </div>
+                        </div>
+
+                        <!-- Sub-header: Redes, Buscador, Categorías -->
+                        <div class="px-3 pt-3 pb-2 space-y-3 bg-white z-10 shadow-[0_4px_10px_rgba(0,0,0,0.02)]">
+                            <div class="flex justify-center gap-5 text-gray-400">
+                                <i class="ph-fill ph-whatsapp-logo text-lg hover:text-green-500 cursor-pointer"></i>
+                                <i class="ph-fill ph-instagram-logo text-lg hover:text-pink-500 cursor-pointer"></i>
+                                <i class="ph-fill ph-tiktok-logo text-lg hover:text-black cursor-pointer"></i>
+                                <i class="ph-fill ph-facebook-logo text-lg hover:text-blue-600 cursor-pointer"></i>
+                            </div>
+                            <div class="relative">
+                                <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <input type="text" placeholder="Buscar prenda, código..." class="w-full bg-gray-100 rounded-lg pl-8 pr-3 py-1.5 text-xs outline-none text-carbon placeholder-gray-400 font-medium">
+                            </div>
+                            <!-- Tags horizontales -->
+                            <div class="flex gap-2 overflow-x-hidden text-[10px] font-bold hide-scrollbar">
+                                <span class="bg-carbon text-white px-3 py-1.5 rounded-full shrink-0">Todo</span>
+                                <span class="bg-gray-100 text-carbon px-3 py-1.5 rounded-full shrink-0">Remeras</span>
+                                <span class="bg-gray-100 text-carbon px-3 py-1.5 rounded-full shrink-0">Pantalones</span>
+                                <span class="bg-gray-100 text-carbon px-3 py-1.5 rounded-full shrink-0">Abrigos</span>
+                            </div>
+                        </div>
+
+                        <!-- Grilla de Prendas (Cuerpo) -->
+                        <div class="flex-1 bg-gray-50 p-2 overflow-y-auto hide-scrollbar">
+                            <div class="grid grid-cols-2 gap-2 pb-6">
+                                <!-- Tarjeta Normal -->
+                                <div class="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm flex flex-col">
+                                    <div class="h-32 bg-gray-100 flex items-center justify-center">
+                                        <img src="https://placehold.co/150x200/EAD3CC/1E1E1E?text=Remera" class="w-full h-full object-cover">
+                                    </div>
+                                    <div class="p-2 flex-1 flex flex-col justify-between">
+                                        <div>
+                                            <div class="text-[9px] text-gray-400 font-mono mb-0.5">R-BAS-01</div>
+                                            <div class="text-[10px] font-bold text-carbon leading-tight mb-1 truncate">Remera Básica</div>
+                                            <div class="text-xs font-black text-brand mb-1.5">$ 12.500</div>
+                                        </div>
+                                        <div class="flex gap-1 flex-wrap">
+                                            <span class="text-[8px] bg-gray-100 px-1 py-0.5 rounded text-gray-600">S</span>
+                                            <span class="text-[8px] bg-gray-100 px-1 py-0.5 rounded text-gray-600">M</span>
+                                            <span class="text-[8px] bg-gray-100 px-1 py-0.5 rounded text-gray-600">L</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tarjeta Sin Stock -->
+                                <div class="bg-white border-2 border-red-500 rounded-xl overflow-hidden shadow-sm flex flex-col relative opacity-80">
+                                    <div class="absolute top-0 right-0 bg-red-500 text-white text-[8px] font-bold px-2 py-0.5 rounded-bl-lg z-10 uppercase">Sin Stock</div>
+                                    <div class="h-32 bg-gray-100 flex items-center justify-center grayscale">
+                                        <img src="https://placehold.co/150x200/e2e8f0/64748b?text=Buzo" class="w-full h-full object-cover opacity-50">
+                                    </div>
+                                    <div class="p-2 flex-1 flex flex-col justify-between">
+                                        <div>
+                                            <div class="text-[9px] text-gray-400 font-mono mb-0.5">BZ-OVER</div>
+                                            <div class="text-[10px] font-bold text-gray-500 leading-tight mb-1 truncate">Buzo Oversize</div>
+                                            <div class="text-xs font-black text-gray-400 mb-1.5">$ 28.000</div>
+                                        </div>
+                                        <div class="flex gap-1 flex-wrap opacity-50">
+                                            <span class="text-[8px] bg-gray-100 px-1 py-0.5 rounded text-gray-600">U</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tarjeta Talle sin Stock (Filtro) -->
+                                <div class="bg-white border-2 border-amber-500 rounded-xl overflow-hidden shadow-sm flex flex-col relative">
+                                    <div class="absolute top-0 right-0 bg-amber-500 text-white text-[8px] font-bold px-2 py-0.5 rounded-bl-lg z-10 uppercase">Sin stock en M</div>
+                                    <div class="h-32 bg-gray-100 flex items-center justify-center">
+                                        <img src="https://placehold.co/150x200/F1F5F9/1E1E1E?text=Jean" class="w-full h-full object-cover">
+                                    </div>
+                                    <div class="p-2 flex-1 flex flex-col justify-between">
+                                        <div>
+                                            <div class="text-[9px] text-gray-400 font-mono mb-0.5">JEA-MOM</div>
+                                            <div class="text-[10px] font-bold text-carbon leading-tight mb-1 truncate">Jean Mom Rígido</div>
+                                            <div class="text-xs font-black text-brand mb-1.5">$ 39.000</div>
+                                        </div>
+                                        <div class="flex gap-1 flex-wrap">
+                                            <span class="text-[8px] bg-gray-100 px-1 py-0.5 rounded text-gray-600">38</span>
+                                            <span class="text-[8px] bg-red-100 px-1 py-0.5 rounded text-red-600 line-through">40 (M)</span>
+                                            <span class="text-[8px] bg-gray-100 px-1 py-0.5 rounded text-gray-600">42</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                 <!-- Tarjeta Normal 2 -->
+                                 <div class="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm flex flex-col">
+                                    <div class="h-32 bg-gray-100 flex items-center justify-center relative">
+                                        <div class="absolute bottom-1 left-1 bg-brand text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">OFERTA</div>
+                                        <img src="https://placehold.co/150x200/F8F9FA/1E1E1E?text=Gorra" class="w-full h-full object-cover">
+                                    </div>
+                                    <div class="p-2 flex-1 flex flex-col justify-between">
+                                        <div>
+                                            <div class="text-[9px] text-gray-400 font-mono mb-0.5">ACC-GOR</div>
+                                            <div class="text-[10px] font-bold text-carbon leading-tight mb-1 truncate">Gorra Urbana</div>
+                                            <div class="text-xs font-black text-brand mb-1.5"><span class="line-through text-gray-400 font-normal text-[9px] mr-1">$ 9.500</span>$ 7.000</div>
+                                        </div>
+                                        <div class="flex gap-1 flex-wrap">
+                                            <span class="text-[8px] bg-gray-100 px-1 py-0.5 rounded text-gray-600">U</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Teléfono 2: Ficha de Prenda -->
+                <div class="relative w-[280px] h-[580px] shrink-0 mt-8 lg:mt-12 xl:mt-0 opacity-95 hover:opacity-100 animate-float [animation-delay:1.5s] hover:scale-[1.02] transition-all duration-500 cursor-default">
+                    <div class="w-full h-full bg-white border-[6px] border-gray-900 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative">
+                        <!-- Imagen Grande y Volver -->
+                        <div class="relative h-64 bg-gray-100">
+                            <div class="absolute top-4 left-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm text-carbon z-10 cursor-pointer">
+                                <i class="ph ph-arrow-left text-lg font-bold"></i>
+                            </div>
+                            <div class="absolute top-4 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm text-carbon z-10 cursor-pointer">
+                                <i class="ph ph-share-network text-lg font-bold"></i>
+                            </div>
+                            <img src="https://placehold.co/400x500/EAD3CC/1E1E1E?text=Remera+Zoom" class="w-full h-full object-cover">
+                            <!-- Indicador Galería -->
+                            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                                <div class="w-1.5 h-1.5 rounded-full bg-white shadow"></div>
+                                <div class="w-1.5 h-1.5 rounded-full bg-white/50 shadow"></div>
+                                <div class="w-1.5 h-1.5 rounded-full bg-white/50 shadow"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Detalles -->
+                        <div class="p-4 flex-1 overflow-y-auto hide-scrollbar pb-20">
+                            <div class="text-xs text-brand font-bold uppercase tracking-wider mb-1">Remeras • Mujer</div>
+                            <h3 class="text-xl font-black text-carbon leading-tight mb-2">Remera Básica Algodón</h3>
+                            <div class="text-2xl font-black text-carbon mb-4">$ 12.500</div>
+
+                            <!-- Selector Talle -->
+                            <div class="mb-4">
+                                <div class="text-xs font-bold text-gray-500 uppercase mb-2">Talle</div>
+                                <div class="flex gap-2">
+                                    <div class="w-10 h-10 rounded-lg border-2 border-brand text-brand font-bold flex items-center justify-center bg-brand-light/10">S</div>
+                                    <div class="w-10 h-10 rounded-lg border border-gray-200 text-carbon font-semibold flex items-center justify-center hover:border-gray-400">M</div>
+                                    <div class="w-10 h-10 rounded-lg border border-gray-200 text-carbon font-semibold flex items-center justify-center hover:border-gray-400">L</div>
+                                </div>
+                            </div>
+
+                            <!-- Selector Color -->
+                            <div class="mb-4">
+                                <div class="text-xs font-bold text-gray-500 uppercase mb-2">Color (S)</div>
+                                <div class="flex gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-white border-2 border-gray-300 ring-2 ring-offset-2 ring-brand shadow-sm"></div>
+                                    <div class="w-8 h-8 rounded-full bg-black border border-gray-800 shadow-sm opacity-50 relative">
+                                        <div class="absolute inset-0 flex items-center justify-center"><div class="w-full h-[2px] bg-white rotate-45"></div></div>
+                                    </div>
+                                    <div class="w-8 h-8 rounded-full bg-gray-500 border border-gray-600 shadow-sm"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sticky Bottom Bar -->
+                        <div class="absolute bottom-0 left-0 w-full p-3 bg-white border-t border-gray-100 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-20">
+                            <button class="w-full bg-carbon hover:bg-black text-white font-bold py-3.5 rounded-xl text-sm shadow-md transition-transform active:scale-95">
+                                Agregar al pedido
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Teléfono 3: La Bolsa -->
+                <div class="relative w-[280px] h-[580px] shrink-0 mt-8 lg:mt-0 opacity-90 hover:opacity-100 animate-float [animation-delay:3s] hover:scale-[1.02] transition-all duration-500 xl:block hidden lg:block cursor-default">
+                    <div class="w-full h-full bg-white border-[6px] border-gray-900 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative bg-gray-50">
+                        
+                        <!-- Header Bolsa -->
+                        <div class="flex items-center gap-3 p-4 border-b border-gray-200 bg-white">
+                            <i class="ph ph-arrow-left text-lg font-bold text-carbon"></i>
+                            <div class="font-black text-base">Tu pedido</div>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto p-4 hide-scrollbar">
+                            <!-- Lista de prendas -->
+                            <div class="space-y-3 mb-6">
+                                <!-- Ítem 1 -->
+                                <div class="flex gap-3 bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm relative">
+                                    <div class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow cursor-pointer"><i class="ph ph-x text-[10px] font-bold"></i></div>
+                                    <div class="w-14 h-16 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                                        <img src="https://placehold.co/100x120/EAD3CC/1E1E1E?text=Foto" class="w-full h-full object-cover">
+                                    </div>
+                                    <div class="flex flex-col justify-center flex-1">
+                                        <div class="font-bold text-xs text-carbon leading-tight truncate pr-2">Remera Básica Algodón</div>
+                                        <div class="text-[10px] text-gray-500 mb-1">Talle S • Blanco</div>
+                                        <div class="flex justify-between items-center mt-auto">
+                                            <div class="font-black text-brand text-xs">$ 12.500</div>
+                                            <div class="flex items-center gap-2 bg-gray-100 rounded text-[10px] font-bold px-1 py-0.5">
+                                                <i class="ph ph-minus text-gray-400"></i>
+                                                <span>1</span>
+                                                <i class="ph ph-plus text-carbon"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Ítem 2 -->
+                                <div class="flex gap-3 bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm relative">
+                                    <div class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow cursor-pointer"><i class="ph ph-x text-[10px] font-bold"></i></div>
+                                    <div class="w-14 h-16 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                                        <img src="https://placehold.co/100x120/F1F5F9/1E1E1E?text=Foto" class="w-full h-full object-cover">
+                                    </div>
+                                    <div class="flex flex-col justify-center flex-1">
+                                        <div class="font-bold text-xs text-carbon leading-tight truncate pr-2">Jean Mom Rígido</div>
+                                        <div class="text-[10px] text-gray-500 mb-1">Talle 42 • Azul</div>
+                                        <div class="flex justify-between items-center mt-auto">
+                                            <div class="font-black text-brand text-xs">$ 39.000</div>
+                                            <div class="flex items-center gap-2 bg-gray-100 rounded text-[10px] font-bold px-1 py-0.5">
+                                                <i class="ph ph-minus text-gray-400"></i>
+                                                <span>1</span>
+                                                <i class="ph ph-plus text-carbon"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Totales -->
+                            <div class="flex justify-between items-center mb-6 px-1">
+                                <span class="text-sm font-bold text-gray-500 uppercase tracking-wide">Total a pagar</span>
+                                <span class="text-lg font-black text-carbon">$ 51.500</span>
+                            </div>
+
+                            <!-- Formulario Datos -->
+                            <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                                <div class="text-[11px] font-bold text-carbon mb-3 uppercase tracking-wider">Tus datos para el local</div>
+                                <input type="text" placeholder="Nombre completo" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs mb-3 outline-none focus:border-brand transition-colors font-medium">
+                                <div class="flex gap-2">
+                                    <div class="w-12 bg-gray-100 border border-gray-200 rounded-lg flex items-center justify-center text-xs font-bold text-gray-500 shrink-0">+54</div>
+                                    <input type="tel" placeholder="Código de área y número" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs outline-none focus:border-brand transition-colors font-medium">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sticky Bottom Bar WhatsApp -->
+                        <div class="bg-white p-3 border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.03)] relative z-20">
+                            <button class="w-full bg-[#25D366] hover:bg-[#20b858] text-white font-bold py-3.5 rounded-xl text-sm shadow-lg shadow-green-500/20 flex items-center justify-center gap-2 transition-transform active:scale-95">
+                                <i class="ph-fill ph-whatsapp-logo text-xl"></i> Enviar pedido al local
+                            </button>
+                            <div class="text-center text-[9px] text-gray-400 mt-2 font-medium">El pago se coordina directamente con el vendedor.</div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </section>
