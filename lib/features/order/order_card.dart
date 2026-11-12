@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/formatters.dart';
 import '../../models/order.dart';
 import '../../theme/tokens.dart';
+import 'order_calculation.dart';
 
 class OrderSummaryCard extends StatelessWidget {
   const OrderSummaryCard({
@@ -25,7 +26,6 @@ class OrderSummaryCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final names = order.lines.map((line) => line.product.name).toList();
     final date = order.closedAt ?? order.createdAt;
-    final remaining = order.remaining;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -90,14 +90,15 @@ class OrderSummaryCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          MoneyFormat.detailed(order.total),
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.terracotta,
-                              ),
-                        ),
+                        if (!showRemaining)
+                          Text(
+                            MoneyFormat.detailed(order.total),
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.terracotta,
+                                ),
+                          ),
                         Text(
                           order.itemCount == 1
                               ? '1 prenda'
@@ -114,17 +115,8 @@ class OrderSummaryCard extends StatelessWidget {
                   _StatusChip(order: order),
                 ],
                 if (showRemaining) ...[
-                  if (order.paidLines.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    for (final line in order.paidLines)
-                      _AmountRow(label: line.label, amount: line.amount),
-                  ],
-                  const SizedBox(height: 6),
-                  _AmountRow(
-                    label: 'Restante',
-                    amount: remaining,
-                    emphasize: remaining > 0,
-                  ),
+                  const SizedBox(height: 12),
+                  OrderCalculationBody(order: order, compact: true),
                 ] else ...[
                   if (order.categorySummary.isNotEmpty) ...[
                     const SizedBox(height: 12),
@@ -202,43 +194,6 @@ Border _summaryBorder(
       ? AppColors.stockGap
       : AppColors.stockLow;
   return Border.all(color: alert, width: 2);
-}
-
-class _AmountRow extends StatelessWidget {
-  const _AmountRow({
-    required this.label,
-    required this.amount,
-    this.emphasize = false,
-  });
-
-  final String label;
-  final double amount;
-  final bool emphasize;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.slate),
-          ),
-          const Spacer(),
-          Text(
-            MoneyFormat.detailed(amount),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: emphasize ? AppColors.terracotta : AppColors.slate,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _StatusChip extends StatelessWidget {

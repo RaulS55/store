@@ -16,6 +16,7 @@ import '../../widgets/qty_stepper.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/variant_picker.dart';
 import 'order_actions.dart';
+import 'order_calculation.dart';
 
 class OrderPage extends StatefulWidget {
   const OrderPage({
@@ -228,7 +229,7 @@ class _MobileOrder extends StatelessWidget {
                       readOnly: order.isClosed,
                     ),
                 const SizedBox(height: 12),
-                _Totals(order: order),
+                OrderCalculationCard(order: order),
               ],
             ),
           ),
@@ -344,7 +345,7 @@ class _WebOrder extends StatelessWidget {
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 8),
-                        _Totals(order: order),
+                        OrderCalculationCard(order: order),
                         const SizedBox(height: 20),
                         _OrderActions(order: order),
                       ],
@@ -980,52 +981,6 @@ class _EditLinePriceDialogState extends State<_EditLinePriceDialog> {
           style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
           child: const Text('Guardar'),
         ),
-      ],
-    );
-  }
-}
-
-class _Totals extends StatelessWidget {
-  const _Totals({required this.order});
-  final DraftOrder order;
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = [
-      if (order.ivaEnabled) ...[
-        ('Subtotal', MoneyFormat.detailed(order.subtotal), false),
-        (order.ivaLabel, MoneyFormat.detailed(order.iva), false),
-      ],
-      ('Total', MoneyFormat.detailed(order.total), true),
-      for (final line in order.paidLines)
-        (line.label, MoneyFormat.detailed(line.amount), false),
-      if (order.paidLines.isNotEmpty)
-        ('Restante', MoneyFormat.detailed(order.remaining), false),
-    ];
-    return Column(
-      children: [
-        for (final row in rows)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                Text(
-                  row.$1,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: row.$3 ? FontWeight.w700 : FontWeight.w400,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  row.$2,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: row.$3 ? AppColors.terracotta : null,
-                  ),
-                ),
-              ],
-            ),
-          ),
       ],
     );
   }

@@ -50,11 +50,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.byIcon(Icons.chevron_right), findsNothing);
-    expect(find.text('Subtotal'), findsNothing);
-    expect(find.text('Total'), findsOneWidget);
+    expect(find.text('Subtotal'), findsOneWidget);
+    expect(find.text('FALTA COBRAR'), findsOneWidget);
+    expect(find.text('Total'), findsNothing);
   });
 
-  testWidgets('order totals show subtotal only when IVA is enabled', (
+  testWidgets('order totals always show subtotal and IVA only when enabled', (
     tester,
   ) async {
     _setPhoneView(tester);
@@ -64,13 +65,16 @@ void main() {
 
     await tester.pumpWidget(_app(store, order.id));
     await tester.pump();
-    expect(find.text('Subtotal'), findsNothing);
+    expect(find.text('Subtotal'), findsOneWidget);
+    expect(find.textContaining('IVA ('), findsNothing);
+    expect(find.text('FALTA COBRAR'), findsOneWidget);
 
     store.setIvaEnabled(true);
     await tester.pump();
     expect(find.text('Subtotal'), findsOneWidget);
     expect(find.textContaining('IVA ('), findsOneWidget);
-    expect(find.text('Total'), findsOneWidget);
+    expect(find.text('FALTA COBRAR'), findsOneWidget);
+    expect(find.text('Total'), findsNothing);
   });
 
   testWidgets('changing the order customer asks for confirmation', (
@@ -143,7 +147,10 @@ void main() {
     await tester.pump();
 
     expect(find.text('WhatsApp'), findsNothing);
-    expect(find.byKey(const ValueKey('order-customer-whatsapp')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('order-customer-whatsapp')),
+      findsOneWidget,
+    );
     expect(find.text('Guardar stock'), findsOneWidget);
     expect(find.text('Cerrar pedido'), findsOneWidget);
     expect(find.byKey(const ValueKey('cancel-order')), findsOneWidget);
@@ -263,7 +270,7 @@ void main() {
     await tester.pumpWidget(_app(store, order.id));
     await tester.pump();
 
-    expect(find.text('Seña'), findsNothing);
+    expect(find.text('Seña (Pagado)'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('edit-order-sena')));
     await tester.pumpAndSettle();
 
@@ -281,9 +288,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(order.sena, 2500);
-    expect(find.text('Seña'), findsOneWidget);
-    expect(find.text('Restante'), findsOneWidget);
-    expect(find.text(r'$2.500,00'), findsOneWidget);
+    expect(find.text('Seña (Pagado)'), findsOneWidget);
+    expect(find.text('FALTA COBRAR'), findsOneWidget);
+    expect(find.text(r'-$2.500,00'), findsOneWidget);
     expect(find.text(r'$7.500,00'), findsOneWidget);
   });
 
@@ -323,24 +330,24 @@ void main() {
 
     expect(order.payments.map((payment) => payment.amount), [1000, 500]);
     expect(order.remaining, 6000);
-    expect(find.text('Seña'), findsOneWidget);
-    expect(find.text('Pago 1'), findsOneWidget);
-    expect(find.text('Pago 2'), findsOneWidget);
-    expect(find.text('Restante'), findsOneWidget);
+    expect(find.text('Seña (Pagado)'), findsOneWidget);
+    expect(find.text('Pago 1 (Pagado)'), findsOneWidget);
+    expect(find.text('Pago 2 (Pagado)'), findsOneWidget);
+    expect(find.text('FALTA COBRAR'), findsOneWidget);
     expect(find.text(r'$6.000,00'), findsOneWidget);
 
     expect(store.closeOrder(order.id), isTrue);
     await tester.pump();
     expect(find.byKey(const ValueKey('edit-order-sena')), findsNothing);
-    expect(find.text('Pago 1'), findsOneWidget);
-    expect(find.text('Pago 2'), findsOneWidget);
+    expect(find.text('Pago 1 (Pagado)'), findsOneWidget);
+    expect(find.text('Pago 2 (Pagado)'), findsOneWidget);
     expect(order.sena, 2500);
 
     expect(store.reopenOrder(order.id), ReopenOrderResult.reopened);
     await tester.pump();
     expect(order.payments.map((payment) => payment.amount), [1000, 500]);
     expect(order.sena, 2500);
-    expect(find.text('Pago 2'), findsOneWidget);
+    expect(find.text('Pago 2 (Pagado)'), findsOneWidget);
     expect(find.byKey(const ValueKey('edit-order-sena')), findsOneWidget);
   });
 

@@ -305,18 +305,19 @@ void main() {
       expect(find.text('Pantalón'), findsOneWidget);
       expect(find.text('Remeras ×1'), findsOneWidget);
       expect(find.text('Remeras ×2'), findsOneWidget);
-      expect(find.text('Seña'), findsNothing);
-      expect(find.text('Pago'), findsNothing);
-      expect(find.text('Restante'), findsNothing);
+      expect(find.text('Seña (Pagado)'), findsNothing);
+      expect(find.text('Pago (Pagado)'), findsNothing);
+      expect(find.text('FALTA COBRAR'), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('orders-remaining-view')));
       await tester.pump();
 
-      expect(find.text('Restante'), findsNWidgets(2));
-      expect(find.text('Seña'), findsOneWidget);
-      expect(find.text('\$10.000,00'), findsNWidgets(2));
-      expect(find.text('Pago'), findsOneWidget);
-      expect(find.text('\$2.000,00'), findsOneWidget);
+      expect(find.text('FALTA COBRAR'), findsNWidgets(2));
+      expect(find.text('Seña (Pagado)'), findsOneWidget);
+      expect(find.text('\$10.000,00'), findsOneWidget);
+      expect(find.text('-\$10.000,00'), findsOneWidget);
+      expect(find.text('Pago (Pagado)'), findsOneWidget);
+      expect(find.text('-\$2.000,00'), findsNWidgets(2));
       expect(find.text('Camisa'), findsNothing);
       expect(find.text('Pantalón'), findsNothing);
       expect(find.text('Remeras ×1'), findsNothing);
@@ -330,60 +331,59 @@ void main() {
       expect(find.text('Pantalón'), findsOneWidget);
       expect(find.text('Remeras ×1'), findsOneWidget);
       expect(find.text('Remeras ×2'), findsOneWidget);
-      expect(find.text('Seña'), findsNothing);
-      expect(find.text('Pago'), findsNothing);
-      expect(find.text('Restante'), findsNothing);
+      expect(find.text('Seña (Pagado)'), findsNothing);
+      expect(find.text('Pago (Pagado)'), findsNothing);
+      expect(find.text('FALTA COBRAR'), findsNothing);
       expect(_customerNames(tester), ['Ana López', 'Bruno Díaz']);
     },
   );
 
-  testWidgets(
-    'unpaid orders without a deposit color the border by remaining',
-    (tester) async {
-      _setPhoneView(tester);
-      final store = AppStore();
-      addTearDown(store.dispose);
-      await _reservedOrder(
-        store,
-        customerId: 'c-dora',
-        customerName: 'Dora Paz',
-        productId: 'p-dora',
-        quantity: 1,
-        saveStock: false,
-      );
-      await _reservedOrder(
-        store,
-        customerId: 'c-elena',
-        customerName: 'Elena Díaz',
-        productId: 'p-elena',
-        quantity: 3,
-        saveStock: false,
-      );
-      await _reservedOrder(
-        store,
-        customerId: 'c-fabio',
-        customerName: 'Fabio Ruiz',
-        productId: 'p-fabio',
-        quantity: 3,
-        paid: 5000,
-        saveStock: false,
-      );
+  testWidgets('unpaid orders without a deposit color the border by remaining', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    final store = AppStore();
+    addTearDown(store.dispose);
+    await _reservedOrder(
+      store,
+      customerId: 'c-dora',
+      customerName: 'Dora Paz',
+      productId: 'p-dora',
+      quantity: 1,
+      saveStock: false,
+    );
+    await _reservedOrder(
+      store,
+      customerId: 'c-elena',
+      customerName: 'Elena Díaz',
+      productId: 'p-elena',
+      quantity: 3,
+      saveStock: false,
+    );
+    await _reservedOrder(
+      store,
+      customerId: 'c-fabio',
+      customerName: 'Fabio Ruiz',
+      productId: 'p-fabio',
+      quantity: 3,
+      paid: 5000,
+      saveStock: false,
+    );
 
-      await tester.pumpWidget(_pageApp(store));
-      await tester.pump();
+    await tester.pumpWidget(_pageApp(store));
+    await tester.pump();
 
-      expect(_borderFor(tester, 'Dora Paz').top.color, AppColors.lightBorder);
-      expect(_borderFor(tester, 'Elena Díaz').top.color, AppColors.lightBorder);
-      expect(_borderFor(tester, 'Fabio Ruiz').top.color, AppColors.lightBorder);
+    expect(_borderFor(tester, 'Dora Paz').top.color, AppColors.lightBorder);
+    expect(_borderFor(tester, 'Elena Díaz').top.color, AppColors.lightBorder);
+    expect(_borderFor(tester, 'Fabio Ruiz').top.color, AppColors.lightBorder);
 
-      await tester.tap(find.byKey(const ValueKey('orders-remaining-view')));
-      await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('orders-remaining-view')));
+    await tester.pump();
 
-      expect(_borderFor(tester, 'Dora Paz').top.color, AppColors.stockGap);
-      expect(_borderFor(tester, 'Elena Díaz').top.color, AppColors.stockLow);
-      expect(_borderFor(tester, 'Fabio Ruiz').top.color, AppColors.lightBorder);
-    },
-  );
+    expect(_borderFor(tester, 'Dora Paz').top.color, AppColors.stockGap);
+    expect(_borderFor(tester, 'Elena Díaz').top.color, AppColors.stockLow);
+    expect(_borderFor(tester, 'Fabio Ruiz').top.color, AppColors.lightBorder);
+  });
 
   testWidgets(
     'falta pagar sorts an unpaid order above one with a smaller remaining',
